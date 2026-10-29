@@ -1,0 +1,11 @@
+{
+  "name": "AI Business Core",
+  "short_name": "Business Core",
+  "description": "A local-first workspace for research, tasks, content planning and approvals.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#101827",
+  "icons": []
+}
