@@ -1,22 +1,44 @@
 # Secure AI gateway (Cloudflare Worker)
 
-This is a deployable, provider-compatible gateway for the AI Business Core app. It keeps the provider API key on the server side rather than putting it in GitHub or browser JavaScript. It is **not connected to the published dashboard until you deploy/configure it and explicitly wire the UI to it**.
+This gateway connects the AI Business Core dashboard to an OpenAI-compatible text-generation API. The dashboard's **AI Studio** calls this endpoint after you enter the deployed URL and app access token. The provider API key stays in Worker secrets, not in the browser or GitHub.
 
-## 1. Deploy the Worker
+## Recommended temporary free setup: Groq
 
-1. Create/sign in to a Cloudflare account and open Workers & Pages.
-2. Create a Worker named `ai-business-core-gateway`.
-3. Paste the contents of `worker.js` into the Worker editor and deploy.
-4. In Worker Settings → Variables and Secrets, set:
-   - Secret `AI_API_KEY`: your provider API key.
-   - Secret `APP_ACCESS_TOKEN`: a random secret of at least 24 characters. Keep it private.
-   - Variable `AI_API_URL`: the provider's OpenAI-compatible chat-completions URL.
-   - Variable `AI_MODEL`: a model name supported by that provider.
-   - Variable `ALLOWED_ORIGIN`: the exact published app origin, with no path, e.g. `https://mohammadfadaiemacbook-coder.github.io`.
-5. Use a long, unique token. Never commit either secret to GitHub or share it in a screenshot/chat.
-6. If you use a different AI provider, verify its endpoint and request/response compatibility first. Provider usage may cost money; the gateway does not make API calls free.
+Groq offers a free developer tier with model-specific rate limits. Limits and available models can change; check the live [Groq rate-limit docs](https://console.groq.com/docs/rate-limits) and [model list](https://console.groq.com/docs/models) before relying on it. A free tier is limited, not unlimited, and requests may be rejected when you reach a limit.
 
-## 2. Configure and test
+Current compatible example (verify the model remains available on your account):
+- `AI_API_URL`: `https://api.groq.com/openai/v1/chat/completions`
+- `AI_MODEL`: `openai/gpt-oss-20b`
+- `AI_API_KEY`: a Groq API key from your Groq developer console
+
+Groq's OpenAI-compatible API is documented at https://console.groq.com/docs/openai.
+
+## 1. Create and deploy the Worker
+
+1. Create/sign in to a [Cloudflare account](https://dash.cloudflare.com/).
+2. Open **Workers & Pages** and create a Worker named `ai-business-core-gateway`.
+3. Paste the contents of `ai-gateway/worker.js` into the Worker editor and deploy.
+4. Open Worker **Settings → Variables and Secrets** and configure:
+   - **Secret** `AI_API_KEY`: your Groq API key (or another compatible provider's key).
+   - **Secret** `APP_ACCESS_TOKEN`: a random secret at least 24 characters long. Keep it private.
+   - **Variable** `AI_API_URL`: `https://api.groq.com/openai/v1/chat/completions`
+   - **Variable** `AI_MODEL`: `openai/gpt-oss-20b`
+   - **Variable** `ALLOWED_ORIGIN`: `https://mohammadfadaiemacbook-coder.github.io` (origin only; no repository path).
+5. Save changes and redeploy if the Cloudflare dashboard asks you to.
+6. Open the published AI Business Core dashboard, go to **AI Studio**, enter the Worker URL ending in `/api/generate` and the same `APP_ACCESS_TOKEN`, then generate a small test draft.
+
+The Worker URL looks like `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/api/generate`. Do not share the app token or provider key in chat, screenshots, or GitHub.
+
+## 2. Other provider settings
+
+The gateway expects an OpenAI-compatible **chat completions** endpoint and response. To change provider, update the Worker variables/secrets:
+- `AI_API_URL`: provider's chat-completions endpoint.
+- `AI_MODEL`: exact model ID supported by the provider.
+- `AI_API_KEY`: provider API key stored as a Worker secret.
+
+Do not assume that a provider's consumer subscription includes API usage. In particular, **Claude Pro is a subscription for Claude's chat product and does not include Anthropic API credits**. If you later want to use Claude through this gateway, you will need Anthropic Console API access and separately funded API usage, plus an adapter if the chosen Anthropic endpoint does not accept the OpenAI chat-completions schema. Official explanation: https://support.anthropic.com/en/articles/9876003-i-subscribe-to-a-paid-claude-ai-plan-why-do-i-have-to-pay-separately-for-api-usage-on-console.
+
+## Request and response
 
 Endpoint: `POST https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/api/generate`
 
@@ -38,12 +60,13 @@ Body example:
 
 Supported task names: `youtube_research`, `video_outline`, `video_script`, `title_ideas`, `instagram_repurpose`.
 
-A successful response returns `output`, `task`, and `model`. The gateway does not browse the web, verify claims, publish content, or execute business actions. Treat output as a draft; verify factual claims and sources before approval.
+A successful response returns `output`, `task`, and `model`. The gateway does not browse the web, independently verify facts, publish content, or execute business actions. Treat output as a draft and verify factual claims and sources before approval.
 
-## Security and limits
+## Security and limitations
 
 - CORS restricts browser origins but is not authentication by itself; the bearer token is also required.
-- Do not place the provider API key in frontend code, GitHub files, or the manifest.
-- Anyone who obtains the app access token can use your gateway and may incur provider charges. Rotate it if exposed.
-- This version has request-size limits and basic error handling, but no durable per-user identity, billing controls, or advanced rate limiting. Set provider spending limits and platform limits before using it publicly.
-- The browser UI does not yet call this endpoint. Integration is a separate step so credentials and user consent can be handled deliberately.
+- Never put API keys or the app access token in frontend code, GitHub files, or the manifest.
+- Anyone who obtains the app access token can use your gateway. Rotate it if exposed.
+- The Worker has a request-size cap and basic error handling, but no durable per-user identity, billing controls, or advanced rate limiting.
+- Free-provider quotas can change or be exhausted. A free Cloudflare Workers plan does not make a third-party provider's paid API free.
+- AI-generated claims and suggested sources are not verified automatically.
