@@ -1,0 +1,9 @@
+name = "ai-business-core-gateway"
+main = "worker.js"
+compatibility_date = "2026-10-30"
+workers_dev = true
+
+[vars]
+AI_API_URL = "https://api.openai.com/v1/chat/completions"
+AI_MODEL = "gpt-4o-mini"
+ALLOWED_ORIGIN = "https://mohammadfadaiemacbook-coder.github.io"
