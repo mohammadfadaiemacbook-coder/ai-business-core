@@ -1,8 +1,8 @@
 # AI Business Core
 
-A local-first business operations workspace for a creator-led online business. The project is being developed directly in this repository; this branch contains the first operational dashboard foundation.
+A local-first business operations workspace for a creator-led online business.
 
-## Current dashboard capabilities
+## Dashboard capabilities
 
 - Overview of tasks, research records, content pipeline and approval requests.
 - Task management with priority, due date and status.
@@ -11,43 +11,41 @@ A local-first business operations workspace for a creator-led online business. T
 - Schedule for production deadlines and milestones.
 - Manual approval queue for proposed sensitive/external actions.
 - Local JSON backup export and import.
-- Responsive dark interface for mobile and desktop.
-- Installable web-app manifest and service-worker shell cache for supported HTTPS hosting.
+- Responsive dark interface, web-app manifest, app icons and service-worker shell cache.
 
-## Run it
+## Secure AI gateway
 
-The app is a static web application. It does not need a build step or package installation.
+A provider-compatible Cloudflare Worker is included under `ai-gateway/`. It keeps the provider API key server-side, requires a separate bearer token, restricts browser origins, limits request size, and supports a small allowlist of content tasks.
 
-1. Host the repository on a static HTTPS host, such as GitHub Pages.
+**The gateway is not yet deployed or connected to the dashboard.** Follow [the setup guide](docs/ai-gateway-setup.md) to deploy and configure it. An AI provider key may incur charges; this code does not make AI usage free. The gateway does not browse the web, verify facts, publish content, or execute external actions.
+
+## Run the dashboard
+
+1. Host the repository on a static HTTPS host such as GitHub Pages.
 2. Open the published HTTPS URL in a supported browser.
-3. Add it to the home screen / install it from the browser menu if the browser offers that option.
-4. Open Settings & data and export a JSON backup periodically.
+3. Add it to the home screen if the browser offers installation.
+4. In Settings & data, export JSON backups periodically.
 
-Opening index.html directly as a file URL is not equivalent to hosting it: service workers and installability require a supported secure context.
+Opening `index.html` directly as a file is not equivalent to hosting it: service workers and installability require a supported secure context.
 
-## Important data and security limits
+## Data and security limits
 
-- Records are stored in the current browser's local storage. They do not sync across devices or users.
-- Clearing browser/site data may erase records. Export backups and keep them in a safe location.
-- JSON backups may contain business notes. Treat them as private.
-- No AI model, YouTube, Instagram, analytics, scheduling, or e-commerce API is connected in this version.
-- The approval queue only records a human decision in the dashboard. It does not publish content, spend money, or perform external actions.
-- No authentication or multi-user access control is implemented. Do not use this public static deployment to store confidential customer data.
+- Dashboard records are stored in the current browser's local storage. They do not sync across devices or users.
+- Clearing browser/site data may erase records. Export backups and keep them private.
+- The approval queue only records a human decision; it does not publish content, spend money, or perform external actions.
+- No authentication or multi-user access control exists for the static dashboard. Do not store confidential customer data in the public deployment.
 - Never commit API keys, passwords, tokens, recovery codes, or private credentials to GitHub.
-- Do not describe this app as tested or production-verified until actual browser and deployment checks have been run.
+- The gateway has basic request checks but no durable per-user identity, advanced rate limiting, or billing controls. Set provider spending limits and rotate exposed tokens.
+- CI checks syntax and required files; it does not replace browser-level tests or prove all browsers support installation/offline behavior.
 
-## Project direction
+## Research integrity
 
-1. Establish a reliable local-first operations workspace.
-2. Add evidence-based YouTube research and content production workflows.
-3. Add Instagram repurposing workflows.
-4. Design secure, permission-limited integrations only after the relevant providers and hosting environment are selected.
-5. Add Persian e-commerce operations as a later module.
+The existing `-niche-research.md` file is a framework, not a completed market study. Live market evidence has not been collected and no niche has been scored or selected. Keep verified facts, hypotheses, tool estimates and questions separate.
 
-## Evidence and research integrity
+## Development direction
 
-The existing -niche-research.md document is a research framework, not a completed market study. It explicitly states that live market evidence has not been collected and that no niche has been scored or selected. Keep observations, hypotheses, tool estimates, and verified facts separate.
-
-## Development branch
-
-The dashboard changes are being prepared on build/operational-core-v1. Review the branch before merging it into main.
+1. Reliable local-first workspace.
+2. Evidence-based YouTube research and content workflows.
+3. Instagram repurposing.
+4. Secure provider integrations with explicit owner approval.
+5. Persian e-commerce operations as a later module.
