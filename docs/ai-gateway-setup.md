@@ -2,16 +2,19 @@
 
 This gateway connects the AI Business Core dashboard to an OpenAI-compatible text-generation API. The dashboard's **AI Studio** calls this endpoint after you enter the deployed URL and app access token. The provider API key stays in Worker secrets, not in the browser or GitHub.
 
-## Recommended temporary free setup: Groq
+## Temporary low-cost/free-tier option: Groq
 
-Groq offers a free developer tier with model-specific rate limits. Limits and available models can change; check the live [Groq rate-limit docs](https://console.groq.com/docs/rate-limits) and [model list](https://console.groq.com/docs/models) before relying on it. A free tier is limited, not unlimited, and requests may be rejected when you reach a limit.
+Groq provides an OpenAI-compatible API. Whether a request is free depends on the account plan and the exact model. **Do not assume every Groq model is free**: the model catalogue can list paid prices even when a developer/free tier exists. Before selecting a model, check the current account's limits and pricing:
+- [Groq rate limits](https://console.groq.com/docs/rate-limits)
+- [Groq supported models and prices](https://console.groq.com/docs/models)
+- [Groq OpenAI-compatible API](https://console.groq.com/docs/openai)
 
-Current compatible example (verify the model remains available on your account):
+Use the following endpoint, then select a model ID that the Groq console explicitly makes available within your free allowance (if offered to your account):
 - `AI_API_URL`: `https://api.groq.com/openai/v1/chat/completions`
-- `AI_MODEL`: `openai/gpt-oss-20b`
-- `AI_API_KEY`: a Groq API key from your Groq developer console
+- `AI_MODEL`: exact free-eligible model ID shown in your Groq console
+- `AI_API_KEY`: a Groq API key from your developer console
 
-Groq's OpenAI-compatible API is documented at https://console.groq.com/docs/openai.
+If the console shows a price for the selected model or asks you to add billing, do not use it for the free-only setup. Model availability, pricing, and quotas can change.
 
 ## 1. Create and deploy the Worker
 
@@ -22,7 +25,7 @@ Groq's OpenAI-compatible API is documented at https://console.groq.com/docs/open
    - **Secret** `AI_API_KEY`: your Groq API key (or another compatible provider's key).
    - **Secret** `APP_ACCESS_TOKEN`: a random secret at least 24 characters long. Keep it private.
    - **Variable** `AI_API_URL`: `https://api.groq.com/openai/v1/chat/completions`
-   - **Variable** `AI_MODEL`: `openai/gpt-oss-20b`
+   - **Variable** `AI_MODEL`: the exact free-eligible model ID you confirmed in your console.
    - **Variable** `ALLOWED_ORIGIN`: `https://mohammadfadaiemacbook-coder.github.io` (origin only; no repository path).
 5. Save changes and redeploy if the Cloudflare dashboard asks you to.
 6. Open the published AI Business Core dashboard, go to **AI Studio**, enter the Worker URL ending in `/api/generate` and the same `APP_ACCESS_TOKEN`, then generate a small test draft.
@@ -68,5 +71,5 @@ A successful response returns `output`, `task`, and `model`. The gateway does no
 - Never put API keys or the app access token in frontend code, GitHub files, or the manifest.
 - Anyone who obtains the app access token can use your gateway. Rotate it if exposed.
 - The Worker has a request-size cap and basic error handling, but no durable per-user identity, billing controls, or advanced rate limiting.
-- Free-provider quotas can change or be exhausted. A free Cloudflare Workers plan does not make a third-party provider's paid API free.
+- A free Cloudflare Workers plan does not make a third-party provider's paid API free.
 - AI-generated claims and suggested sources are not verified automatically.
