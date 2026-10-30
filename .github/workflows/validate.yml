@@ -3,7 +3,7 @@ on:
   push:
     branches: [main, "build/**", "feature/security-expo-hardening"]
   pull_request:
-    branches: [main, "feature/voiceover-video-pipeline"]
+    branches: [main, "feature/security-expo-hardening"]
 permissions:
   contents: read
 jobs:
