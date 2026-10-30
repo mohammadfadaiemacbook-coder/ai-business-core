@@ -435,7 +435,7 @@ export default {
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
-    if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized. Configure APP_ACCESS_TOKEN and send it as a Bearer token." }, 401, headers);
+    if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized. Exchange APP_ACCESS_TOKEN for a 15-minute session at /api/auth/session." }, 401, headers);
     let body;
     try { const raw = await request.text(); if (new TextEncoder().encode(raw).byteLength > 32 * 1024) return json({ error: "Request too large" }, 413, headers); body = JSON.parse(raw); }
     catch { return json({ error: "Expected a valid JSON body" }, 400, headers); }
