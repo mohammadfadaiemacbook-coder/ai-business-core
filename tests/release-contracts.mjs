@@ -121,3 +121,10 @@ test("workspace sync rejects stale versions before attempting a write", () => {
   assert.ok(worker.includes("currentSnapshot?.version||0)!==expectedVersion"));
   assert.ok(worker.includes("conflict:true,currentVersion"));
 });
+
+test("Worker initializes request URL before routing the session exchange", () => {
+  const fetchStart = worker.indexOf("async fetch(request, env)");
+  const urlInit = worker.indexOf('const url = new URL(request.url);', fetchStart);
+  const sessionRoute = worker.indexOf('if (url.pathname === "/api/auth/session")', fetchStart);
+  assert.ok(fetchStart >= 0 && urlInit > fetchStart && sessionRoute > urlInit);
+});
