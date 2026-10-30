@@ -50,3 +50,49 @@ test("subtitle export and human approval before posting remain present", () => {
   assert.match(app, /generatedSubtitlesBlob=new Blob/);
   assert.match(app, /confirm\("این پاسخ با نام کانال یوتیوب منتشر شود؟"\)/);
 });
+
+test("public YouTube upload requires explicit server-side confirmation", () => {
+  assert.match(worker, /requestedPrivacy === "public"[\\s\\S]{0,180}confirmPublic/);
+  assert.match(app, /publicRequested&&!\\$\\("#yt-confirm-public"\\)\\?\\.checked/);
+  assert.match(app, /body\\.set\\("confirmPublic","true"\\)/);
+});
+
+test("bearer token comparison is constant-time and minimum token length remains enforced", () => {
+  assert.match(worker, /function constantTimeEqual/);
+  assert.match(worker, /constantTimeEqual\\(supplied/);
+  assert.match(worker, /expected\\.length>=24/);
+});
+
+test("provider secrets use workspace/key authenticated encryption with legacy migration", () => {
+  assert.match(worker, /additionalData:aad/);
+  assert.match(worker, /workspace\\+"\\\\\\\\0"\\+row\\.secret_key/);
+  assert.match(worker, /if\\(legacy\\)/);
+  assert.match(worker, /Unable to decrypt provider setting/);
+});
+
+test("workspace writes use optimistic concurrency and app sends the expected version", () => {
+  assert.match(worker, /expectedVersion=body\\?\\.expectedVersion/);
+  assert.match(worker, /WHERE workspace_snapshots\\.version=\\?/);
+  assert.match(worker, /conflict:true,currentVersion/);
+  assert.match(app, /call\\("PUT",\\{data:state,expectedVersion:cloudVersion\\}\\)/);
+});
+
+test("OAuth state is atomically consumed and refresh failures require reauthorization", () => {
+  assert.match(worker, /UPDATE oauth_states SET consumed_at=\\?[^\\n]+RETURNING \\*/);
+  assert.match(worker, /status='needs_reauth'/);
+});
+
+test("YouTube upload streams the file and quota failures are mapped to Persian 429 responses", () => {
+  assert.match(worker, /body: file\\.stream\\(\\)/);
+  assert.doesNotMatch(worker, /file\\.arrayBuffer\\(\\)/);
+  assert.match(worker, /سهمیه روزانه YouTube API تمام شده است/);
+  assert.match(worker, /quotaExceeded/);
+});
+
+test("unapproved origins never receive a null CORS allow-origin header", () => {
+  assert.doesNotMatch(worker, /access-control-allow-origin["']?\\s*:\\s*headers\\[[^\\]]+\\]\\s*\\|\\|\\s*["']null["']/);
+});
+
+test("unknown YouTube routes are rejected before requesting or refreshing account tokens", () => {
+  assert.match(worker, /if\\(!youtubeMethods\\[url\\.pathname\\]\\)return json/);
+});
