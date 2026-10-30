@@ -21,6 +21,7 @@ jobs:
           node --check app.js
           node --check sw.js
           node --input-type=module --check < ai-gateway/worker.js
+          node --test tests/release-contracts.mjs
       - name: Verify app shell and AI gateway files
         run: |
           test -s index.html
