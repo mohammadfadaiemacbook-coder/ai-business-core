@@ -61,9 +61,16 @@ export default {
           VALUES (?, ?, 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
           ON CONFLICT(workspace_id) DO UPDATE SET data_json=excluded.data_json, version=workspace_snapshots.version+1, updated_at=excluded.updated_at
           RETURNING version, updated_at`).bind(wid, serialized).first();
-        await env.DB.prepare("INSERT INTO audit_events (id, workspace_id, event_type, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?)")
-          .bind(crypto.randomUUID(), wid, "workspace.snapshot.saved", "workspace", wid, JSON.stringify({ version: saved.version, bytes: new TextEncoder().encode(serialized).byteLength })).run();
-        return json({ ok: true, workspace: wid, version: saved.version, updatedAt: saved.updated_at }, 200, headers);
+        let auditWarning = null;
+        try {
+          await env.DB.prepare("INSERT INTO audit_events (id, workspace_id, event_type, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?)")
+            .bind(crypto.randomUUID(), wid, "workspace.snapshot.saved", "workspace", wid, JSON.stringify({ version: saved.version, bytes: new TextEncoder().encode(serialized).byteLength })).run();
+        } catch (auditError) {
+          // Snapshot persistence is the primary operation. A missing or outdated
+          // audit table must not turn a successful save into a reported failure.
+          auditWarning = String(auditError?.message || "audit logging unavailable").slice(0, 180);
+        }
+        return json({ ok: true, workspace: wid, version: saved.version, updatedAt: saved.updated_at, ...(auditWarning ? { auditWarning } : {}) }, 200, headers);
       } catch (error) {
         return json({ error: "Workspace storage operation failed", detail: String(error?.message || "database error").slice(0, 180) }, 500, headers);
       }
