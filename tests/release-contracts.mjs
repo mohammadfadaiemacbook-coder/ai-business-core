@@ -37,10 +37,11 @@ test("YouTube comment write permission is requested during OAuth", () => {
   assert.match(worker, /youtube\.force-ssl/);
 });
 
-test("video recorder includes synthesized audio when available and has a silent fallback", () => {
+test("long-form video recorder requires synthesized Persian narration and attaches it to the video stream", () => {
   assert.match(app, /createMediaStreamDestination/);
   assert.match(app, /audioDestination\.stream\.getAudioTracks\(\)/);
-  assert.match(app, /ویدئو بدون گویندگی ساخته می‌شود/);
+  assert.match(app, /برای ساخت ویدئوی بلند با گویندگی فارسی/);
+  assert.match(app, /decodeAudioData\(audioParts\[i\]\.slice\(0\)\)/);
 });
 
 test("media rendering accepts the cloud workspace token when the AI form token is absent", () => {
@@ -157,7 +158,7 @@ test("Cloudflare deployment preserves existing vars and does not replace the con
 test("complete release is explicitly gated and deploys Worker before Pages", () => {
   assert.ok(releaseWorkflow.includes("confirm_release == 'RELEASE'"));
   assert.ok(releaseWorkflow.includes("needs: deploy-worker"));
-  assert.ok(releaseWorkflow.includes("needs: deploy-web"));
+  assert.ok(releaseWorkflow.includes("deploy-web:"));
   assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
   assert.ok(!releaseWorkflow.includes("build-android"));
 });
