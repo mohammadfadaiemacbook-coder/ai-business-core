@@ -56,6 +56,13 @@ jobs:
       - name: Deploy Worker
         run: wrangler deploy --config ai-gateway/wrangler.toml
 
+      - name: Verify deployed Worker and D1 health
+        shell: bash
+        run: |
+          curl --retry 8 --retry-delay 5 --retry-all-errors -fsS "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s);if(d.ok!==true||d.database!=="connected")throw Error("Worker/D1 health check failed: "+s);console.log("Worker and D1 are healthy.")})'
+          status=$(curl -sS -o /tmp/session-check.json -w '%{http_code}' -X POST "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/auth/session" -H "Authorization: Bearer intentionally-invalid-smoke-test-token")
+          test "$status" = "401" || { cat /tmp/session-check.json; echo "Session endpoint smoke test expected 401, got $status"; exit 1; }
+
       - name: Upload D1 backup
         if: always() && hashFiles('cloudflare-d1-backup.sql') != ''
         uses: actions/upload-artifact@v4
