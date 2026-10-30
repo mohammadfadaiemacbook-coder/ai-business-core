@@ -173,6 +173,8 @@ export default {
         if (keys.some(k => data[k].length > 1000)) return json({ error: "Too many records" }, 413, headers);
         const expectedVersion=body?.expectedVersion;
         if(!Number.isInteger(expectedVersion)||expectedVersion<0)return json({error:"expectedVersion is required and must be a non-negative integer"},400,headers);
+        const currentSnapshot=await env.DB.prepare("SELECT version FROM workspace_snapshots WHERE workspace_id=?").bind(wid).first();
+        if((currentSnapshot?.version||0)!==expectedVersion)return json({error:"نسخه فضای کاری تغییر کرده است؛ از داده‌های محلی نسخه پشتیبان بگیر، نسخه تازه را دریافت کن و تغییرات را دوباره اعمال کن.",conflict:true,currentVersion:currentSnapshot?.version||0},409,headers);
         const serialized = JSON.stringify(data);
         const saved = await env.DB.prepare(`INSERT INTO workspace_snapshots (workspace_id, data_json, version, updated_at)
           VALUES (?, ?, 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -203,6 +205,7 @@ export default {
       if (!env.DB || !env.TOKEN_ENCRYPTION_KEY) return json({error:"Encrypted provider settings require D1 and TOKEN_ENCRYPTION_KEY"},503,headers);
       const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
       try{
+        await ensureWorkspace(env.DB,workspace);
         if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
         const secrets=await loadProviderSecrets(env,env.DB,workspace);
         return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
