@@ -2,7 +2,7 @@ name: Deploy Worker
 
 on:
   push:
-    branches: [main, fix/worker-deploy]
+    branches: [main]
     paths:
       - "ai-gateway/**"
       - "wrangler.jsonc"
