@@ -125,7 +125,7 @@ export default {
       if (!code || !state) return fail("Missing OAuth code or state.");
       const stateDigest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(state));
       const stateKey=[...new Uint8Array(stateDigest)].map(x=>x.toString(16).padStart(2,"0")).join("");
-      const saved=await env.DB.prepare("SELECT * FROM oauth_states WHERE state_hash=? AND platform='youtube' AND consumed_at IS NULL AND expires_at>?").bind(stateKey,Math.floor(Date.now()/1000)).first();
+      const saved=await env.DB.prepare("SELECT * FROM oauth_states WHERE state_hash=? AND platform='youtube' AND consumed_at IS NULL AND CAST(expires_at AS INTEGER)>?").bind(stateKey,Math.floor(Date.now()/1000)).first();
       if (!saved) return fail("OAuth state is invalid or expired. Return to AI Business Core and try again.");
       await env.DB.prepare("UPDATE oauth_states SET consumed_at=? WHERE state_hash=? AND consumed_at IS NULL").bind(Math.floor(Date.now()/1000),stateKey).run();
       const tokenResponse=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,redirect_uri:saved.redirect_uri,grant_type:"authorization_code",code_verifier:saved.code_verifier})});
