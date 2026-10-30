@@ -39,7 +39,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 }
 
 (async function checkAndroidRelease(){
-  if (!/Android/i.test(navigator.userAgent) || window.__AI_BUSINESS_CORE_EXPO__) return;
+  if (!/Android/i.test(navigator.userAgent)) return;
   const banner=document.getElementById("app-update-banner");
   const message=document.getElementById("app-update-message");
   const button=document.getElementById("app-update-button");
