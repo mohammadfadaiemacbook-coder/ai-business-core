@@ -1,30 +1,39 @@
 <!doctype html>
-<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101827"><meta name="description" content="AI Business Core workspace"><title>AI Business Core | فضای کار هوشمند</title><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"></head><body><div class="app-shell"><aside class="sidebar" id="sidebar"><a class="brand" href="#overview"><span class="brand-mark">A</span><span><strong>AI Business Core</strong><small>مرکز مدیریت کسب‌وکار</small></span></a><nav class="main-nav" aria-label="ناوبری اصلی"><button class="nav-item active" data-view="overview">◫ &nbsp; نمای کلی</button><button class="nav-item" data-view="tasks">✓ &nbsp; مدیریت وظایف <b id="nav-task-count">0</b></button><button class="nav-item" data-view="research">⌕ &nbsp; کتابخانه پژوهش</button><button class="nav-item" data-view="ai">✦ &nbsp; استودیو هوش مصنوعی</button><button class="nav-item" data-view="content">▤ &nbsp; استودیو محتوا</button><button class="nav-item" data-view="calendar">▦ &nbsp; تقویم و زمان‌بندی</button><button class="nav-item" data-view="approvals">◉ &nbsp; صف تأییدها <b id="nav-approval-count">0</b></button></nav><div class="sidebar-bottom"><div class="local-status"><span class="status-dot"></span><div><strong>فضای کاری محلی</strong><small>ذخیره‌شده در این مرورگر</small></div></div><button class="nav-item" data-view="settings">⚙ &nbsp; تنظیمات و داده‌ها</button></div></aside><main class="main-area"><header class="topbar"><button class="mobile-menu" id="mobile-menu" aria-label="باز و بسته کردن منو">☰</button><div class="breadcrumb">فضای کاری <span>/</span> <strong id="breadcrumb-current">نمای کلی</strong></div><div class="topbar-right"><span id="today-label" class="date-label"></span><span class="avatar" aria-label="حساب کاربری">م</span></div></header><div id="view-root" class="view-root" tabindex="-1"></div><footer class="app-footer"><span>AI BUSINESS CORE</span><span>اقدام‌های بیرونی نیازمند تأیید مدیر هستند</span></footer></main></div><dialog id="item-dialog" class="modal"><form method="dialog" id="item-form"><div class="modal-head"><div><p class="eyebrow" id="dialog-eyebrow">فضای کاری</p><h2 id="dialog-title">افزودن مورد</h2></div><button class="icon-button" value="cancel" aria-label="بستن پنجره">×</button></div><div id="dialog-fields" class="form-fields"></div><div class="modal-actions"><button class="button secondary" value="cancel">انصراف</button><button class="button primary" id="dialog-save" value="default">ذخیره مورد</button></div></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div><div id="app-update-banner" role="status" aria-live="polite" style="display:none;position:fixed;inset:0 0 auto 0;z-index:99999;padding:16px;text-align:center;background:#155eaa;color:#fff;font:600 15px sans-serif;box-shadow:0 4px 18px #0005"><span id="app-update-message">نسخه جدید برنامه آماده است.</span> <button id="app-update-button" type="button" style="margin:10px;padding:10px 18px;border:0;border-radius:10px;background:#fff;color:#123;font-weight:700">دریافت بروزرسانی</button> <button id="app-update-later" type="button" style="margin:6px;padding:10px 14px;border:1px solid #ffffff88;border-radius:10px;background:transparent;color:#fff">بعداً</button></div><script src="app.js" defer></script><script>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101827"><meta name="description" content="AI Business Core workspace"><title>AI Business Core | فضای کار هوشمند</title><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"></head><body><div class="app-shell"><aside class="sidebar" id="sidebar"><a class="brand" href="#overview"><span class="brand-mark">A</span><span><strong>AI Business Core</strong><small>مرکز مدیریت کسب‌وکار</small></span></a><nav class="main-nav" aria-label="ناوبری اصلی"><button class="nav-item active" data-view="overview">◫ &nbsp; نمای کلی</button><button class="nav-item" data-view="tasks">✓ &nbsp; مدیریت وظایف <b id="nav-task-count">0</b></button><button class="nav-item" data-view="research">⌕ &nbsp; کتابخانه پژوهش</button><button class="nav-item" data-view="ai">✦ &nbsp; استودیو هوش مصنوعی</button><button class="nav-item" data-view="content">▤ &nbsp; استودیو محتوا</button><button class="nav-item" data-view="calendar">▦ &nbsp; تقویم و زمان‌بندی</button><button class="nav-item" data-view="approvals">◉ &nbsp; صف تأییدها <b id="nav-approval-count">0</b></button></nav><div class="sidebar-bottom"><div class="local-status"><span class="status-dot"></span><div><strong>فضای کاری محلی</strong><small>ذخیره‌شده در این مرورگر</small></div></div><button class="nav-item" data-view="settings">⚙ &nbsp; تنظیمات و داده‌ها</button></div></aside><main class="main-area"><header class="topbar"><button class="mobile-menu" id="mobile-menu" aria-label="باز و بسته کردن منو">☰</button><div class="breadcrumb">فضای کاری <span>/</span> <strong id="breadcrumb-current">نمای کلی</strong></div><div class="topbar-right"><span id="today-label" class="date-label"></span><span class="avatar" aria-label="حساب کاربری">م</span></div></header><div id="view-root" class="view-root" tabindex="-1"></div><footer class="app-footer"><span>AI BUSINESS CORE</span><span>اقدام‌های بیرونی نیازمند تأیید مدیر هستند</span></footer></main></div><dialog id="item-dialog" class="modal"><form method="dialog" id="item-form"><div class="modal-head"><div><p class="eyebrow" id="dialog-eyebrow">فضای کاری</p><h2 id="dialog-title">افزودن مورد</h2></div><button class="icon-button" value="cancel" aria-label="بستن پنجره">×</button></div><div id="dialog-fields" class="form-fields"></div><div class="modal-actions"><button class="button secondary" value="cancel">انصراف</button><button class="button primary" id="dialog-save" value="default">ذخیره مورد</button></div></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div><div id="web-update-banner" role="status" aria-live="polite" style="display:none;position:fixed;inset:0 0 auto 0;z-index:100000;padding:14px;text-align:center;background:#155eaa;color:#fff;font:600 15px sans-serif;box-shadow:0 4px 18px #0005"><span>نسخه جدید برنامه آماده نصب است.</span> <button id="web-update-apply" type="button" style="margin:8px;padding:10px 16px;border:0;border-radius:10px;background:#fff;color:#123;font-weight:700">اعمال بروزرسانی</button> <button id="web-update-dismiss" type="button" style="margin:6px;padding:9px 12px;border:1px solid #ffffff88;border-radius:10px;background:transparent;color:#fff">بعداً</button></div><div id="app-update-banner" role="status" aria-live="polite" style="display:none;position:fixed;inset:0 0 auto 0;z-index:99999;padding:16px;text-align:center;background:#155eaa;color:#fff;font:600 15px sans-serif;box-shadow:0 4px 18px #0005"><span id="app-update-message">نسخه جدید برنامه آماده است.</span> <button id="app-update-button" type="button" style="margin:10px;padding:10px 18px;border:0;border-radius:10px;background:#fff;color:#123;font-weight:700">دریافت بروزرسانی</button> <button id="app-update-later" type="button" style="margin:6px;padding:10px 14px;border:1px solid #ffffff88;border-radius:10px;background:transparent;color:#fff">بعداً</button></div><script src="app.js" defer></script><script>
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   window.addEventListener("load", async () => {
-    const banner = document.getElementById("app-update-banner");
+    const banner = document.getElementById("web-update-banner");
+    const apply = document.getElementById("web-update-apply");
+    const dismiss = document.getElementById("web-update-dismiss");
+    let registration = null;
     let reloading = false;
+    const showUpdate = () => { if (banner) banner.style.display = "block"; };
+    const hideUpdate = () => { if (banner) banner.style.display = "none"; };
+    apply?.addEventListener("click", () => {
+      if (registration?.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      else registration?.update().catch(error => console.warn("Update check failed", error));
+    });
+    dismiss?.addEventListener("click", hideUpdate);
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (reloading) return;
       reloading = true;
-      if (banner) { banner.textContent = "بروزرسانی انجام شد؛ برنامه در حال بارگذاری است…"; banner.style.display = "block"; }
       window.location.reload();
     });
     try {
-      const registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
-      await registration.update();
-      if (registration.installing && navigator.serviceWorker.controller) {
-        if (banner) { banner.textContent = "در حال بروزرسانی برنامه…"; banner.style.display = "block"; }
-      }
+      registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+      if (registration.waiting && navigator.serviceWorker.controller) showUpdate();
       registration.addEventListener("updatefound", () => {
         const worker = registration.installing;
-        if (navigator.serviceWorker.controller && banner) { banner.textContent = "نسخه جدید پیدا شد؛ در حال بروزرسانی…"; banner.style.display = "block"; }
-        if (worker) worker.addEventListener("statechange", () => {
-          if (worker.state === "installed" && navigator.serviceWorker.controller) {
-            if (banner) banner.textContent = "نسخه جدید آماده شد؛ در حال اعمال بروزرسانی…";
-          }
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "installed" && navigator.serviceWorker.controller) showUpdate();
         });
       });
+      await registration.update();
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") registration.update().catch(error => console.warn("Update check failed", error));
+      });
+      window.setInterval(() => registration.update().catch(error => console.warn("Update check failed", error)), 30 * 60 * 1000);
     } catch (error) { console.warn("App update check failed", error); }
   });
 }
