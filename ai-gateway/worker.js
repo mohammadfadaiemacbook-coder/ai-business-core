@@ -342,7 +342,8 @@ export default {
     catch { return json({ error: "Expected a valid JSON body" }, 400, headers); }
     if (!body || typeof body.task !== "string" || !ALLOWED_TASKS.has(body.task)) return json({ error: "Unsupported task" }, 400, headers);
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
-    if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);\n    const aiProviderSecrets=await loadProviderSecrets(env,env.DB,body.inputs.workspace||"default");
+    if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
+    const aiProviderSecrets=await loadProviderSecrets(env,env.DB,body.inputs.workspace||"default");
     let upstream;
     try {
       upstream = await fetch(env.AI_API_URL, { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
@@ -358,7 +359,8 @@ export default {
     const output = result?.choices?.[0]?.message?.content;
     if (typeof output !== "string" || !output.trim()) return json({ error: "AI provider response did not contain text" }, 502, headers);
     let consultation = {status:"not_configured",message:"یک مدل اصلی استفاده شد؛ برای مشورت واقعی با مدل دوم، AI_SECONDARY_API_URL، AI_SECONDARY_API_KEY و AI_SECONDARY_MODEL را در Worker تنظیم کنید."};
-    const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;\n    if (secondaryUrl && secondaryKey && secondaryModel) {
+    const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;
+    if (secondaryUrl && secondaryKey && secondaryModel) {
       try {
         const review = await fetch(secondaryUrl,{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.2,messages:[{role:"system",content:"You are an independent Persian-language editorial reviewer. Critique originality, factual risk, audience value, title honesty, and clarity. Do not rewrite blindly; return concise actionable improvements."},{role:"user",content:"Review this AI-generated output against the original brief. Return Persian review with strengths, risks, duplication concerns and specific improvements.\\n\\n"+output.trim()+"\\n\\nBrief:\\n"+buildPrompt(body.task,body.inputs)}]}),signal:AbortSignal.timeout(30000)});
         const reviewData=await review.json().catch(()=>({}));
