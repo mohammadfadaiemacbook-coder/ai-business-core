@@ -50,7 +50,7 @@ Body example:
 }
 ```
 
-Supported task names: `youtube_research`, `video_outline`, `video_script`, `title_ideas`, `instagram_repurpose`.
+Supported tasks include `youtube_research`, `trend_strategy`, `video_outline`, `video_script`, `title_ideas`, `youtube_metadata`, `social_caption`, `comment_reply`, and `thumbnail_brief`.
 
 A successful response returns `output`, `task`, and `model`. The gateway does not browse the web, verify claims, publish content, or execute business actions. Treat output as a draft; verify factual claims and sources before approval.
 
