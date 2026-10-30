@@ -1,0 +1,10 @@
+{
+  "expo":{
+    "name":"AI Business Core","slug":"ai-business-core","version":"2.0.0",
+    "orientation":"portrait","userInterfaceStyle":"dark","scheme":"aibusinesscore","newArchEnabled":true,
+    "android":{"package":"com.aibusinesscore.app","versionCode":2,"permissions":["INTERNET"]},
+    "ios":{"bundleIdentifier":"com.aibusinesscore.app","supportsTablet":true},
+    "plugins":["expo-updates"],
+    "extra":{"appUrl":"https://mohammadfadaiemacbook-coder.github.io/ai-business-core/"}
+  }
+}
