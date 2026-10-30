@@ -39,8 +39,13 @@ AI Business Core is a Persian-first content and business workspace.
 - Comment replies should be concise, respectful, privacy-safe, and grounded in the video/context.
 - Captions should be adapted to each platform rather than copied verbatim.
 
-## Current working branch
-`feature/voiceover-video-pipeline`
+## Current working branches
+- Release candidate: `feature/voiceover-video-pipeline`
+- Security and Expo hardening: `feature/security-expo-hardening`
+
+## Native client
+- Expo SDK 58 shell lives in `native/expo/`; it wraps the current hosted PWA and is not yet a full React Native rewrite.
+- Expo OTA updates stay disabled until an EAS project ID is configured.
 
 ## Review priorities
 1. Persian narration quality, audio muxing, per-scene timing and SRT accuracy.
