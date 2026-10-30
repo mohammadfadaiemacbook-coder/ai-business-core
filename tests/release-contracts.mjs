@@ -62,7 +62,7 @@ test("public YouTube upload requires explicit server-side confirmation", () => {
 test("bearer token comparison is constant-time and minimum token length remains enforced", () => {
   assert.ok(worker.includes("function constantTimeEqual"));
   assert.ok(worker.includes("constantTimeEqual(supplied"));
-  assert.ok(worker.includes("expected.length>=24"));
+  assert.ok(worker.includes("secret.length<24"));
 });
 
 test("provider secrets use workspace/key authenticated encryption with legacy migration", () => {
