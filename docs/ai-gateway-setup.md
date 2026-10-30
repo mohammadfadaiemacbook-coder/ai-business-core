@@ -5,7 +5,7 @@ This is a deployable, provider-compatible gateway for the AI Business Core app. 
 ## 1. Deploy the Worker
 
 1. Create/sign in to a Cloudflare account and open Workers & Pages.
-2. Create a Worker named `ai-business-core-gateway`.
+2. Use the existing Worker named `ai-business-core` (or confirm the configured service name in wrangler.toml).
 3. Paste the contents of `worker.js` into the Worker editor and deploy.
 4. In Worker Settings → Variables and Secrets, set:
    - Secret `AI_API_KEY`: your provider API key.
