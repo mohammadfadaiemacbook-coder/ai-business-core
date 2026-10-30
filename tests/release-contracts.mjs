@@ -111,3 +111,13 @@ test("Worker exchanges the master token for a workspace-scoped 15-minute signed 
   assert.ok(app.includes("/api/auth/session?workspace="));
   assert.ok(app.includes('headers.set("authorization","Bearer "+session.sessionToken)'));
 });
+
+test("provider secrets use migrations rather than request-time CREATE TABLE statements", () => {
+  assert.ok(!worker.includes("CREATE TABLE"));
+  assert.ok(worker.includes("await ensureWorkspace(env.DB,workspace)"));
+});
+
+test("workspace sync rejects stale versions before attempting a write", () => {
+  assert.ok(worker.includes("currentSnapshot?.version||0)!==expectedVersion"));
+  assert.ok(worker.includes("conflict:true,currentVersion"));
+});
