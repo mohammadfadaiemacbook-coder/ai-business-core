@@ -38,6 +38,16 @@ export default function App() {
   useEffect(() => { void checkNativeUpdate(); }, [checkNativeUpdate]);
 
   useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active" && externalAuthOpened.current) {
+        externalAuthOpened.current = false;
+        webView.current?.reload();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (canGoBack) { webView.current?.goBack(); return true; }
       return false;
@@ -50,6 +60,7 @@ export default function App() {
     try { url = new URL(request.url); } catch { return false; }
     if (url.protocol !== "https:") return false;
     if (url.hostname === APP_HOST) return true;
+    if (url.hostname === "accounts.google.com") externalAuthOpened.current = true;
     void Linking.openURL(request.url).catch(() => Alert.alert("خطا", "باز کردن پیوند امکان‌پذیر نیست."));
     return false;
   }, []);
