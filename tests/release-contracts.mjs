@@ -128,3 +128,10 @@ test("Worker initializes request URL before routing the session exchange", () =>
   const sessionRoute = worker.indexOf('if (url.pathname === "/api/auth/session")', fetchStart);
   assert.ok(fetchStart >= 0 && urlInit > fetchStart && sessionRoute > urlInit);
 });
+
+test("Cloud sync preserves local data and downloads a backup on version conflict", () => {
+  assert.ok(app.includes("error.status=response.status"));
+  assert.ok(app.includes('err.status===409'));
+  assert.ok(app.includes("ai-business-core-conflict-backup.json"));
+  assert.ok(app.includes("داده محلی دست‌نخورده ماند"));
+});
