@@ -1,4 +1,4 @@
-const ALLOWED_TASKS = new Set(["youtube_research", "video_outline", "video_script", "title_ideas", "youtube_metadata", "instagram_repurpose", "trend_strategy"]);
+const ALLOWED_TASKS = new Set(["youtube_research", "video_outline", "video_script", "title_ideas", "youtube_metadata", "instagram_repurpose", "trend_strategy", "social_caption", "comment_reply", "thumbnail_brief"]);
 const MAX_BODY_BYTES = 256 * 1024;
 const WORKSPACE_ID = /^[a-zA-Z0-9_-]{3,64}$/;
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers } });
@@ -29,7 +29,7 @@ async function loadProviderSecrets(env,db,workspace="default") {
   return out;
 }
 async function saveProviderSecrets(env,db,workspace,values) {
-  const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel"]);
+  const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
   const key=await providerCryptoKey(env);
   await db.prepare("CREATE TABLE IF NOT EXISTS provider_secrets (workspace_id TEXT NOT NULL, secret_key TEXT NOT NULL, encrypted_value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), PRIMARY KEY(workspace_id,secret_key))").run();
   for(const [name,value] of Object.entries(values||{})){
@@ -172,7 +172,7 @@ export default {
       auth.searchParams.set("client_id",env.GOOGLE_CLIENT_ID);
       auth.searchParams.set("redirect_uri",env.GOOGLE_REDIRECT_URI);
       auth.searchParams.set("response_type","code");
-      auth.searchParams.set("scope","openid email https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/yt-analytics.readonly");
+      auth.searchParams.set("scope","openid email https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.force-ssl https://www.googleapis.com/auth/yt-analytics.readonly");
       auth.searchParams.set("access_type","offline");
       auth.searchParams.set("prompt","consent");
       auth.searchParams.set("include_granted_scopes","true");
