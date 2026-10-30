@@ -1,9 +1,9 @@
 name: Validate dashboard
 on:
   push:
-    branches: [main, "build/**", "feature/security-expo-hardening"]
+    branches: [main, "build/**", "feature/**"]
   pull_request:
-    branches: [main, "feature/security-expo-hardening"]
+    branches: [main, "feature/**"]
 permissions:
   contents: read
 jobs:
