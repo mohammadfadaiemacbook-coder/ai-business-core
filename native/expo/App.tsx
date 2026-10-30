@@ -85,6 +85,7 @@ export default function App() {
       ) : (
         <WebView ref={webView} source={{ uri: APP_URL }} originWhitelist={["https://*"]}
           onShouldStartLoadWithRequest={handleNavigation}
+          injectedJavaScriptBeforeContentLoaded={"window.__AI_BUSINESS_CORE_EXPO__ = true; true;"}
           onNavigationStateChange={(state) => setCanGoBack(state.canGoBack)}
           onLoadStart={() => { setLoading(true); setFailed(false); }}
           onLoadEnd={() => setLoading(false)}
