@@ -29,3 +29,43 @@ body{direction:rtl;text-align:right}
 .ai-output{direction:auto;text-align:start;font-family:Vazirmatn,Tahoma,ui-monospace,monospace}
 @media(max-width:1050px){.app-shell{grid-template-columns:minmax(0,1fr) 220px}}
 @media(max-width:700px){.app-shell{display:block}.sidebar{left:auto;right:0;transform:translateX(105%);border-left:1px solid var(--line);border-right:0}.sidebar.open{transform:translateX(0)}.ai-fields-grid{grid-template-columns:1fr}.topbar{padding:0 15px}.toast{left:12px;right:12px}.ai-hero{align-items:flex-start}.ai-submit-row{align-items:flex-start;flex-direction:column}}
+
+/* Refined Persian workspace — clean, calm, high-contrast */
+:root{--bg:#080e1b;--panel:#101a2b;--line:#263650;--text:#f2f6ff;--muted:#a4b2c8;--blue:#83aaff;--green:#65dfb5;font-family:Vazirmatn,Tahoma,"Segoe UI",sans-serif}
+body{font-size:14px;line-height:1.75;background:radial-gradient(ellipse at 78% -12%,#1b3155 0,transparent 36%),var(--bg)}
+button,input,select,textarea{font-family:inherit}
+.app-shell{grid-template-columns:minmax(0,1fr) 264px}
+.sidebar{padding:28px 18px 20px;background:rgba(10,18,33,.96);border-left:1px solid #263650;backdrop-filter:blur(18px)}
+.brand{padding:0 9px 34px}.brand-mark{width:42px;height:42px;border-radius:14px;box-shadow:0 8px 24px #4778d644}
+.brand strong{font-size:14px;letter-spacing:.1px}.brand small{font-size:10px;letter-spacing:0}
+.main-nav{gap:7px}.nav-item{padding:12px 14px;border-radius:12px;font-size:13px;transition:background .18s,color .18s,transform .18s}
+.nav-item:hover{transform:translateX(-2px)}.nav-item.active{background:linear-gradient(100deg,#1a2d4b,#20395f);box-shadow:inset -3px 0 var(--blue)}
+.local-status{border-radius:14px;background:#111e31;padding:14px}
+.topbar{height:74px;padding-inline:clamp(18px,3vw,38px);background:#0b1423aa;backdrop-filter:blur(16px)}
+.view-root{width:min(1380px,100%);padding:clamp(22px,3vw,40px) clamp(16px,3vw,38px) 48px}
+.page-heading{align-items:center;margin-bottom:28px}.page-heading h1{font-size:clamp(26px,3vw,36px);letter-spacing:-.5px;font-weight:850}
+.page-heading p:not(.eyebrow){font-size:13px;line-height:1.9;margin-top:10px}
+.eyebrow{letter-spacing:0;font-size:11px}
+.button{border-radius:12px;padding:10px 16px;font-size:12px;transition:transform .16s,filter .16s,background .16s}
+.button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.button.primary{background:linear-gradient(135deg,#9bbcff,#6d96ec);box-shadow:0 7px 20px #5f8de52a}
+.button.secondary{background:#17263e;border-color:#354967}
+.stats-grid{gap:16px}.stat-card,.panel{border-radius:18px;background:linear-gradient(155deg,#142139,#101a2b 72%);border-color:#2a3b57;box-shadow:0 12px 32px #00000017}
+.stat-card{padding:20px;min-height:132px}.stat-value{font-size:32px;font-weight:850}.stat-icon{border-radius:11px;background:#20395f}
+.panel{padding:22px}.panel-head{margin-bottom:19px}.panel-head h2,.panel h2{font-size:16px;font-weight:800}
+.pipeline-row,.list-card,.calendar-event{background:#111e31;border-color:#2a3b56;border-radius:14px;padding:15px}
+.list-card{padding:17px}.list-card h3{font-size:14px;font-weight:750}.list-card p{font-size:12px;line-height:1.8}
+.pill{font-size:10px;padding:4px 10px;border-radius:99px}
+.quick-action{background:#14243c;border-color:#2b4163;border-radius:14px;padding:16px;transition:.18s}
+.quick-action:hover{transform:translateY(-2px);background:#1a2e4c;border-color:#83aaff}
+.search-input,.field input,.field select,.field textarea,.filter-select{border-radius:11px;padding:12px 13px;background:#0b1525;border-color:#334762}
+.field{gap:8px}.field label{font-size:13px}.field textarea{line-height:1.8}
+.modal{border-radius:20px;box-shadow:0 25px 80px #0009}.modal-head h2{font-size:20px}
+.toast{border-radius:13px;line-height:1.8}
+:focus-visible{outline:2px solid #9bbcff;outline-offset:3px}
+.nav-item:focus-visible,.button:focus-visible{outline-offset:2px}
+.ai-hero{padding:8px 2px 24px}.ai-orb{border-radius:18px}
+.ai-output{border-radius:14px;line-height:1.9}
+.app-footer{font-size:11px}
+@media(max-width:1050px){.app-shell{grid-template-columns:minmax(0,1fr) 224px}.sidebar{padding-inline:14px}}
+@media(max-width:700px){.sidebar{width:min(290px,86vw);padding:24px 16px}.sidebar.open{box-shadow:-20px 0 60px #0009}.topbar{height:62px}.view-root{padding:24px 14px 36px}.page-heading h1{font-size:27px}.stats-grid{gap:10px}.stat-card{padding:14px;min-height:112px}.stat-value{font-size:27px}.panel{padding:16px}.list-card{padding:14px}.quick-action{padding:13px}.app-footer{font-size:10px}}
