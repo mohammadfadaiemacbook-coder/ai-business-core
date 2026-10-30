@@ -163,14 +163,16 @@ test("complete release is explicitly gated and deploys Worker before Pages", () 
   assert.ok(!releaseWorkflow.includes("build-android"));
 });
 
-test("long-form YouTube autopilot scripts, animates scenes, narrates, and auto-uploads", () => {
+test("long-form YouTube video builds a preview and requires explicit publishing", () => {
   assert.match(worker, /LONG-FORM YouTube video script designed for an 8–12 minute/);
   assert.match(app, /سناریوی ویدئوی بلند ۸ تا ۱۲ دقیقه‌ای/);
   assert.match(app, /slides\.length>48/);
   assert.match(app, /decodeAudioData\(audioParts\[i\]\.slice\(0\)\)/);
   assert.match(app, /requestAnimationFrame\(animate\)/);
   assert.match(app, /async function uploadGeneratedVideo\(\)/);
-  assert.match(app, /autopilot-auto-upload/);
+  assert.match(app, /video-publish/);
+  assert.match(app, /پیش‌نمایش را کامل بررسی کن/);
+  assert.doesNotMatch(app, /autopilot-auto-upload/);
   assert.match(app, /autopilot-public/);
   assert.match(app, /autopilot-publish-at/);
 });
