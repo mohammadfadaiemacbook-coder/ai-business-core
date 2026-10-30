@@ -21,7 +21,7 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
 
     public class AppBridge {
-        @JavascriptInterface public int getVersionCode() { return BuildConfig.VERSION_CODE; }
+        @JavascriptInterface public int getVersionCode() {\n            try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode; }\n            catch (Exception e) { return 0; }\n        }
         @JavascriptInterface public void openUpdate(String url) {
             Uri uri = Uri.parse(url);
             if (!"github.com".equalsIgnoreCase(uri.getHost())) return;
