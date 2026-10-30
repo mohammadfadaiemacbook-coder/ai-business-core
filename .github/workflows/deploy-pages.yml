@@ -1,15 +1,5 @@
 name: Deploy web app to GitHub Pages
 on:
-  push:
-    branches: [main]
-    paths:
-      - "index.html"
-      - "app.js"
-      - "styles.css"
-      - "sw.js"
-      - "manifest.webmanifest"
-      - "icons/**"
-      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
     inputs:
       confirm_publish:
@@ -29,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
-    if: github.event_name == 'push' || inputs.confirm_publish == 'PUBLISH'
+    if: inputs.confirm_publish == 'PUBLISH'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
