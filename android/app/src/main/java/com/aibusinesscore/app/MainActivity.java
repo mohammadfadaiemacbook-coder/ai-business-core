@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.ValueCallback;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -18,6 +19,16 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST = 4102;
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
+
+    public class AppBridge {
+        @JavascriptInterface public int getVersionCode() { return BuildConfig.VERSION_CODE; }
+        @JavascriptInterface public void openUpdate(String url) {
+            Uri uri = Uri.parse(url);
+            if (!"github.com".equalsIgnoreCase(uri.getHost())) return;
+            try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+            catch (ActivityNotFoundException e) { runOnUiThread(() -> Toast.makeText(MainActivity.this, "امکان باز کردن دانلود بروزرسانی وجود ندارد", Toast.LENGTH_LONG).show()); }
+        }
+    }
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,6 +52,7 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+        webView.addJavascriptInterface(new AppBridge(), "AndroidApp");
         webView.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
