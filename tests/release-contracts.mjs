@@ -23,7 +23,7 @@ test("Claude review uses Anthropic Messages API and server-side secret storage",
 
 test("YouTube reply uses the comment-thread ID required by comments.insert", () => {
   assert.match(worker, /threadId:item\.id,commentId:item\.id/);
-  assert.match(worker, /parentId:parentId,textOriginal:replyText/);
+  assert.match(worker, /parentId,textOriginal:replyText/);
   assert.match(app, /JSON\.stringify\(\{threadId:item\.threadId,text:reply\}\)/);
 });
 
@@ -43,5 +43,5 @@ test("video recorder includes synthesized audio when available and has a silent 
 
 test("subtitle export and human approval before posting remain present", () => {
   assert.match(app, /generatedSubtitlesBlob=new Blob/);
-  assert.match(app, /confirm\("این پاسخ با نام کانال یوتیوب منتشر شود\?"\)/);
+  assert.match(app, /confirm\("این پاسخ با نام کانال یوتیوب منتشر شود؟"\)/);
 });
