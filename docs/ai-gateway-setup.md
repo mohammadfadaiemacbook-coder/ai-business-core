@@ -16,6 +16,19 @@ This is a deployable, provider-compatible gateway for the AI Business Core app. 
 5. Use a long, unique token. Never commit either secret to GitHub or share it in a screenshot/chat.
 6. If you use a different AI provider, verify its endpoint and request/response compatibility first. Provider usage may cost money; the gateway does not make API calls free.
 
+Required Worker bindings/secrets:
+- D1 binding `DB` pointing to `ai-business-core-db`.
+- `APP_ACCESS_TOKEN`: existing master token, at least 24 characters. It also signs the 15-minute sessions; keep it unchanged unless intentionally rotating it.
+- `TOKEN_ENCRYPTION_KEY`: base64-encoded 32-byte key. **Do not replace an existing key** while encrypted YouTube/provider records are stored in D1, or those records become unreadable.
+- `AI_API_KEY`, `AI_API_URL`, `AI_MODEL`: primary OpenAI-compatible provider.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: OAuth callback must be `https://ai-business-core.mohammadfadaiemacbook.workers.dev/oauth/google/callback`.
+
+Optional Worker variables/secrets:
+- `AI_SECONDARY_API_URL`, `AI_SECONDARY_API_KEY`, `AI_SECONDARY_MODEL` for a second OpenAI-compatible model.
+- `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL_ID` for narration.
+- `IMAGE_API_URL`, `IMAGE_API_KEY`, `IMAGE_MODEL` for artwork.
+- `APP_PUBLIC_URL` for the published frontend origin/redirect behavior.
+
 ## 2. Apply D1 migrations
 
 Before deploying Worker code that reads provider settings, apply the repository migrations (including 0003_provider_secrets):
