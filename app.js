@@ -177,27 +177,5 @@ return;
 document.addEventListener("input",e=>{if(e.target.id==="search-box"){search=e.target.value;let p=e.target.selectionStart;render();let el=$("#search-box");if(el){el.focus();el.setSelectionRange(p,p)}}});
 document.addEventListener("change",e=>{if(e.target.id==="status-filter"){filter=e.target.value;render()}if(e.target.id==="import-file"&&e.target.files?.[0]){let f=e.target.files[0],r=new FileReader();r.onload=()=>{try{let p=JSON.parse(r.result),d=p.data||p,keys=["tasks","research","content","events","approvals"];if(!keys.every(k=>Array.isArray(d[k])))throw Error("ساختار فایل پشتیبان شناخته نشد.");if(confirm("واردکردن پشتیبان، داده‌های فعلی را جایگزین می‌کند. ادامه می‌دهید؟")){let next=empty();keys.forEach(k=>next[k]=d[k].filter(x=>x&&typeof x.title==="string").map(x=>({...x,id:typeof x.id==="string"?x.id:id()})));next.settings={...next.settings,...(d.settings||{})};state=next;save();render();toast("نسخه پشتیبان بازیابی شد.")}}catch(err){toast(err.message||"بازیابی نسخه پشتیبان انجام نشد.")}e.target.value=""};r.readAsText(f)}});
 $("#mobile-menu").addEventListener("click",()=>$("#sidebar").classList.toggle("open"));$("#today-label").textContent=new Date().toLocaleDateString("fa-IR",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-if("serviceWorker" in navigator&&location.protocol==="https:"){
-  let updatePromptOpen=false;
-  const offerUpdate=worker=>{
-    if(!worker||updatePromptOpen)return;
-    updatePromptOpen=true;
-    if(confirm("نسخه جدید AI Business Core آماده است. اکنون برنامه به‌روزرسانی و دوباره بارگذاری شود؟")){
-      navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload(),{once:true});
-      worker.postMessage({type:"SKIP_WAITING"});
-    }else updatePromptOpen=false;
-  };
-  navigator.serviceWorker.register("./sw.js").then(reg=>{
-    if(reg.waiting&&navigator.serviceWorker.controller)offerUpdate(reg.waiting);
-    reg.addEventListener("updatefound",()=>{
-      const installing=reg.installing;
-      installing?.addEventListener("statechange",()=>{
-        if(installing.state==="installed"&&navigator.serviceWorker.controller)offerUpdate(installing);
-      });
-    });
-    reg.update().catch(()=>{});
-    document.addEventListener("visibilitychange",()=>{if(!document.hidden&&reg.waiting)offerUpdate(reg.waiting)});
-  }).catch(()=>{});
-}
 render();
 })();
