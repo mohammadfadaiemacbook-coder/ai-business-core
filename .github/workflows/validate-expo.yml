@@ -1,0 +1,40 @@
+name: Validate Expo native client
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "native/expo/**"
+      - ".github/workflows/validate-expo.yml"
+  push:
+    branches: ["feature/security-expo-hardening"]
+    paths:
+      - "native/expo/**"
+      - ".github/workflows/validate-expo.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  expo-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+      - name: Install Expo client dependencies
+        working-directory: native/expo
+        run: npm install --no-audit --no-fund
+      - name: Validate Expo configuration
+        working-directory: native/expo
+        run: npx expo config --type public
+      - name: Check SDK dependency compatibility
+        working-directory: native/expo
+        run: npx expo install --check
+      - name: Run Expo Doctor
+        working-directory: native/expo
+        run: npx expo-doctor
+      - name: Type-check native client
+        working-directory: native/expo
+        run: npm run typecheck
