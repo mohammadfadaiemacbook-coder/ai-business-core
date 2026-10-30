@@ -154,10 +154,10 @@ test("Cloudflare deployment preserves existing vars and does not replace the con
   assert.ok(!/^AI_MODEL\\s*=/m.test(wranglerTemplate));
 });
 
-test("complete release is explicitly gated and deploys Worker before Pages and APK", () => {
+test("complete release is explicitly gated and deploys Worker before Pages", () => {
   assert.ok(releaseWorkflow.includes("confirm_release == 'RELEASE'"));
   assert.ok(releaseWorkflow.includes("needs: deploy-worker"));
   assert.ok(releaseWorkflow.includes("needs: deploy-web"));
   assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
-  assert.ok(releaseWorkflow.includes("ai-business-core-final-android-apk"));
+  assert.ok(!releaseWorkflow.includes("build-android"));
 });
