@@ -7,7 +7,7 @@ const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(b
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin");
   const allowed = String(env.ALLOWED_ORIGIN || "").split(",").map(x => x.trim()).filter(Boolean);
-  const headers = { "vary": "Origin", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "authorization, content-type" };
+  const headers = { "vary": "Origin", "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "authorization, content-type" };
   if (origin && allowed.includes(origin)) headers["access-control-allow-origin"] = origin;
   return headers;
 }
@@ -32,6 +32,15 @@ export default {
     const headers = corsHeaders(request, env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
     const url = new URL(request.url);
+    if (url.pathname === "/api/health" && request.method === "GET") {
+      if (!env.DB) return json({ ok: false, database: "unbound" }, 503, headers);
+      try {
+        await env.DB.prepare("SELECT 1 AS ok").first();
+        return json({ ok: true, database: "connected" }, 200, headers);
+      } catch {
+        return json({ ok: false, database: "query_failed" }, 503, headers);
+      }
+    }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (!headers["access-control-allow-origin"] && request.headers.get("Origin")) return json({ error: "Origin not allowed" }, 403, headers);
