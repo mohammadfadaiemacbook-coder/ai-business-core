@@ -7,3 +7,9 @@ keep_vars = true
 [assets]
 directory = "./"
 run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ai-business-core-db"
+database_id = "a2efe780-1b52-4a56-9bfe-aa0ec531842e"
+migrations_dir = "migrations"
