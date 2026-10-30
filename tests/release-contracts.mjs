@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [worker, app] = await Promise.all([
+const [worker, app, wranglerTemplate, releaseWorkflow] = await Promise.all([
   readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8"),
-  readFile(new URL("../app.js", import.meta.url), "utf8")
+  readFile(new URL("../app.js", import.meta.url), "utf8"),
+  readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8"),
+  readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8")
 ]);
 
 test("all creator studio tasks are allow-listed and have task-specific prompts", () => {
@@ -143,4 +145,19 @@ test("Provider endpoints require public HTTPS and empty values delete stored sec
   assert.ok(worker.includes('fetch(safeProviderUrl(secondaryUrl)'));
   assert.ok(worker.includes('fetch(safeProviderUrl(imageUrl)'));
   assert.ok(worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
+});
+
+test("Cloudflare deployment preserves existing vars and does not replace the configured AI model", () => {
+  assert.ok(wranglerTemplate.includes("keep_vars = true"));
+  assert.ok(wranglerTemplate.includes('ALLOWED_ORIGIN = "https://mohammadfadaiemacbook-coder.github.io"'));
+  assert.ok(!/^AI_API_URL\\s*=/m.test(wranglerTemplate));
+  assert.ok(!/^AI_MODEL\\s*=/m.test(wranglerTemplate));
+});
+
+test("complete release is explicitly gated and deploys Worker before Pages and APK", () => {
+  assert.ok(releaseWorkflow.includes("confirm_release == 'RELEASE'"));
+  assert.ok(releaseWorkflow.includes("needs: deploy-worker"));
+  assert.ok(releaseWorkflow.includes("needs: deploy-web"));
+  assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
+  assert.ok(releaseWorkflow.includes("ai-business-core-final-android-apk"));
 });
