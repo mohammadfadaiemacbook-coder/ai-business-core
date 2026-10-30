@@ -1,6 +1,6 @@
 # Secure AI gateway (Cloudflare Worker)
 
-This is a deployable, provider-compatible gateway for the AI Business Core app. It keeps the provider API key on the server side rather than putting it in GitHub or browser JavaScript. It is **not connected to the published dashboard until you deploy/configure it and explicitly wire the UI to it**.
+This is a deployable, provider-compatible gateway for the AI Business Core app. It keeps the provider API key on the server side rather than putting it in GitHub or browser JavaScript. The AI Studio UI already supports a **manual connection**: enter the Worker HTTPS endpoint and app access token in the form. The endpoint is prefilled, while the token is entered per session and is not persisted in local storage. Deploy and configure the Worker before using it.
 
 ## 1. Deploy the Worker
 
@@ -46,4 +46,4 @@ A successful response returns `output`, `task`, and `model`. The gateway does no
 - Do not place the provider API key in frontend code, GitHub files, or the manifest.
 - Anyone who obtains the app access token can use your gateway and may incur provider charges. Rotate it if exposed.
 - This version has request-size limits and basic error handling, but no durable per-user identity, billing controls, or advanced rate limiting. Set provider spending limits and platform limits before using it publicly.
-- The browser UI does not yet call this endpoint. Integration is a separate step so credentials and user consent can be handled deliberately.
+- AI Studio calls this endpoint when the user submits the form. The app access token is entered per session and is not stored in local storage. The provider API key remains server-side in Worker secrets.
