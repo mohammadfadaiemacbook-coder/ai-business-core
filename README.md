@@ -15,7 +15,7 @@ A local-first business operations workspace for a creator-led online business.
 
 ## Secure AI gateway
 
-A provider-compatible Cloudflare Worker is included under `ai-gateway/`. It keeps the provider API key server-side, requires a separate bearer token, restricts browser origins, limits request size, and supports a small allowlist of content tasks.
+A provider-compatible Cloudflare Worker is included under `ai-gateway/`. It keeps the provider API key server-side, uses a master token only to mint workspace-scoped 15-minute signed sessions, restricts browser origins, limits request size, and supports an allowlist of content tasks.
 
 **AI Studio includes a manual gateway connection form**: enter the deployed Worker HTTPS endpoint and the app access token in the AI Studio tab. The endpoint is prefilled; the token is entered per session and is not saved in local storage. Follow [the setup guide](docs/ai-gateway-setup.md) to deploy and configure the Worker and its secrets. An AI provider key may incur charges; this code does not make AI usage free. The gateway does not browse the web, verify facts, publish content, or execute external actions.
 
