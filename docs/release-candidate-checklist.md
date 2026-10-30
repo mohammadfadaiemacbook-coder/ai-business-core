@@ -8,7 +8,8 @@
 - Claude second-opinion review through the Anthropic Messages API; provider credentials are encrypted in D1 and never returned to the UI.
 - YouTube channel/analytics, comment inbox and reply posting with explicit user action.
 - YouTube replies use the comment-thread resource ID required by `comments.insert`.
-- YouTube uploads default to private; public uploads require `confirmPublic=true` in the Worker, not only a client-side checkbox.
+- YouTube uploads default to private; public uploads require the explicit Worker-side `confirmPublic=true` authorization. Scheduled publishing is supported when the video is private and the requested publish time is valid.
+- Long-form YouTube workflow targets 8–12 minute videos, Persian narration, animated scenes, subtitles, metadata and optional automatic upload.
 - TTS scene generation, audio muxing into WebM, SRT subtitles and PNG thumbnail export.
 - Cloud sync uses version compare-and-swap; a 409 conflict preserves local state and downloads a local backup.
 - Worker master-token exchange produces workspace-scoped HMAC sessions that expire after 15 minutes.
