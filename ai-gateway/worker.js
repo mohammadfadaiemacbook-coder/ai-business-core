@@ -13,6 +13,34 @@ function isAuthorized(request, env) {
   const expected = String(env.APP_ACCESS_TOKEN || "");
   return expected.length >= 24 && (request.headers.get("Authorization") || "") === `Bearer ${expected}`;
 }
+async function providerCryptoKey(env) {
+  const raw=String(env.TOKEN_ENCRYPTION_KEY||"");
+  if(!raw)throw new Error("TOKEN_ENCRYPTION_KEY is not configured");
+  const bytes=Uint8Array.from(atob(raw),c=>c.charCodeAt(0));
+  if(bytes.length!==32)throw new Error("TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key");
+  return crypto.subtle.importKey("raw",bytes,{name:"AES-GCM"},false,["encrypt","decrypt"]);
+}
+async function loadProviderSecrets(env,db,workspace="default") {
+  if(!db||!env.TOKEN_ENCRYPTION_KEY)return {};
+  await db.prepare("CREATE TABLE IF NOT EXISTS provider_secrets (workspace_id TEXT NOT NULL, secret_key TEXT NOT NULL, encrypted_value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), PRIMARY KEY(workspace_id,secret_key))").run();
+  const rows=await db.prepare("SELECT secret_key,encrypted_value FROM provider_secrets WHERE workspace_id=?").bind(workspace).all();
+  const key=await providerCryptoKey(env),out={};
+  for(const row of rows.results||[]){try{const pack=JSON.parse(row.encrypted_value);const clear=await crypto.subtle.decrypt({name:"AES-GCM",iv:Uint8Array.from(atob(pack.iv),c=>c.charCodeAt(0))},key,Uint8Array.from(atob(pack.data),c=>c.charCodeAt(0)));out[row.secret_key]=new TextDecoder().decode(clear)}catch{}}
+  return out;
+}
+async function saveProviderSecrets(env,db,workspace,values) {
+  const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel"]);
+  const key=await providerCryptoKey(env);
+  await db.prepare("CREATE TABLE IF NOT EXISTS provider_secrets (workspace_id TEXT NOT NULL, secret_key TEXT NOT NULL, encrypted_value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), PRIMARY KEY(workspace_id,secret_key))").run();
+  for(const [name,value] of Object.entries(values||{})){
+    if(!allowed.has(name)||typeof value!=="string"||!value.trim())continue;
+    if(value.length>2000)throw new Error("Provider setting is too long");
+    const iv=crypto.getRandomValues(new Uint8Array(12));
+    const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(value.trim()));
+    const pack={iv:btoa(String.fromCharCode(...iv)),data:btoa(String.fromCharCode(...new Uint8Array(encrypted)))};
+    await db.prepare("INSERT INTO provider_secrets (workspace_id,secret_key,encrypted_value,updated_at) VALUES (?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(workspace_id,secret_key) DO UPDATE SET encrypted_value=excluded.encrypted_value,updated_at=excluded.updated_at").bind(workspace,name,JSON.stringify(pack)).run();
+  }
+}
 async function ensureWorkspace(db, id) {
   await db.prepare("INSERT OR IGNORE INTO workspaces (id, name) VALUES (?, ?)").bind(id, id === "default" ? "فضای کاری اصلی" : id).run();
 }
@@ -99,6 +127,17 @@ export default {
       } catch (error) {
         return json({ error: "Workspace storage operation failed", detail: String(error?.message || "database error").slice(0, 180) }, 500, headers);
       }
+    }
+    if (url.pathname === "/api/providers" && ["GET","PUT"].includes(request.method)) {
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
+      if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
+      if (!env.DB || !env.TOKEN_ENCRYPTION_KEY) return json({error:"Encrypted provider settings require D1 and TOKEN_ENCRYPTION_KEY"},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+      try{
+        if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
+        const secrets=await loadProviderSecrets(env,env.DB,workspace);
+        return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),tts:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
+      }catch(error){return json({error:"Provider settings operation failed",detail:String(error?.message||"unknown").slice(0,180)},500,headers)}
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
@@ -264,16 +303,16 @@ export default {
     }
     if (url.pathname === "/api/media/capabilities" && request.method === "GET") {
       if (!isAuthorized(request, env)) return json({error:"Unauthorized"},401,headers);
-      return json({ok:true,tts:!!(env.ELEVENLABS_API_KEY&&env.ELEVENLABS_VOICE_ID),secondaryAI:!!(env.AI_SECONDARY_API_URL&&env.AI_SECONDARY_API_KEY&&env.AI_SECONDARY_MODEL),imageGeneration:!!(env.IMAGE_API_URL&&env.IMAGE_API_KEY),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
+      const p=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");return json({ok:true,tts:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID)),secondaryAI:!!((p.secondaryUrl||env.AI_SECONDARY_API_URL)&&(p.secondaryKey||env.AI_SECONDARY_API_KEY)&&(p.secondaryModel||env.AI_SECONDARY_MODEL)),imageGeneration:!!((p.imageUrl||env.IMAGE_API_URL)&&(p.imageKey||env.IMAGE_API_KEY)),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
     }
     if (url.pathname === "/api/media/image" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
-      if (!env.IMAGE_API_URL || !env.IMAGE_API_KEY) return json({error:"Image generation is not configured. Set IMAGE_API_URL and IMAGE_API_KEY as Worker secrets."},503,headers);
+      const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),imageUrl=mediaSecrets.imageUrl||env.IMAGE_API_URL,imageApiKey=mediaSecrets.imageKey||env.IMAGE_API_KEY,imageModel=mediaSecrets.imageModel||env.IMAGE_MODEL;if(!imageUrl||!imageApiKey)return json({error:"Image generation is not configured in app provider settings."},503,headers);
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Image prompt is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const prompt=String(body?.prompt||"").trim();if(!prompt||prompt.length>4000)return json({error:"Prompt must contain 1 to 4000 characters"},400,headers);
       try{
-        const response=await fetch(env.IMAGE_API_URL,{method:"POST",headers:{authorization:"Bearer "+env.IMAGE_API_KEY,"content-type":"application/json"},body:JSON.stringify({model:env.IMAGE_MODEL||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
+        const response=await fetch(imageUrl,{method:"POST",headers:{authorization:"Bearer "+imageApiKey,"content-type":"application/json"},body:JSON.stringify({model:imageModel||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
         const data=await response.json().catch(()=>({}));
         if(!response.ok)return json({error:"Image provider failed",detail:String(data.error?.message||"provider error").slice(0,250)},502,headers);
         const encoded=data?.data?.[0]?.b64_json;if(typeof encoded!=="string"||!encoded)return json({error:"Image provider returned no base64 image"},502,headers);
@@ -284,12 +323,12 @@ export default {
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
-      if (!env.ELEVENLABS_API_KEY || !env.ELEVENLABS_VOICE_ID) return json({error:"Persian TTS is not configured. Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID as Worker secrets."},503,headers);
+      const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,voiceId=mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;if(!ttsKey||!voiceId)return json({error:"Persian TTS is not configured in app provider settings."},503,headers);
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
       try{
-        const voice=encodeURIComponent(env.ELEVENLABS_VOICE_ID);
-        const response=await fetch("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":env.ELEVENLABS_API_KEY,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:env.ELEVENLABS_MODEL_ID||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
+        const voice=encodeURIComponent(voiceId);
+        const response=await fetch("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
         if(!response.ok){const detail=(await response.text().catch(()=>"")).slice(0,300);return json({error:"TTS provider failed",detail},502,headers)}
         return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store","access-control-allow-origin":headers["access-control-allow-origin"]||"null","vary":"Origin"}});
       }catch(error){return json({error:"TTS request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
@@ -303,7 +342,7 @@ export default {
     catch { return json({ error: "Expected a valid JSON body" }, 400, headers); }
     if (!body || typeof body.task !== "string" || !ALLOWED_TASKS.has(body.task)) return json({ error: "Unsupported task" }, 400, headers);
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
-    if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "AI provider is not configured." }, 503, headers);
+    if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);\n    const aiProviderSecrets=await loadProviderSecrets(env,env.DB,body.inputs.workspace||"default");
     let upstream;
     try {
       upstream = await fetch(env.AI_API_URL, { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
@@ -319,12 +358,12 @@ export default {
     const output = result?.choices?.[0]?.message?.content;
     if (typeof output !== "string" || !output.trim()) return json({ error: "AI provider response did not contain text" }, 502, headers);
     let consultation = {status:"not_configured",message:"یک مدل اصلی استفاده شد؛ برای مشورت واقعی با مدل دوم، AI_SECONDARY_API_URL، AI_SECONDARY_API_KEY و AI_SECONDARY_MODEL را در Worker تنظیم کنید."};
-    if (env.AI_SECONDARY_API_URL && env.AI_SECONDARY_API_KEY && env.AI_SECONDARY_MODEL) {
+    const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;\n    if (secondaryUrl && secondaryKey && secondaryModel) {
       try {
-        const review = await fetch(env.AI_SECONDARY_API_URL,{method:"POST",headers:{authorization:"Bearer "+env.AI_SECONDARY_API_KEY,"content-type":"application/json"},body:JSON.stringify({model:env.AI_SECONDARY_MODEL,temperature:0.2,messages:[{role:"system",content:"You are an independent Persian-language editorial reviewer. Critique originality, factual risk, audience value, title honesty, and clarity. Do not rewrite blindly; return concise actionable improvements."},{role:"user",content:"Review this AI-generated output against the original brief. Return Persian review with strengths, risks, duplication concerns and specific improvements.\\n\\n"+output.trim()+"\\n\\nBrief:\\n"+buildPrompt(body.task,body.inputs)}]}),signal:AbortSignal.timeout(30000)});
+        const review = await fetch(secondaryUrl,{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.2,messages:[{role:"system",content:"You are an independent Persian-language editorial reviewer. Critique originality, factual risk, audience value, title honesty, and clarity. Do not rewrite blindly; return concise actionable improvements."},{role:"user",content:"Review this AI-generated output against the original brief. Return Persian review with strengths, risks, duplication concerns and specific improvements.\\n\\n"+output.trim()+"\\n\\nBrief:\\n"+buildPrompt(body.task,body.inputs)}]}),signal:AbortSignal.timeout(30000)});
         const reviewData=await review.json().catch(()=>({}));
         const reviewText=reviewData?.choices?.[0]?.message?.content;
-        if(review.ok&&typeof reviewText==="string"&&reviewText.trim()) consultation={status:"completed",model:env.AI_SECONDARY_MODEL,review:reviewText.trim()};
+        if(review.ok&&typeof reviewText==="string"&&reviewText.trim()) consultation={status:"completed",model:secondaryModel,review:reviewText.trim()};
         else consultation={status:"failed",message:"مدل دوم پاسخ معتبر نداد؛ خروجی مدل اصلی حفظ شد."};
       } catch { consultation={status:"failed",message:"ارتباط با مدل دوم برقرار نشد؛ خروجی مدل اصلی حفظ شد."}; }
     }
