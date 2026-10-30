@@ -66,7 +66,7 @@ Never store raw OAuth tokens in client storage. Use encrypted server-side token 
 - `GET /api/media/jobs/:id` — poll job state.
 - `POST /api/approvals/:id/approve` and `/reject` — owner decision bound to payload hash.
 - `POST /api/publish-jobs` — schedule an already-approved immutable action.
-- `GET /api/publish-jobs/:id` — inspect execution and platform result.
+- `GET /api/publish-jobs/:id` — inspect execution and platform result.\n- `GET /api/workspace?workspace=default` and `PUT /api/workspace?workspace=default` — read/write a validated workspace snapshot in D1; both require the Worker app bearer token. This is a single-shared-token prototype, not multi-user identity.
 
 All write endpoints require authenticated workspace identity, CSRF/state protections as applicable, authorization checks, idempotency keys, input validation, and audit events. The current shared static app token is only a prototype gate and must not be treated as production multi-user authentication.
 
@@ -174,3 +174,16 @@ These routes are a proposed contract; they are not implemented yet. Manual-requi
 ## Current status
 
 The existing app already has a local approval list and a Groq draft-generation gateway. The current approval buttons only change local record status; they do not authorize or perform a real platform action. No YouTube/Meta OAuth, durable social database, media generation provider, or real publishing integration is implemented yet.
+
+
+## D1 workspace snapshot sync (implemented foundation)
+
+The Worker now exposes authenticated `GET` and `PUT /api/workspace` endpoints. They store the dashboard's tasks, research notes, content drafts, calendar events, approvals, and settings as a versioned JSON snapshot in `workspace_snapshots`, keyed by workspace ID. Each successful write adds an `audit_events` record. The dashboard's Settings page exposes explicit Connect, Pull, and Push actions; it does not silently overwrite local or cloud data. The app token is held in JavaScript memory only for the current page session and must be re-entered after a reload.
+
+Apply the new D1 migration before using sync:
+
+```sh
+npx wrangler d1 migrations apply ai-business-core-db --remote
+```
+
+This snapshot sync is a transitional single-workspace/shared-token foundation. A shared `APP_ACCESS_TOKEN` does not identify individual users and is not production multi-tenant authentication. Do not expose the token publicly. Before inviting other users, implement per-user authentication, workspace membership/authorization, rate limits, and token rotation. Do not use this snapshot endpoint for OAuth tokens or binary media. OAuth, media generation, YouTube/Instagram publishing, and profile mutation remain unimplemented; no publishing is claimed by this release.
