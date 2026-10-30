@@ -270,6 +270,29 @@ export default {
           if (!response.ok) return json({ error: data.error?.message || "Could not load YouTube analytics", detail: data.error?.errors?.[0]?.reason || null }, response.status, headers);
           return json({ ok: true, columnHeaders: data.columnHeaders || [], rows: data.rows || [], startDate, endDate }, 200, headers);
         }
+
+        if (url.pathname === "/api/youtube/comments" && request.method === "GET") {
+          const channelResponse=await fetch("https://www.googleapis.com/youtube/v3/channels?part=id&mine=true",{headers:{authorization:"Bearer "+auth.accessToken}});
+          const channelData=await channelResponse.json().catch(()=>({}));
+          if(!channelResponse.ok)return json({error:channelData.error?.message||"Could not load YouTube channel"},channelResponse.status,headers);
+          const channelId=channelData.items?.[0]?.id;if(!channelId)return json({error:"No connected YouTube channel found"},404,headers);
+          const params=new URLSearchParams({part:"snippet,replies",allThreadsRelatedToChannelId:channelId,maxResults:"50",order:"time",textFormat:"plainText"});
+          const response=await fetch("https://www.googleapis.com/youtube/v3/commentThreads?"+params.toString(),{headers:{authorization:"Bearer "+auth.accessToken}});
+          const data=await response.json().catch(()=>({}));
+          if(!response.ok)return json({error:data.error?.message||"Could not load comments",detail:data.error?.errors?.[0]?.reason||null},response.status,headers);
+          const comments=(data.items||[]).map(item=>{const s=item.snippet||{},comment=s.topLevelComment||{},cs=comment.snippet||{};return {threadId:item.id,commentId:comment.id,videoId:s.videoId,author:cs.authorDisplayName||"کاربر",text:cs.textOriginal||cs.textDisplay||"",publishedAt:cs.publishedAt||null,replyCount:s.totalReplyCount||0,canReply:s.canReply!==false,videoUrl:"https://www.youtube.com/watch?v="+s.videoId}}).filter(x=>x.commentId);
+          return json({ok:true,comments,nextPageToken:data.nextPageToken||null},200,headers);
+        }
+        if (url.pathname === "/api/youtube/comments/reply" && request.method === "POST") {
+          let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>10000)return json({error:"Reply payload too large"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
+          const parentId=String(body?.commentId||"").trim(),replyText=String(body?.text||"").trim();
+          if(!parentId||parentId.length>128||!replyText||replyText.length>10000)return json({error:"A valid commentId and reply text (1-10000 characters) are required"},400,headers);
+          const response=await fetch("https://www.googleapis.com/youtube/v3/comments?part=snippet",{method:"POST",headers:{authorization:"Bearer "+auth.accessToken,"content-type":"application/json"},body:JSON.stringify({snippet:{parentId,textOriginal:replyText}})});
+          const data=await response.json().catch(()=>({}));
+          if(!response.ok)return json({error:data.error?.message||"Could not post comment reply",detail:data.error?.errors?.[0]?.reason||null},response.status,headers);
+          await env.DB.prepare("INSERT INTO audit_events (id,workspace_id,event_type,target_type,target_id,details_json) VALUES (?,?,?,?,?,?)").bind(crypto.randomUUID(),workspace,"youtube.comment.replied","youtube_comment",parentId,JSON.stringify({replyId:data.id||null,characters:replyText.length})).run().catch(()=>{});
+          return json({ok:true,replyId:data.id||null,parentId},200,headers);
+        }
         if (url.pathname === "/api/youtube/upload" && request.method === "POST") {
           const form = await request.formData();
           const file = form.get("video");
