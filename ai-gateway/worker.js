@@ -14,6 +14,12 @@ function constantTimeEqual(left, right) {
   let diff=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)diff|=(a[i]||0)^(b[i]||0);
   return diff===0;
 }
+function safeProviderUrl(value) {
+  let url;try{url=new URL(String(value||""))}catch{throw new Error("Provider endpoint must be a valid public HTTPS URL")}
+  const host=url.hostname.toLowerCase().replace(/^\\[|\\]$/g,"");
+  if(url.protocol!=="https:"||url.username||url.password||!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".test")||host.includes(":")||/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host))throw new Error("Provider endpoint must use a public HTTPS hostname without credentials or private IPs");
+  return url.toString();
+}
 function base64UrlEncode(bytes) {
   return btoa(String.fromCharCode(...bytes)).split("+").join("-").split("/").join("_").replace(/=+$/,"");
 }
@@ -71,10 +77,12 @@ async function saveProviderSecrets(env,db,workspace,values) {
   const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
   const key=await providerCryptoKey(env);
   for(const [name,value] of Object.entries(values||{})){
-    if(!allowed.has(name)||typeof value!=="string"||!value.trim())continue;
+    if(!allowed.has(name)||typeof value!=="string")continue;
+    if(!value.trim()){await db.prepare("DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?").bind(workspace,name).run();continue;}
     if(value.length>2000)throw new Error("Provider setting is too long");
+    const normalized=name.endsWith("Url")?safeProviderUrl(value.trim()):value.trim();
     const iv=crypto.getRandomValues(new Uint8Array(12)),aad=new TextEncoder().encode(workspace+"\\0"+name);
-    const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv,additionalData:aad},key,new TextEncoder().encode(value.trim()));
+    const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv,additionalData:aad},key,new TextEncoder().encode(normalized));
     const pack={iv:btoa(String.fromCharCode(...iv)),data:btoa(String.fromCharCode(...new Uint8Array(encrypted)))};
     await db.prepare("INSERT INTO provider_secrets (workspace_id,secret_key,encrypted_value,updated_at) VALUES (?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(workspace_id,secret_key) DO UPDATE SET encrypted_value=excluded.encrypted_value,updated_at=excluded.updated_at").bind(workspace,name,JSON.stringify(pack)).run();
   }
@@ -411,7 +419,7 @@ export default {
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Image prompt is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const prompt=String(body?.prompt||"").trim();if(!prompt||prompt.length>4000)return json({error:"Prompt must contain 1 to 4000 characters"},400,headers);
       try{
-        const response=await fetch(imageUrl,{method:"POST",headers:{authorization:"Bearer "+imageApiKey,"content-type":"application/json"},body:JSON.stringify({model:imageModel||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
+        const response=await fetch(safeProviderUrl(imageUrl),{method:"POST",headers:{authorization:"Bearer "+imageApiKey,"content-type":"application/json"},body:JSON.stringify({model:imageModel||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
         const data=await response.json().catch(()=>({}));
         if(!response.ok)return json({error:"Image provider failed",detail:String(data.error?.message||"provider error").slice(0,250)},502,headers);
         const encoded=data?.data?.[0]?.b64_json;if(typeof encoded!=="string"||!encoded)return json({error:"Image provider returned no base64 image"},502,headers);
@@ -445,7 +453,7 @@ export default {
     const aiProviderSecrets=await loadProviderSecrets(env,env.DB,body.inputs.workspace||"default");
     let upstream;
     try {
-      upstream = await fetch(env.AI_API_URL, { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
+      upstream = await fetch(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
         model: env.AI_MODEL, temperature: 0.4, messages: [
           { role: "system", content: "You are a careful business content assistant. Be transparent about uncertainty. Never fabricate sources, browsing, analytics, experiments, or completed actions. Return useful structured output." },
           { role: "user", content: buildPrompt(body.task, body.inputs) }
@@ -472,7 +480,7 @@ export default {
       }catch{consultation={status:"failed",message:"ارتباط با Claude برقرار نشد؛ خروجی مدل اصلی حفظ شد."};}
     }else if(secondaryUrl&&secondaryKey&&secondaryModel){
       try{
-        const review=await fetch(secondaryUrl,{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.2,messages:[{role:"system",content:reviewSystem},{role:"user",content:reviewPrompt}]}),signal:AbortSignal.timeout(30000)});
+        const review=await fetch(safeProviderUrl(secondaryUrl),{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.2,messages:[{role:"system",content:reviewSystem},{role:"user",content:reviewPrompt}]}),signal:AbortSignal.timeout(30000)});
         const reviewData=await review.json().catch(()=>({})),reviewText=reviewData?.choices?.[0]?.message?.content;
         if(review.ok&&typeof reviewText==="string"&&reviewText.trim())consultation={status:"completed",model:secondaryModel,review:reviewText.trim()};
         else consultation={status:"failed",message:"مدل دوم پاسخ معتبر نداد؛ خروجی مدل اصلی حفظ شد."};
