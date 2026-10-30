@@ -1,7 +1,7 @@
 # Release candidate checklist
 
 ## Current branch
-`feature/security-expo-hardening` (stacked on `feature/voiceover-video-pipeline`)
+`feature/security-expo-hardening` (web/PWA and Cloudflare Worker)
 
 ## Implemented in this candidate
 - Persian creator tasks: trend research/strategy, scripts, metadata, captions, comment replies and thumbnail briefs.
@@ -16,14 +16,11 @@
 - Provider URLs require public HTTPS hostnames; empty provider fields delete stored secrets.
 - OAuth state is atomically consumed; failed YouTube refresh marks the account `needs_reauth`.
 - YouTube quota failures return a Persian 429 response; uploads stream the File body.
-- Expo SDK 58 / React Native 0.88 Android shell with WebView, system-browser OAuth handoff, back navigation, reload and connection states.
-- Android preview APK build workflow, guarded Pages publishing, and a complete gated Worker → Pages → APK release workflow added.
+- Guarded Pages publishing and a gated Worker → Pages release workflow added.
 
 ## Automated checks
 - JavaScript syntax checks for `app.js`, `sw.js` and Worker module.
 - Release contract suite: **22 tests passed** on the latest completed dashboard validation run.
-- Expo config, SDK dependency compatibility, Expo Doctor and TypeScript checks passed on the validated Expo commit.
-- Android APK build workflow is running separately; only its successful artifact run should be used for installation.
 
 ## Required production setup
 - Set GitHub repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the API token needs Workers Scripts and D1 edit permissions.
@@ -33,20 +30,13 @@
 - Reconnect Google OAuth after deployment so the `youtube.force-ssl` scope is granted.
 - Configure Anthropic API key/model, ElevenLabs key/voice ID and an image provider if those paid services are required. These are not included free by the app.
 
-## Native client limitations
-- Expo is currently a native shell around the hosted PWA, not a full React Native rewrite.
-- The preview APK uses package ID `com.aibusinesscore.expo`; it installs alongside the legacy app and does not replace it in-place.
-- The APK loads the published GitHub Pages app URL. The PWA frontend must be published before the APK shows the new frontend.
-- EAS OTA is disabled until an EAS project is configured.
-- Physical-device checks for WebView file selection, media playback/recording, Google OAuth return flow and APK installation remain required.
-
 ## Release gate
 1. Add GitHub repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
-2. Run **Complete release - Worker, web app and Android APK** from this branch with explicit `RELEASE` confirmation.
-3. Verify the D1 pre-deploy backup artifact, Worker/D1 health, Pages deployment and Android APK artifact.
+2. Run **Complete release - Worker and web app** from this branch with explicit `RELEASE` confirmation.
+3. Verify the D1 pre-deploy backup artifact, Worker/D1 health and Pages deployment.
 4. Live tests pass for primary AI, Claude, YouTube OAuth/comments, TTS and image generation.
 5. A real WebM file is confirmed to contain an audio track when TTS is configured.
 6. A real YouTube upload is tested as private first.
-7. Confirm data backup/import path on the actual phone before switching app packages.
+7. Verify the web app backup/export and import path in the target browser.
 
 No public YouTube upload or comment reply is automatic.
