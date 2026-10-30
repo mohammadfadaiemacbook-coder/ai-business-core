@@ -7,14 +7,14 @@
     "userInterfaceStyle": "dark",
     "scheme": "aibusinesscore",
     "android": {
-      "package": "com.aibusinesscore.app",
-      "versionCode": 2,
+      "package": "com.aibusinesscore.expo",
+      "versionCode": 1,
       "permissions": [
         "INTERNET"
       ]
     },
     "ios": {
-      "bundleIdentifier": "com.aibusinesscore.app",
+      "bundleIdentifier": "com.aibusinesscore.expo",
       "supportsTablet": true
     },
     "plugins": [
