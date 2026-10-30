@@ -2,7 +2,6 @@ name = "ai-business-core"
 main = "worker.js"
 compatibility_date = "2026-10-30"
 workers_dev = true
-migrations_dir = "../migrations"
 
 [[d1_databases]]
 binding = "DB"
