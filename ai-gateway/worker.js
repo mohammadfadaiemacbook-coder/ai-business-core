@@ -98,7 +98,7 @@ export default {
       const state = [...crypto.getRandomValues(new Uint8Array(32))].map(x => x.toString(16).padStart(2,"0")).join("");
       const verifier = [...crypto.getRandomValues(new Uint8Array(32))].map(x => x.toString(16).padStart(2,"0")).join("");
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
-      const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+      const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
       const stateHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(state));
       const stateKey = [...new Uint8Array(stateHash)].map(x=>x.toString(16).padStart(2,"0")).join("");
       await ensureWorkspace(env.DB, workspace);
