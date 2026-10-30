@@ -135,11 +135,18 @@ export default {
         const data = body?.data, keys = ["tasks", "research", "content", "events", "approvals"];
         if (!data || typeof data !== "object" || Array.isArray(data) || !keys.every(k => Array.isArray(data[k])) || !data.settings || typeof data.settings !== "object") return json({ error: "Invalid workspace data schema" }, 400, headers);
         if (keys.some(k => data[k].length > 1000)) return json({ error: "Too many records" }, 413, headers);
+        const expectedVersion=body?.expectedVersion;
+        if(!Number.isInteger(expectedVersion)||expectedVersion<0)return json({error:"expectedVersion is required and must be a non-negative integer"},400,headers);
         const serialized = JSON.stringify(data);
         const saved = await env.DB.prepare(`INSERT INTO workspace_snapshots (workspace_id, data_json, version, updated_at)
           VALUES (?, ?, 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
           ON CONFLICT(workspace_id) DO UPDATE SET data_json=excluded.data_json, version=workspace_snapshots.version+1, updated_at=excluded.updated_at
-          RETURNING version, updated_at`).bind(wid, serialized).first();
+          WHERE workspace_snapshots.version=?
+          RETURNING version, updated_at`).bind(wid, serialized, expectedVersion).first();
+        if(!saved){
+          const current=await env.DB.prepare("SELECT version FROM workspace_snapshots WHERE workspace_id=?").bind(wid).first();
+          return json({error:"نسخه فضای کاری در دستگاه دیگری تغییر کرده است؛ ابتدا نسخه تازه را دریافت و تغییرات را ادغام کنید.",conflict:true,currentVersion:current?.version||0},409,headers);
+        }
         let auditWarning = null;
         try {
           await env.DB.prepare("INSERT INTO audit_events (id, workspace_id, event_type, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?)")
