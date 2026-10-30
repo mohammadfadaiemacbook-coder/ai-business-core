@@ -1,4 +1,4 @@
-const ALLOWED_TASKS = new Set(["youtube_research", "video_outline", "video_script", "title_ideas", "youtube_metadata", "instagram_repurpose"]);
+const ALLOWED_TASKS = new Set(["youtube_research", "video_outline", "video_script", "title_ideas", "youtube_metadata", "instagram_repurpose", "trend_strategy"]);
 const MAX_BODY_BYTES = 256 * 1024;
 const WORKSPACE_ID = /^[a-zA-Z0-9_-]{3,64}$/;
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers } });
@@ -20,7 +20,7 @@ function buildPrompt(task, inputs) {
   const taskText = {
     youtube_research: "Create a research plan for a YouTube video in the language requested by the user; default to Persian (Farsi). Separate verified facts, hypotheses, and questions. Do not invent search results, metrics, sources, or citations. Return suggested search queries and a source-evaluation checklist.",
     video_outline: "Create a clear, original YouTube video outline for the target audience. Label assumptions and indicate where factual claims need source verification.",
-    video_script: "Draft an original YouTube script from the supplied brief. Do not invent citations, test results, quotations, or personal experiences. Mark claims that need verification and include a concise source-check list.",
+    video_script: "Draft a genuinely original YouTube script from the supplied brief. Treat the provided previous titles and scripts as exclusions: do not reuse their hooks, structure, examples, analogies, title wording, or sequence. Choose a distinct narrative angle, create a strong opening, clear chapters, spoken Persian narration, visual directions, on-screen captions, transitions, and a memorable ending. Target the requested duration. Do not invent citations, test results, quotations, or personal experiences. Mark factual claims that need verification and include a source-check list.",\n    trend_strategy: "Analyze the supplied recent YouTube trend observations. Rank topics by recency, views and estimated view velocity; distinguish observable data from inference. Propose 10 original Persian video ideas that fit the channel audience. For each include trend evidence, audience intent, unique angle, freshness risk, a non-clickbait title, and a recommended format. Do not claim global trend status from this limited sample. Avoid duplicating prior channel topics and titles. Return structured JSON.",
     title_ideas: "Suggest YouTube titles and thumbnail concepts. Avoid misleading promises and clearly distinguish creative hypotheses from proven performance.",
     youtube_metadata: "Create YouTube upload metadata in Persian. Return ONLY valid JSON with exactly these keys: title (max 100 characters), description (clear, useful, no fabricated claims), tags (array of up to 15 short tags). Do not use markdown fences. Use only facts present in the input; label uncertainty in description when needed.",
     instagram_repurpose: "Repurpose the supplied approved content into Instagram caption and short-reel ideas. Do not add unsupported claims; preserve the source meaning."
@@ -184,6 +184,27 @@ export default {
       if (!WORKSPACE_ID.test(workspace)) return json({ error: "Invalid workspace id" }, 400, headers);
       try {
         const auth = await youtubeAccessToken(env, env.DB, workspace);
+        if (url.pathname === "/api/youtube/trends" && request.method === "GET") {
+          const query = String(url.searchParams.get("q") || "هوش مصنوعی").trim().slice(0,100);
+          const region = String(url.searchParams.get("region") || "IR").toUpperCase();
+          const days = Math.min(30,Math.max(1,Number(url.searchParams.get("days")||7)));
+          if (!/^[A-Z]{2}$/.test(region)) return json({error:"Invalid region code"},400,headers);
+          const publishedAfter = new Date(Date.now()-days*86400000).toISOString();
+          const params = new URLSearchParams({part:"snippet",type:"video",maxResults:"25",order:"viewCount",q:query,publishedAfter,regionCode:region,relevanceLanguage:"fa"});
+          const searchResponse=await fetch("https://www.googleapis.com/youtube/v3/search?"+params.toString(),{headers:{authorization:"Bearer "+auth.accessToken}});
+          const searchData=await searchResponse.json().catch(()=>({}));
+          if(!searchResponse.ok)return json({error:searchData.error?.message||"YouTube trend search failed",detail:searchData.error?.errors?.[0]?.reason||null},searchResponse.status,headers);
+          const ids=(searchData.items||[]).map(x=>x.id?.videoId).filter(Boolean);
+          let videos=[];
+          if(ids.length){
+            const statsResponse=await fetch("https://www.googleapis.com/youtube/v3/videos?"+new URLSearchParams({part:"statistics,contentDetails,snippet",id:ids.join(",")}),{headers:{authorization:"Bearer "+auth.accessToken}});
+            const statsData=await statsResponse.json().catch(()=>({}));
+            if(!statsResponse.ok)return json({error:statsData.error?.message||"Could not load trend statistics"},statsResponse.status,headers);
+            const now=Date.now();
+            videos=(statsData.items||[]).map(v=>{const published=Date.parse(v.snippet?.publishedAt||"");const ageHours=Math.max(1,(now-(published||now))/3600000);const views=Number(v.statistics?.viewCount||0);return {videoId:v.id,title:v.snippet?.title||"",channelTitle:v.snippet?.channelTitle||"",publishedAt:v.snippet?.publishedAt||null,views,likes:Number(v.statistics?.likeCount||0),comments:Number(v.statistics?.commentCount||0),viewsPerHour:Math.round(views/ageHours),thumbnail:v.snippet?.thumbnails?.medium?.url||null,url:"https://www.youtube.com/watch?v="+v.id}}).sort((a,b)=>b.viewsPerHour-a.viewsPerHour);
+          }
+          return json({ok:true,query,region,days,method:"YouTube Data API recent videos ordered by views; velocity is views divided by age in hours",videos},200,headers);
+        }
         if (url.pathname === "/api/youtube/channel" && request.method === "GET") {
           const response = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&mine=true", { headers: { authorization: "Bearer " + auth.accessToken } });
           const data = await response.json().catch(() => ({}));
@@ -264,6 +285,16 @@ export default {
     try { result = await upstream.json(); } catch { return json({ error: "AI provider returned invalid JSON" }, 502, headers); }
     const output = result?.choices?.[0]?.message?.content;
     if (typeof output !== "string" || !output.trim()) return json({ error: "AI provider response did not contain text" }, 502, headers);
-    return json({ output: output.trim(), task: body.task, model: env.AI_MODEL }, 200, headers);
+    let consultation = {status:"not_configured",message:"یک مدل اصلی استفاده شد؛ برای مشورت واقعی با مدل دوم، AI_SECONDARY_API_URL، AI_SECONDARY_API_KEY و AI_SECONDARY_MODEL را در Worker تنظیم کنید."};
+    if (env.AI_SECONDARY_API_URL && env.AI_SECONDARY_API_KEY && env.AI_SECONDARY_MODEL) {
+      try {
+        const review = await fetch(env.AI_SECONDARY_API_URL,{method:"POST",headers:{authorization:"Bearer "+env.AI_SECONDARY_API_KEY,"content-type":"application/json"},body:JSON.stringify({model:env.AI_SECONDARY_MODEL,temperature:0.2,messages:[{role:"system",content:"You are an independent Persian-language editorial reviewer. Critique originality, factual risk, audience value, title honesty, and clarity. Do not rewrite blindly; return concise actionable improvements."},{role:"user",content:"Review this AI-generated output against the original brief. Return Persian review with strengths, risks, duplication concerns and specific improvements.\\n\\n"+output.trim()+"\\n\\nBrief:\\n"+buildPrompt(body.task,body.inputs)}]}),signal:AbortSignal.timeout(30000)});
+        const reviewData=await review.json().catch(()=>({}));
+        const reviewText=reviewData?.choices?.[0]?.message?.content;
+        if(review.ok&&typeof reviewText==="string"&&reviewText.trim()) consultation={status:"completed",model:env.AI_SECONDARY_MODEL,review:reviewText.trim()};
+        else consultation={status:"failed",message:"مدل دوم پاسخ معتبر نداد؛ خروجی مدل اصلی حفظ شد."};
+      } catch { consultation={status:"failed",message:"ارتباط با مدل دوم برقرار نشد؛ خروجی مدل اصلی حفظ شد."}; }
+    }
+    return json({ output: output.trim(), task: body.task, model: env.AI_MODEL, consultation }, 200, headers);
   }
 };
