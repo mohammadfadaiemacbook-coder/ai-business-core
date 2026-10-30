@@ -3,7 +3,7 @@ on:
   push:
     branches: [main, "build/**"]
   pull_request:
-    branches: [main]
+    branches: [main, "feature/voiceover-video-pipeline"]
 permissions:
   contents: read
 jobs:
