@@ -40,4 +40,4 @@
 6. A real YouTube upload is tested as private first.
 7. Verify the web app backup/export and import path in the target browser.
 
-No public YouTube upload or comment reply is automatic.
+Public YouTube upload is available only after the owner explicitly enables the public-publishing control. Comment replies remain explicitly approved.
