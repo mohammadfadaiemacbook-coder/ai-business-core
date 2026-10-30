@@ -133,6 +133,7 @@ async function youtubeAccessToken(env, db, workspace) {
 
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
     const headers = corsHeaders(request, env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
     if (url.pathname === "/api/auth/session") {
@@ -145,7 +146,6 @@ export default {
       try{return json({ok:true,...await createSessionToken(env,workspace)},200,headers)}
       catch{return json({error:"Session service is not configured"},503,headers)}
     }
-    const url = new URL(request.url);
     if (url.pathname === "/api/health" && request.method === "GET") {
       if (!env.DB) return json({ ok: false, database: "unbound" }, 503, headers);
       try { await env.DB.prepare("SELECT 1 AS ok").first(); return json({ ok: true, database: "connected" }, 200, headers); }
