@@ -14,9 +14,35 @@ function constantTimeEqual(left, right) {
   let diff=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)diff|=(a[i]||0)^(b[i]||0);
   return diff===0;
 }
-function isAuthorized(request, env) {
-  const expected=String(env.APP_ACCESS_TOKEN||""),supplied=request.headers.get("Authorization")||"";
-  return expected.length>=24&&constantTimeEqual(supplied,`Bearer ${expected}`);
+function base64UrlEncode(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+}
+function base64UrlDecode(value) {
+  const normalized=String(value).replace(/-/g,"+").replace(/_/g,"/");
+  return Uint8Array.from(atob(normalized+"=".repeat((4-normalized.length%4)%4)),c=>c.charCodeAt(0));
+}
+async function sessionSigningKey(env) {
+  const secret=String(env.APP_ACCESS_TOKEN||"");
+  if(secret.length<24)throw new Error("APP_ACCESS_TOKEN is not configured");
+  return crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign","verify"]);
+}
+async function createSessionToken(env,workspace) {
+  const now=Math.floor(Date.now()/1000),payload={aud:"ai-business-core",workspace,iat:now,exp:now+900};
+  const encoded=base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+  const signature=await crypto.subtle.sign("HMAC",await sessionSigningKey(env),new TextEncoder().encode(encoded));
+  return {sessionToken:encoded+"."+base64UrlEncode(new Uint8Array(signature)),expiresAt:payload.exp,expiresIn:900};
+}
+async function isAuthorized(request, env) {
+  try {
+    const auth=request.headers.get("Authorization")||"";
+    if(!auth.startsWith("Bearer "))return false;
+    const token=auth.slice(7),parts=token.split(".");
+    if(parts.length!==2)return false;
+    const payload=JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[0])));
+    const url=new URL(request.url),workspace=url.searchParams.get("workspace")||"default",now=Math.floor(Date.now()/1000);
+    if(payload.aud!=="ai-business-core"||payload.workspace!==workspace||!Number.isInteger(payload.exp)||payload.exp<=now||!Number.isInteger(payload.iat)||payload.iat>now+60||payload.exp-payload.iat>900)return false;
+    return await crypto.subtle.verify("HMAC",await sessionSigningKey(env),base64UrlDecode(parts[1]),new TextEncoder().encode(parts[0]));
+  } catch { return false; }
 }
 async function providerCryptoKey(env) {
   const raw=String(env.TOKEN_ENCRYPTION_KEY||"");
@@ -109,6 +135,16 @@ export default {
   async fetch(request, env) {
     const headers = corsHeaders(request, env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+    if (url.pathname === "/api/auth/session") {
+      if (request.method !== "POST") return json({error:"Method not allowed"},405,{...headers,allow:"POST, OPTIONS"});
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
+      const expected=String(env.APP_ACCESS_TOKEN||""),supplied=request.headers.get("Authorization")||"";
+      if(expected.length<24||!constantTimeEqual(supplied,`Bearer ${expected}`))return json({error:"Unauthorized"},401,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+      try{return json({ok:true,...await createSessionToken(env,workspace)},200,headers)}
+      catch{return json({error:"Session service is not configured"},503,headers)}
+    }
     const url = new URL(request.url);
     if (url.pathname === "/api/health" && request.method === "GET") {
       if (!env.DB) return json({ ok: false, database: "unbound" }, 503, headers);
@@ -118,7 +154,7 @@ export default {
     if (url.pathname === "/api/workspace") {
       if (!["GET", "PUT"].includes(request.method)) return json({ error: "Method not allowed" }, 405, { ...headers, allow: "GET, PUT, OPTIONS" });
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
-      if (!isAuthorized(request, env)) return json({ error: "Unauthorized" }, 401, headers);
+      if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized" }, 401, headers);
       if (!env.DB) return json({ error: "Database is not configured" }, 503, headers);
       const wid = url.searchParams.get("workspace") || "default";
       if (!/^[a-zA-Z0-9_-]{3,64}$/.test(wid)) return json({ error: "Invalid workspace id" }, 400, headers);
@@ -163,7 +199,7 @@ export default {
     }
     if (url.pathname === "/api/providers" && ["GET","PUT"].includes(request.method)) {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
-      if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
+      if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
       if (!env.DB || !env.TOKEN_ENCRYPTION_KEY) return json({error:"Encrypted provider settings require D1 and TOKEN_ENCRYPTION_KEY"},503,headers);
       const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
       try{
@@ -174,7 +210,7 @@ export default {
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
-      if (!isAuthorized(request, env)) return json({ error: "Unauthorized" }, 401, headers);
+      if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized" }, 401, headers);
       if (!env.DB) return json({ error: "Database is not configured" }, 503, headers);
       const workspace = url.searchParams.get("workspace") || "default";
       if (!WORKSPACE_ID.test(workspace)) return json({ error: "Invalid workspace id" }, 400, headers);
@@ -188,7 +224,7 @@ export default {
     // Google OAuth: authorization-code flow with PKCE; tokens are encrypted before D1 storage.
     if (url.pathname === "/oauth/google/start" && request.method === "GET") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
-      if (!isAuthorized(request, env)) return json({ error: "Unauthorized" }, 401, headers);
+      if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized" }, 401, headers);
       if (!env.DB || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) return json({ error: "Google OAuth is not configured on the Worker" }, 503, headers);
       const workspace = url.searchParams.get("workspace") || "default";
       if (!WORKSPACE_ID.test(workspace)) return json({ error: "Invalid workspace id" }, 400, headers);
@@ -251,7 +287,7 @@ export default {
     // Authenticated YouTube channel, analytics, and upload APIs.
     if (url.pathname.startsWith("/api/youtube/")) {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
-      if (!isAuthorized(request, env)) return json({ error: "Unauthorized" }, 401, headers);
+      if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized" }, 401, headers);
       if (!env.DB || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.TOKEN_ENCRYPTION_KEY) return json({ error: "YouTube integration is not configured on the Worker" }, 503, headers);
       const workspace = url.searchParams.get("workspace") || "default";
       if (!WORKSPACE_ID.test(workspace)) return json({ error: "Invalid workspace id" }, 400, headers);
@@ -362,12 +398,12 @@ export default {
       }
     }
     if (url.pathname === "/api/media/capabilities" && request.method === "GET") {
-      if (!isAuthorized(request, env)) return json({error:"Unauthorized"},401,headers);
+      if (!(await isAuthorized(request, env))) return json({error:"Unauthorized"},401,headers);
       const p=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");return json({ok:true,tts:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID)),secondaryAI:!!(((p.secondaryUrl||env.AI_SECONDARY_API_URL)&&(p.secondaryKey||env.AI_SECONDARY_API_KEY)&&(p.secondaryModel||env.AI_SECONDARY_MODEL))||(p.claudeKey&&p.claudeModel)),claude:!!(p.claudeKey&&p.claudeModel),imageGeneration:!!((p.imageUrl||env.IMAGE_API_URL)&&(p.imageKey||env.IMAGE_API_KEY)),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
     }
     if (url.pathname === "/api/media/image" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
-      if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
+      if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
       const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),imageUrl=mediaSecrets.imageUrl||env.IMAGE_API_URL,imageApiKey=mediaSecrets.imageKey||env.IMAGE_API_KEY,imageModel=mediaSecrets.imageModel||env.IMAGE_MODEL;if(!imageUrl||!imageApiKey)return json({error:"Image generation is not configured in app provider settings."},503,headers);
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Image prompt is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const prompt=String(body?.prompt||"").trim();if(!prompt||prompt.length>4000)return json({error:"Prompt must contain 1 to 4000 characters"},400,headers);
@@ -382,7 +418,7 @@ export default {
     }
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
-      if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
+      if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
       const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,voiceId=mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;if(!ttsKey||!voiceId)return json({error:"Persian TTS is not configured in app provider settings."},503,headers);
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
@@ -396,7 +432,7 @@ export default {
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
-    if (!isAuthorized(request, env)) return json({ error: "Unauthorized. Configure APP_ACCESS_TOKEN and send it as a Bearer token." }, 401, headers);
+    if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized. Configure APP_ACCESS_TOKEN and send it as a Bearer token." }, 401, headers);
     let body;
     try { const raw = await request.text(); if (new TextEncoder().encode(raw).byteLength > 32 * 1024) return json({ error: "Request too large" }, 413, headers); body = JSON.parse(raw); }
     catch { return json({ error: "Expected a valid JSON body" }, 400, headers); }
