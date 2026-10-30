@@ -83,7 +83,7 @@ if(a==="cloud-push"){const data=await call("PUT",{data:state});cloudVersion=data
 }catch(err){toast(err.message||"خطا در همگام‌سازی ابری");}
 return;
 }if(a==="export-data"){let blob=new Blob([JSON.stringify({schemaVersion:1,exportedAt:new Date().toISOString(),data:state},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download="ai-business-core-backup.json";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return}if(a==="import-data"){$("#import-file").click();return}if(a==="video-auto"){
-const token=aiToken||($("#ai-token")?.value||"").trim(),endpoint=aiEndpoint||($("#ai-endpoint")?.value||"").trim(),query=($("#trend-query")?.value||"هوش مصنوعی").trim(),audience=($("#ai-audience")?.value||"مخاطب فارسی‌زبان علاقه‌مند به فناوری").trim();
+const token=aiToken||($("#ai-token")?.value||"").trim()||cloudToken||($("#cloud-token")?.value||"").trim(),endpoint=aiEndpoint||($("#ai-endpoint")?.value||"").trim(),query=($("#trend-query")?.value||"هوش مصنوعی").trim(),audience=($("#ai-audience")?.value||"مخاطب فارسی‌زبان علاقه‌مند به فناوری").trim();
 if(token.length<24||!endpoint){toast("ابتدا توکن و نشانی درگاه هوش مصنوعی را وارد کن.");return}
 aiToken=token;aiEndpoint=endpoint;b.disabled=true;b.textContent="در حال کشف ترند و تولید ویدئو…";
 const aiCall=async(task,inputs)=>{const r=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+token},body:JSON.stringify({task,inputs})});const d=await r.json().catch(()=>({}));if(!r.ok||typeof d.output!=="string")throw Error(d.error||"درخواست هوش مصنوعی ناموفق بود");return d};
