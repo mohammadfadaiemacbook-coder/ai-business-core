@@ -1,6 +1,6 @@
 # AI Business Core — Expo native shell
 
-This is the first Expo-based Android/iOS client layer. It intentionally lives beside the existing PWA and legacy Android wrapper; it does not replace either one.
+This is the first Expo-based Android/iOS client layer. It intentionally lives beside the existing PWA and legacy Android wrapper; it does not replace either one. Its Android package ID is com.aibusinesscore.expo so preview builds can be installed alongside the older com.aibusinesscore.app build without a signing-key collision.
 
 ## Current behavior
 - Opens the existing Persian AI Business Core workspace inside a native React Native WebView.
