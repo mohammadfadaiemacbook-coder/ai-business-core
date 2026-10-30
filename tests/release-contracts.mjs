@@ -100,3 +100,14 @@ test("unapproved origins never receive a null CORS allow-origin header", () => {
 test("unknown YouTube routes are rejected before requesting or refreshing account tokens", () => {
   assert.ok(worker.includes('if(!youtubeMethods[url.pathname])return json'));
 });
+
+test("Worker exchanges the master token for a workspace-scoped 15-minute signed session", () => {
+  assert.ok(worker.includes('url.pathname === "/api/auth/session"'));
+  assert.ok(worker.includes("expiresIn:900"));
+  assert.ok(worker.includes('payload.aud!=="ai-business-core"'));
+  assert.ok(worker.includes("payload.exp-payload.iat>900"));
+  assert.ok(worker.includes("crypto.subtle.verify"));
+  assert.ok(app.includes("workerSessionCache"));
+  assert.ok(app.includes("/api/auth/session?workspace="));
+  assert.ok(app.includes('headers.set("authorization","Bearer "+session.sessionToken)'));
+});
