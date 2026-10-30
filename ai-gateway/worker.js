@@ -16,8 +16,8 @@ function constantTimeEqual(left, right) {
 }
 function safeProviderUrl(value) {
   let url;try{url=new URL(String(value||""))}catch{throw new Error("Provider endpoint must be a valid public HTTPS URL")}
-  const host=url.hostname.toLowerCase().replace(/^\\[|\\]$/g,"");
-  if(url.protocol!=="https:"||url.username||url.password||!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".test")||host.includes(":")||/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host))throw new Error("Provider endpoint must use a public HTTPS hostname without credentials or private IPs");
+  const host=url.hostname.toLowerCase();
+  if(url.protocol!=="https:"||url.username||url.password||!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".test")||host.includes(":")||/^[0-9]{1,3}(?:\\.[0-9]{1,3}){3}$/.test(host))throw new Error("Provider endpoint must use a public HTTPS hostname without credentials or private IPs");
   return url.toString();
 }
 function base64UrlEncode(bytes) {
