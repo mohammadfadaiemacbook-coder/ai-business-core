@@ -1,0 +1,191 @@
+name: Complete release - Worker, web app and Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_release:
+        description: Type RELEASE to back up D1, deploy the Worker, publish the web app and build the APK
+        required: true
+        type: choice
+        options:
+          - NO
+          - RELEASE
+        default: NO
+
+permissions:
+  contents: read
+
+concurrency:
+  group: complete-release
+  cancel-in-progress: false
+
+jobs:
+  deploy-worker:
+    if: inputs.confirm_release == 'RELEASE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out selected release branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+
+      - name: Validate Cloudflare credentials and existing D1 binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Add CLOUDFLARE_API_TOKEN in repository Actions secrets."; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Add CLOUDFLARE_ACCOUNT_ID in repository Actions secrets."; exit 1; }
+          node -e 'const fs=require("fs");const root=fs.readFileSync("wrangler.toml","utf8");const m=root.match(/database_id\s*=\s*"([a-fA-F0-9-]{36})"/);if(!m)throw Error("Existing D1 ID missing/invalid in wrangler.toml");const p="ai-gateway/wrangler.toml.example";const t=fs.readFileSync(p,"utf8");if(!t.includes("REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"))throw Error("D1 template placeholder missing");fs.writeFileSync("ai-gateway/wrangler.toml",t.replace("REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID",m[1]));console.log("Existing D1 binding validated and copied.");'
+          node --check ai-gateway/worker.js
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+
+      - name: Export D1 backup before migration
+        run: wrangler d1 export ai-business-core-db --remote --output=cloudflare-d1-predeploy-backup.sql --config ai-gateway/wrangler.toml
+
+      - name: Apply pending D1 migrations
+        run: wrangler d1 migrations apply ai-business-core-db --remote --config ai-gateway/wrangler.toml
+
+      - name: Deploy hardened Worker
+        run: wrangler deploy --config ai-gateway/wrangler.toml
+
+      - name: Verify Worker and D1 health
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --retry 8 --retry-delay 5 --retry-all-errors -fsS "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s);if(d.ok!==true||d.database!=="connected")throw Error("Worker/D1 health check failed: "+s);console.log("Worker and D1 are healthy.")})'
+          status=$(curl -sS -o /tmp/session-check.json -w '%{http_code}' -X POST "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/auth/session" -H "Authorization: Bearer intentionally-invalid-smoke-test-token")
+          test "$status" = "401" || { cat /tmp/session-check.json; echo "Session endpoint expected 401, got $status"; exit 1; }
+
+      - name: Upload pre-deploy D1 backup
+        if: always() && hashFiles('cloudflare-d1-predeploy-backup.sql') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-business-core-d1-predeploy-backup
+          path: cloudflare-d1-predeploy-backup.sql
+          retention-days: 30
+
+  deploy-web:
+    needs: deploy-worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out selected release branch
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Stage only public web app files
+        run: |
+          set -euo pipefail
+          mkdir -p site
+          cp index.html app.js styles.css sw.js manifest.webmanifest site/
+          cp -R icons site/icons
+          touch site/.nojekyll
+          node --check site/app.js
+          test -s site/index.html
+          test -s site/app.js
+          test -s site/styles.css
+          test -s site/manifest.webmanifest
+          test -s site/sw.js
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Publish web app
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Verify published app
+        run: curl --retry 8 --retry-delay 5 --retry-all-errors -fsS "https://mohammadfadaiemacbook-coder.github.io/ai-business-core/" | grep -q "AI Business Core"
+
+  build-android:
+    needs: deploy-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      EXPO_PUBLIC_APP_URL: https://mohammadfadaiemacbook-coder.github.io/ai-business-core/
+    steps:
+      - name: Check out selected release branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install Expo dependencies
+        working-directory: native/expo
+        run: npm install --no-audit --no-fund
+
+      - name: Validate Expo configuration and TypeScript
+        working-directory: native/expo
+        run: |
+          npx expo config --type public
+          npx tsc --noEmit
+
+      - name: Generate native Android project
+        working-directory: native/expo
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Configure Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build installable Android APK
+        timeout-minutes: 25
+        working-directory: native/expo/android
+        run: ./gradlew --no-daemon --stacktrace --max-workers=2 --console=plain assembleDebug
+
+      - name: Verify APK and calculate checksum
+        run: |
+          set -euo pipefail
+          APK="native/expo/android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          sha256sum "$APK" | tee native/expo/android/app/build/outputs/apk/debug/SHA256SUMS.txt
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-business-core-final-android-apk
+          path: |
+            native/expo/android/app/build/outputs/apk/debug/app-debug.apk
+            native/expo/android/app/build/outputs/apk/debug/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
