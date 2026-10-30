@@ -1,16 +1,8 @@
 name: Complete release - Worker and web app
 
 on:
-  workflow_dispatch:
-    inputs:
-      confirm_release:
-        description: Type RELEASE to back up D1, deploy the Worker and publish the web app
-        required: true
-        type: choice
-        options:
-          - NO
-          - RELEASE
-        default: NO
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -21,7 +13,6 @@ concurrency:
 
 jobs:
   deploy-worker:
-    if: inputs.confirm_release == 'RELEASE'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
