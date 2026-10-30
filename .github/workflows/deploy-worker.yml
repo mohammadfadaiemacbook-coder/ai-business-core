@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "ai-gateway/**"
-      - "wrangler.jsonc"
+      - "wrangler.toml"
       - ".assetsignore"
       - "index.html"
       - "app.js"
