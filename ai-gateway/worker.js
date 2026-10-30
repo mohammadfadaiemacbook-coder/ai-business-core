@@ -262,6 +262,23 @@ export default {
         return json({ error: "YouTube operation failed", detail: String(error?.message || "unknown error").slice(0,220) }, 500, headers);
       }
     }
+    if (url.pathname === "/api/media/capabilities" && request.method === "GET") {
+      if (!isAuthorized(request, env)) return json({error:"Unauthorized"},401,headers);
+      return json({ok:true,tts:!!(env.ELEVENLABS_API_KEY&&env.ELEVENLABS_VOICE_ID),secondaryAI:!!(env.AI_SECONDARY_API_URL&&env.AI_SECONDARY_API_KEY&&env.AI_SECONDARY_MODEL),imageGeneration:!!(env.IMAGE_API_URL&&env.IMAGE_API_KEY),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
+    }
+    if (url.pathname === "/api/media/tts" && request.method === "POST") {
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
+      if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
+      if (!env.ELEVENLABS_API_KEY || !env.ELEVENLABS_VOICE_ID) return json({error:"Persian TTS is not configured. Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID as Worker secrets."},503,headers);
+      let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
+      const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
+      try{
+        const voice=encodeURIComponent(env.ELEVENLABS_VOICE_ID);
+        const response=await fetch("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":env.ELEVENLABS_API_KEY,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:env.ELEVENLABS_MODEL_ID||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
+        if(!response.ok){const detail=(await response.text().catch(()=>"")).slice(0,300);return json({error:"TTS provider failed",detail},502,headers)}
+        return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store","access-control-allow-origin":headers["access-control-allow-origin"]||"null","vary":"Origin"}});
+      }catch(error){return json({error:"TTS request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
+    }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
