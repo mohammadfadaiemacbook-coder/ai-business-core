@@ -326,7 +326,7 @@ export default {
     }
     if (url.pathname === "/api/media/capabilities" && request.method === "GET") {
       if (!isAuthorized(request, env)) return json({error:"Unauthorized"},401,headers);
-      const p=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");return json({ok:true,tts:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID)),secondaryAI:!!((p.secondaryUrl||env.AI_SECONDARY_API_URL)&&(p.secondaryKey||env.AI_SECONDARY_API_KEY)&&(p.secondaryModel||env.AI_SECONDARY_MODEL)),imageGeneration:!!((p.imageUrl||env.IMAGE_API_URL)&&(p.imageKey||env.IMAGE_API_KEY)),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
+      const p=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");return json({ok:true,tts:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID)),secondaryAI:!!(((p.secondaryUrl||env.AI_SECONDARY_API_URL)&&(p.secondaryKey||env.AI_SECONDARY_API_KEY)&&(p.secondaryModel||env.AI_SECONDARY_MODEL))||(p.claudeKey&&p.claudeModel)),claude:!!(p.claudeKey&&p.claudeModel),imageGeneration:!!((p.imageUrl||env.IMAGE_API_URL)&&(p.imageKey||env.IMAGE_API_KEY)),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
     }
     if (url.pathname === "/api/media/image" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
@@ -381,16 +381,26 @@ export default {
     try { result = await upstream.json(); } catch { return json({ error: "AI provider returned invalid JSON" }, 502, headers); }
     const output = result?.choices?.[0]?.message?.content;
     if (typeof output !== "string" || !output.trim()) return json({ error: "AI provider response did not contain text" }, 502, headers);
-    let consultation = {status:"not_configured",message:"یک مدل اصلی استفاده شد؛ برای مشورت واقعی با مدل دوم، AI_SECONDARY_API_URL، AI_SECONDARY_API_KEY و AI_SECONDARY_MODEL را در Worker تنظیم کنید."};
+
+    let consultation = {status:"not_configured",message:"مدل دوم تنظیم نشده است؛ می‌توانی Claude API یا یک endpoint سازگار با OpenAI را در اتصال‌های امن وارد کنی."};
+    const claudeKey=aiProviderSecrets.claudeKey,claudeModel=aiProviderSecrets.claudeModel;
     const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;
-    if (secondaryUrl && secondaryKey && secondaryModel) {
-      try {
-        const review = await fetch(secondaryUrl,{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.2,messages:[{role:"system",content:"You are an independent Persian-language editorial reviewer. Critique originality, factual risk, audience value, title honesty, and clarity. Do not rewrite blindly; return concise actionable improvements."},{role:"user",content:"Review this AI-generated output against the original brief. Return Persian review with strengths, risks, duplication concerns and specific improvements.\\n\\n"+output.trim()+"\\n\\nBrief:\\n"+buildPrompt(body.task,body.inputs)}]}),signal:AbortSignal.timeout(30000)});
-        const reviewData=await review.json().catch(()=>({}));
-        const reviewText=reviewData?.choices?.[0]?.message?.content;
-        if(review.ok&&typeof reviewText==="string"&&reviewText.trim()) consultation={status:"completed",model:secondaryModel,review:reviewText.trim()};
+    const reviewSystem="You are an independent Persian-language editorial reviewer. Critique originality, factual risk, audience value, title honesty, clarity and audience safety. Return concise actionable improvements in Persian; do not rewrite blindly.";
+    const reviewPrompt="Review this AI-generated output against the original brief. Return strengths, factual risks, duplication concerns, title/thumbnail honesty and specific improvements.\n\n"+output.trim()+"\n\nBrief:\n"+buildPrompt(body.task,body.inputs);
+    if(claudeKey&&claudeModel){
+      try{
+        const review=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"x-api-key":claudeKey,"anthropic-version":"2023-06-01","content-type":"application/json"},body:JSON.stringify({model:claudeModel,max_tokens:900,temperature:0.2,system:reviewSystem,messages:[{role:"user",content:reviewPrompt}]}),signal:AbortSignal.timeout(30000)});
+        const reviewData=await review.json().catch(()=>({})),reviewText=(reviewData?.content||[]).filter(x=>x.type==="text").map(x=>x.text).join("\n");
+        if(review.ok&&reviewText.trim())consultation={status:"completed",model:"Claude · "+claudeModel,review:reviewText.trim()};
+        else consultation={status:"failed",message:"Claude پاسخ معتبر نداد؛ خروجی مدل اصلی حفظ شد."};
+      }catch{consultation={status:"failed",message:"ارتباط با Claude برقرار نشد؛ خروجی مدل اصلی حفظ شد."};}
+    }else if(secondaryUrl&&secondaryKey&&secondaryModel){
+      try{
+        const review=await fetch(secondaryUrl,{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.2,messages:[{role:"system",content:reviewSystem},{role:"user",content:reviewPrompt}]}),signal:AbortSignal.timeout(30000)});
+        const reviewData=await review.json().catch(()=>({})),reviewText=reviewData?.choices?.[0]?.message?.content;
+        if(review.ok&&typeof reviewText==="string"&&reviewText.trim())consultation={status:"completed",model:secondaryModel,review:reviewText.trim()};
         else consultation={status:"failed",message:"مدل دوم پاسخ معتبر نداد؛ خروجی مدل اصلی حفظ شد."};
-      } catch { consultation={status:"failed",message:"ارتباط با مدل دوم برقرار نشد؛ خروجی مدل اصلی حفظ شد."}; }
+      }catch{consultation={status:"failed",message:"ارتباط با مدل دوم برقرار نشد؛ خروجی مدل اصلی حفظ شد."};}
     }
     return json({ output: output.trim(), task: body.task, model: env.AI_MODEL, consultation }, 200, headers);
   }
