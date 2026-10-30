@@ -2,7 +2,7 @@ name: Validate Expo native client
 
 on:
   pull_request:
-    branches: [main, "feature/voiceover-video-pipeline"]
+    branches: [main, "feature/security-expo-hardening"]
     paths:
       - "native/expo/**"
       - ".github/workflows/validate-expo.yml"
