@@ -13,8 +13,8 @@ This is a deployable, provider-compatible gateway for the AI Business Core app. 
    - Variable `AI_API_URL`: the provider's OpenAI-compatible chat-completions URL.
    - Variable `AI_MODEL`: a model name supported by that provider.
    - Variable `ALLOWED_ORIGIN`: the exact published app origin, with no path, e.g. `https://mohammadfadaiemacbook-coder.github.io`.
-5. Use a long, unique token. Never commit either secret to GitHub or share it in a screenshot/chat.
-6. If you use a different AI provider, verify its endpoint and request/response compatibility first. Provider usage may cost money; the gateway does not make API calls free.
+4. Use a long, unique token. Never commit either secret to GitHub or share it in a screenshot/chat.
+5. If you use a different AI provider, verify its endpoint and request/response compatibility first. Provider usage may cost money; the gateway does not make API calls free.
 
 Required Worker bindings/secrets:
 - D1 binding `DB` pointing to `ai-business-core-db`.
