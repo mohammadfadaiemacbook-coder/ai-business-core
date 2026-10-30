@@ -5,7 +5,7 @@ This is a deployable, provider-compatible gateway for the AI Business Core app. 
 ## 1. Deploy the Worker
 
 1. Create/sign in to a Cloudflare account and open Workers & Pages.
-2. Use the existing Worker named `ai-business-core` (or confirm the configured service name in wrangler.toml).
+2. Use the existing Worker named `ai-business-core`. The checked-in Wrangler template now uses this exact service name and binds D1 as `DB`.
 3. Paste the contents of `worker.js` into the Worker editor and deploy.
 4. In Worker Settings → Variables and Secrets, set:
    - Secret `AI_API_KEY`: your provider API key.
@@ -24,7 +24,7 @@ Before deploying Worker code that reads provider settings, apply the repository 
 npx wrangler d1 migrations apply ai-business-core-db --remote
 ```
 
-Do not run this against production until the release owner has reviewed the migration plan and backup.
+The repository includes a guarded GitHub Actions workflow named **Backup, migrate and deploy Cloudflare Worker**. It exports D1 before applying pending migrations and deploying. To use it, add GitHub repository secrets `CLOUDFLARE_API_TOKEN` (Workers Scripts + D1 edit permissions) and `CLOUDFLARE_ACCOUNT_ID`, then manually dispatch the workflow with the D1 database ID and select `DEPLOY`. The default `NO` option does not deploy. Keep existing Worker secrets (`APP_ACCESS_TOKEN`, `TOKEN_ENCRYPTION_KEY`, provider and Google OAuth credentials) configured in Cloudflare. Review and download the backup artifact before considering the release complete.
 
 ## 3. Configure and test
 
