@@ -135,3 +135,12 @@ test("Cloud sync preserves local data and downloads a backup on version conflict
   assert.ok(app.includes("ai-business-core-conflict-backup.json"));
   assert.ok(app.includes("داده محلی دست‌نخورده ماند"));
 });
+
+test("Provider endpoints require public HTTPS and empty values delete stored secrets", () => {
+  assert.ok(worker.includes("function safeProviderUrl(value)"));
+  assert.ok(worker.includes('url.protocol!=="https:"'));
+  assert.ok(worker.includes('host==="localhost"'));
+  assert.ok(worker.includes('fetch(safeProviderUrl(secondaryUrl)'));
+  assert.ok(worker.includes('fetch(safeProviderUrl(imageUrl)'));
+  assert.ok(worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
+});
