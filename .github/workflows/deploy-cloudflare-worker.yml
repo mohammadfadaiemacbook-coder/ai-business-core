@@ -23,7 +23,6 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      D1_DATABASE_ID: ${{ inputs.d1_database_id }}
     steps:
       - name: Check out release source
         uses: actions/checkout@v4
@@ -37,7 +36,7 @@ jobs:
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN repository secret"; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing CLOUDFLARE_ACCOUNT_ID repository secret"; exit 1; }
-          node -e 'const fs=require("fs");const s=fs.readFileSync("wrangler.toml","utf8");const m=s.match(/database_id\\s*=\\s*"([a-fA-F0-9-]{36})"/);if(!m)throw Error("The existing D1 database ID is missing or invalid in wrangler.toml");console.log("Using the existing ai-business-core-db binding; ID validated.");'
+          node -e 'const fs=require("fs");const s=fs.readFileSync("wrangler.toml","utf8");const m=s.match(/database_id\s*=\s*"([a-fA-F0-9-]{36})"/);if(!m)throw Error("The existing D1 database ID is missing or invalid in wrangler.toml");console.log("Using the existing ai-business-core-db binding; ID validated.");'
 
       - name: Install Wrangler
         run: npm install --global wrangler@4
@@ -46,10 +45,10 @@ jobs:
         run: wrangler d1 export ai-business-core-db --remote --output=cloudflare-d1-backup.sql --config wrangler.toml
 
       - name: Apply pending D1 migrations
-        run: wrangler d1 migrations apply ai-business-core-db --remote --config ai-gateway/wrangler.toml
+        run: wrangler d1 migrations apply ai-business-core-db --remote --config wrangler.toml
 
       - name: Deploy Worker
-        run: wrangler deploy --config ai-gateway/wrangler.toml
+        run: wrangler deploy --config wrangler.toml
 
       - name: Verify deployed Worker and D1 health
         shell: bash
