@@ -161,3 +161,15 @@ test("complete release is explicitly gated and deploys Worker before Pages", () 
   assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
   assert.ok(!releaseWorkflow.includes("build-android"));
 });
+
+test("long-form YouTube autopilot scripts, animates scenes, narrates, and auto-uploads", () => {
+  assert.match(worker, /LONG-FORM YouTube video script designed for an 8–12 minute/);
+  assert.match(app, /سناریوی ویدئوی بلند ۸ تا ۱۲ دقیقه‌ای/);
+  assert.match(app, /slides\.length>48/);
+  assert.match(app, /decodeAudioData\(audioParts\[i\]\.slice\(0\)\)/);
+  assert.match(app, /requestAnimationFrame\(animate\)/);
+  assert.match(app, /async function uploadGeneratedVideo\(\)/);
+  assert.match(app, /autopilot-auto-upload/);
+  assert.match(app, /autopilot-public/);
+  assert.match(app, /autopilot-publish-at/);
+});
