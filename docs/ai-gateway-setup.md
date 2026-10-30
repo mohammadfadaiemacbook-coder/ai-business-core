@@ -4,10 +4,10 @@ This is a deployable, provider-compatible gateway for the AI Business Core app. 
 
 ## 1. Deploy the Worker
 
-1. Create/sign in to a Cloudflare account and open Workers & Pages.
-2. Use the existing Worker named `ai-business-core`. The checked-in Wrangler template now uses this exact service name and binds D1 as `DB`.
-3. Paste the contents of `worker.js` into the Worker editor and deploy.
-4. In Worker Settings → Variables and Secrets, set:
+1. The repository's guarded release workflow targets the existing Worker named `ai-business-core` and existing D1 database `ai-business-core-db`. The D1 ID is read from the checked-in root `wrangler.toml`; do not create a new database.
+2. The deployment config uses `keep_vars = true` and intentionally leaves the existing primary AI endpoint/model variables untouched.
+3. In Cloudflare Worker Settings → Variables and Secrets, verify the existing values are still present. Set any missing values below before deployment:
+
    - Secret `AI_API_KEY`: your provider API key.
    - Secret `APP_ACCESS_TOKEN`: a random secret of at least 24 characters. Keep it private.
    - Variable `AI_API_URL`: the provider's OpenAI-compatible chat-completions URL.
@@ -29,15 +29,17 @@ Optional Worker variables/secrets:
 - `IMAGE_API_URL`, `IMAGE_API_KEY`, `IMAGE_MODEL` for artwork.
 - `APP_PUBLIC_URL` for the published frontend origin/redirect behavior.
 
-## 2. Apply D1 migrations
+## 2. Complete release: Worker, web app and Android APK
 
-Before deploying Worker code that reads provider settings, apply the repository migrations (including 0003_provider_secrets):
+1. In GitHub, open **Settings → Secrets and variables → Actions → New repository secret**.
+2. Add `CLOUDFLARE_API_TOKEN` with Cloudflare permissions **Workers Scripts: Edit**, **D1: Edit**, and the account read permission Wrangler requires.
+3. Add `CLOUDFLARE_ACCOUNT_ID`.
+4. Keep all existing Cloudflare Worker secrets/variables intact: `APP_ACCESS_TOKEN`, `TOKEN_ENCRYPTION_KEY`, Google OAuth credentials, primary AI provider credentials and optional media-provider credentials. Never replace `TOKEN_ENCRYPTION_KEY` for an existing database.
+5. In GitHub Actions, select **Complete release - Worker, web app and Android APK**, choose the `feature/security-expo-hardening` branch, and set confirmation to `RELEASE`.
+6. The workflow exports a D1 backup, applies all pending migrations, deploys the Worker, verifies Worker/D1 health, publishes only the public app files to GitHub Pages, then builds and uploads the Android APK.
+7. Download and retain the artifact named `ai-business-core-d1-predeploy-backup`. Download the Android artifact named `ai-business-core-final-android-apk` after the workflow succeeds.
 
-```bash
-npx wrangler d1 migrations apply ai-business-core-db --remote
-```
-
-The repository includes a guarded GitHub Actions workflow named **Backup, migrate and deploy Cloudflare Worker**. It exports D1 before applying pending migrations and deploying. To use it, add GitHub repository secrets `CLOUDFLARE_API_TOKEN` (Workers Scripts + D1 edit permissions) and `CLOUDFLARE_ACCOUNT_ID`, then manually dispatch the workflow with the D1 database ID and select `DEPLOY`. The default `NO` option does not deploy. Keep existing Worker secrets (`APP_ACCESS_TOKEN`, `TOKEN_ENCRYPTION_KEY`, provider and Google OAuth credentials) configured in Cloudflare. Review and download the backup artifact before considering the release complete.
+The default confirmation is `NO`; no production changes happen unless you explicitly choose `RELEASE`. The standalone **Backup, migrate and deploy Cloudflare Worker** and **Deploy web app to GitHub Pages** workflows are also available for separate, gated operations.
 
 ## 3. Configure and test
 
