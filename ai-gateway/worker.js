@@ -15,7 +15,7 @@ function constantTimeEqual(left, right) {
   return diff===0;
 }
 function base64UrlEncode(bytes) {
-  return btoa(String.fromCharCode(...bytes)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+  return btoa(String.fromCharCode(...bytes)).split("+").join("-").split("/").join("_").replace(/=+$/,"");
 }
 function base64UrlDecode(value) {
   const normalized=String(value).replace(/-/g,"+").replace(/_/g,"/");
