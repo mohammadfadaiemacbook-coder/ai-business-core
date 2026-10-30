@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, AppState, BackHandler, Linking, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { WebView, WebViewNavigation } from "react-native-webview";
+import { ActivityIndicator, Alert, AppState, type AppStateStatus, BackHandler, Linking, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { WebView } from "react-native-webview";
+const NativeWebView: any = WebView;
+type NavigationRequest = { url: string };
 import * as Updates from "expo-updates";
 
 const APP_URL = process.env.EXPO_PUBLIC_APP_URL || "https://mohammadfadaiemacbook-coder.github.io/ai-business-core/";
 const APP_HOST = "mohammadfadaiemacbook-coder.github.io";
 
 export default function App() {
-  const webView = useRef<WebView>(null);
+  const webView = useRef<any>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -55,7 +57,7 @@ export default function App() {
     return () => subscription.remove();
   }, [canGoBack]);
 
-  const handleNavigation = useCallback((request: WebViewNavigation) => {
+  const handleNavigation = useCallback((request: NavigationRequest) => {
     let url: URL;
     try { url = new URL(request.url); } catch { return false; }
     if (url.protocol !== "https:") return false;
@@ -69,7 +71,7 @@ export default function App() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#0b1120" />
+      <StatusBar barStyle="light-content" />
       <View style={styles.topBar}>
         <Text style={styles.brand}>AI BUSINESS CORE</Text>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="بارگذاری دوباره" onPress={reload} style={styles.refresh}>
@@ -83,14 +85,14 @@ export default function App() {
           <TouchableOpacity onPress={reload} style={styles.retry}><Text style={styles.retryText}>تلاش دوباره</Text></TouchableOpacity>
         </View>
       ) : (
-        <WebView ref={webView} source={{ uri: APP_URL }} originWhitelist={["https://*"]}
+        <NativeWebView ref={webView} source={{ uri: APP_URL }} originWhitelist={["https://*"]}
           onShouldStartLoadWithRequest={handleNavigation}
           injectedJavaScriptBeforeContentLoaded={"window.__AI_BUSINESS_CORE_EXPO__ = true; true;"}
-          onNavigationStateChange={(state) => setCanGoBack(state.canGoBack)}
+          onNavigationStateChange={(state: { canGoBack: boolean }) => setCanGoBack(state.canGoBack)}
           onLoadStart={() => { setLoading(true); setFailed(false); }}
           onLoadEnd={() => setLoading(false)}
           onError={() => { setLoading(false); setFailed(true); }}
-          onHttpError={(event) => { if (event.nativeEvent.statusCode >= 500) setFailed(true); }}
+          onHttpError={(event: { nativeEvent: { statusCode: number } }) => { if (event.nativeEvent.statusCode >= 500) setFailed(true); }}
           javaScriptEnabled domStorageEnabled sharedCookiesEnabled thirdPartyCookiesEnabled
           allowsInlineMediaPlayback mediaPlaybackRequiresUserAction={false}
           setSupportMultipleWindows={false} pullToRefreshEnabled cacheEnabled style={styles.webView} />
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
   refresh:{paddingHorizontal:12,paddingVertical:7,borderRadius:8,backgroundColor:"#1d4ed8"},
   refreshText:{color:"#fff",fontSize:12,fontWeight:"700"},
   webView:{flex:1,backgroundColor:"#0b1120"},
-  loading:{...StyleSheet.absoluteFillObject,top:48,backgroundColor:"#0b1120",alignItems:"center",justifyContent:"center"},
+  loading:{...StyleSheet.absoluteFill,top:48,backgroundColor:"#0b1120",alignItems:"center",justifyContent:"center"},
   loadingText:{color:"#cbd5e1",marginTop:12,fontSize:13},
   error:{flex:1,alignItems:"center",justifyContent:"center",padding:28},
   errorTitle:{color:"#fff",fontSize:20,fontWeight:"800",marginBottom:8},
