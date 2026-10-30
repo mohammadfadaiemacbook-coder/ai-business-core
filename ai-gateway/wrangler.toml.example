@@ -1,7 +1,14 @@
-name = "ai-business-core-gateway"
+name = "ai-business-core"
 main = "worker.js"
 compatibility_date = "2026-10-30"
 workers_dev = true
+migrations_dir = "../migrations"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ai-business-core-db"
+database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+migrations_dir = "../migrations"
 
 [vars]
 AI_API_URL = "https://api.openai.com/v1/chat/completions"
