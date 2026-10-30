@@ -17,7 +17,7 @@
 - OAuth state is atomically consumed; failed YouTube refresh marks the account `needs_reauth`.
 - YouTube quota failures return a Persian 429 response; uploads stream the File body.
 - Expo SDK 58 / React Native 0.88 Android shell with WebView, system-browser OAuth handoff, back navigation, reload and connection states.
-- Android preview APK build workflow and guarded Cloudflare backup/migration/deploy workflow added.
+- Android preview APK build workflow, guarded Pages publishing, and a complete gated Worker → Pages → APK release workflow added.
 
 ## Automated checks
 - JavaScript syntax checks for `app.js`, `sw.js` and Worker module.
@@ -27,7 +27,7 @@
 
 ## Required production setup
 - Set GitHub repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the API token needs Workers Scripts and D1 edit permissions.
-- Supply the exact D1 database ID to the guarded Cloudflare workflow. It exports a D1 backup, applies pending migrations and deploys the Worker, then checks `/api/health` and session endpoint behavior.
+- The complete release workflow reads the existing D1 database ID from root `wrangler.toml`, exports a backup, applies pending migrations, deploys the Worker and checks `/api/health` before publishing Pages and building the APK.
 - Keep `APP_ACCESS_TOKEN`, `TOKEN_ENCRYPTION_KEY`, AI provider keys, Google OAuth credentials, and optional ElevenLabs/image provider keys configured as Cloudflare Worker secrets/variables.
 - Verify the D1 backup artifact before treating the production migration as complete.
 - Reconnect Google OAuth after deployment so the `youtube.force-ssl` scope is granted.
@@ -41,9 +41,9 @@
 - Physical-device checks for WebView file selection, media playback/recording, Google OAuth return flow and APK installation remain required.
 
 ## Release gate
-1. Latest dashboard and Expo CI runs pass.
-2. Android preview APK build succeeds and artifact is uploaded.
-3. Cloudflare D1 backup, migrations and Worker deploy complete with health checks.
+1. Add GitHub repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+2. Run **Complete release - Worker, web app and Android APK** from this branch with explicit `RELEASE` confirmation.
+3. Verify the D1 pre-deploy backup artifact, Worker/D1 health, Pages deployment and Android APK artifact.
 4. Live tests pass for primary AI, Claude, YouTube OAuth/comments, TTS and image generation.
 5. A real WebM file is confirmed to contain an audio track when TTS is configured.
 6. A real YouTube upload is tested as private first.
