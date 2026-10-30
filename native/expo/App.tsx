@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, Linking, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, BackHandler, Linking, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { WebView, WebViewNavigation } from "react-native-webview";
 import * as Updates from "expo-updates";
 
@@ -11,11 +11,12 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [canGoBack, setCanGoBack] = useState(false);
-  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const checkingUpdate = useRef(false);
+  const externalAuthOpened = useRef(false);
 
   const checkNativeUpdate = useCallback(async () => {
-    if (!Updates.isEnabled || checkingUpdate) return;
-    setCheckingUpdate(true);
+    if (!Updates.isEnabled || checkingUpdate.current) return;
+    checkingUpdate.current = true;
     try {
       const result = await Updates.checkForUpdateAsync();
       if (result.isAvailable) {
@@ -31,8 +32,8 @@ export default function App() {
       }
     } catch {
       // OTA stays disabled until an EAS project is configured.
-    } finally { setCheckingUpdate(false); }
-  }, [checkingUpdate]);
+    } finally { checkingUpdate.current = false; }
+  }, []);
 
   useEffect(() => { void checkNativeUpdate(); }, [checkNativeUpdate]);
 
