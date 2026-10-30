@@ -14,7 +14,7 @@ permissions:
 jobs:
   android-preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -52,14 +52,25 @@ jobs:
         working-directory: native/expo
         run: npx expo prebuild --platform android --non-interactive
 
+      - name: Configure Gradle dependency cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Build installable debug APK
+        timeout-minutes: 25
         working-directory: native/expo/android
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon --stacktrace --max-workers=2 --console=plain assembleDebug
+
+      - name: Verify APK and checksum
+        run: |
+          test -s native/expo/android/app/build/outputs/apk/debug/app-debug.apk
+          sha256sum native/expo/android/app/build/outputs/apk/debug/app-debug.apk | tee native/expo/android/app/build/outputs/apk/debug/SHA256SUMS.txt
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: ai-business-core-expo-preview-apk
-          path: native/expo/android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            native/expo/android/app/build/outputs/apk/debug/app-debug.apk
+            native/expo/android/app/build/outputs/apk/debug/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
