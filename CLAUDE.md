@@ -5,7 +5,7 @@ AI Business Core is a Persian-first content and business workspace.
 - Frontend: vanilla JavaScript in `app.js`, markup in `index.html`, styles in `styles.css`.
 - Backend: Cloudflare Worker in `ai-gateway/worker.js`.
 - Database: Cloudflare D1.
-- Android client: WebView wrapper; avoid browser-only assumptions without feature detection.
+- Delivery: static HTTPS web app / installable PWA; preserve browser compatibility and offline behavior.
 - YouTube OAuth tokens and provider secrets are encrypted at rest in D1.
 
 ## Current feature areas
@@ -41,15 +41,11 @@ AI Business Core is a Persian-first content and business workspace.
 
 ## Current working branches
 - Release candidate: `feature/voiceover-video-pipeline`
-- Security and Expo hardening: `feature/security-expo-hardening`
-
-## Native client
-- Expo SDK 58 shell lives in `native/expo/`; it wraps the current hosted PWA and is not yet a full React Native rewrite.
-- Expo OTA updates stay disabled until an EAS project ID is configured.
+- Security hardening: `feature/security-expo-hardening`
 
 ## Review priorities
 1. Persian narration quality, audio muxing, per-scene timing and SRT accuracy.
 2. Thumbnail image composition and readable Persian typography.
 3. Captions, title/metadata consistency, and originality controls.
 4. YouTube comment retrieval, draft generation, and explicit approval before replies.
-5. OAuth scopes, refresh-token behavior, quota handling, API errors, and Android compatibility.
+5. OAuth scopes, refresh-token behavior, quota handling, API errors, and mobile browser compatibility.
