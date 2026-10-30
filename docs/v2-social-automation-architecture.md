@@ -78,6 +78,58 @@ All write endpoints require authenticated workspace identity, CSRF/state protect
 - Platform APIs do not guarantee every content format or account feature can be automated. Unsupported actions must remain manual with a clear explanation.
 - Do not automate browser login, scrape private endpoints, or ask users to provide platform passwords.
 
+
+## Instagram onboarding and profile manager
+
+The owner creates the Instagram account independently, then connects it to the workspace through Meta's official OAuth flow. The product must never request or collect the Instagram password. After connection, the AI prepares a reviewable profile package; it does not silently change the account.
+
+### AI-prepared profile package
+
+For the connected account, the profile manager may generate and maintain a versioned proposal containing:
+
+- Username and display-name suggestions (availability is not guaranteed until checked through an allowed official mechanism or manually in Instagram).
+- Suggested professional category and account-positioning notes.
+- A polished bio, call-to-action, and link/contact recommendations.
+- AI-generated profile-image concepts and final image asset previews.
+- Highlight plan: highlight titles, ordering suggestions, cover artwork, and suggested story packs/content.
+- A profile completeness report and a prioritized setup checklist.
+
+The package is a proposal, not a claim that Instagram has accepted or applied any change. Each field should show its current value (when readable), proposed value, rationale, and capability status.
+
+### Capability discovery and honest execution
+
+Maintain a versioned Instagram capability registry keyed by API version, account type, granted scopes, app-review status, and endpoint availability. Re-check capabilities when an account is connected and periodically thereafter. Do not assume that a feature is writable merely because it is visible in Instagram's consumer app.
+
+Use these statuses for each proposed operation:
+
+- `supported`: verified official API operation is available for this account and granted permissions.
+- `approval_required`: API operation is available, but owner approval for this exact change is still required.
+- `manual_required`: no supported public API path is available, or prerequisites are not satisfied; show precise user-facing steps.
+- `blocked`: platform policy, account eligibility, missing permission, or API error prevents the operation.
+- `applied`: confirmed by a successful official API response and, where possible, a follow-up read.
+- `failed`: attempted through an official API and returned an error; retain the error code and recovery guidance.
+
+Before enabling any write, validate current Meta documentation and the app's approved permissions. Instagram Graph API support is limited and changes over time. In particular, do not promise programmatic account-type conversion, arbitrary username changes, or creation/reordering/management of Story Highlights unless current official API documentation explicitly supports the exact operation for the connected account. When unsupported or uncertain, mark it `manual_required` and provide a concise checklist that opens the relevant Instagram settings/workflow for the owner to complete.
+
+### Approval and audit rules
+
+- Profile edits are separate high-impact approval requests, not bundled into a content-publishing approval.
+- Approval binds the account ID, exact field changes, asset references, API version, permission/capability snapshot, payload hash, and expiry.
+- Any edit to the proposal or capability snapshot invalidates the approval and requires a new review.
+- Apply only the approved fields that are officially supported. Never silently skip unsupported fields; return a per-field result and manual checklist.
+- Record who approved, what changed, API response identifiers, timestamps, and before/after values where available.
+- Profile-image upload, bio/category/contact updates, and any other supported mutation must each be reported as applied only after platform confirmation.
+
+### Suggested profile-manager API
+
+- `GET /api/social/instagram/capabilities` — report verified operations and prerequisites for the connected account.
+- `POST /api/social/instagram/profile-package` — generate or refresh the AI profile proposal.
+- `GET /api/social/instagram/profile-package/:id` — retrieve proposal, previews, per-field status, and manual checklist.
+- `POST /api/social/instagram/profile-package/:id/approve` — approve the immutable profile-change payload.
+- `POST /api/social/instagram/profile-package/:id/apply` — apply only approved, supported operations; return per-field outcomes.
+
+These routes are a proposed contract; they are not implemented yet. Manual-required items must never be routed through browser automation, private endpoints, or password-based workarounds.
+
 ## Delivery plan
 
 ### Phase 0 — Foundation (first implementation slice)
@@ -103,8 +155,10 @@ All write endpoints require authenticated workspace identity, CSRF/state protect
 - Add YouTube publishing first, then eligible Instagram formats.
 - Scheduler must reject unapproved, expired, or hash-mismatched actions; use idempotency and reconciliation.
 
-### Phase 5 — Profile management and analytics
-- Propose profile/bio edits as separate approval requests.
+### Phase 5 — Instagram profile management and analytics
+- Build the Instagram onboarding flow for owner-created accounts and official Meta OAuth connection.
+- Implement capability discovery and the AI-prepared profile package (username/display-name suggestions, category, bio, profile image, links/contact, and highlight plan/covers/story packs).
+- Apply only officially supported, owner-approved profile changes; expose unsupported items as manual-required checklists.
 - Import platform analytics within granted API access; use metrics to inform future briefs without claiming causation.
 
 ## Acceptance criteria for the first publishable release
