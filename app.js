@@ -64,32 +64,7 @@ toast("آمار یوتیوب دریافت شد.");
 return;
 }
 
-const token=($("#cloud-token")?.value||cloudToken||"").trim();
-const wid=($("#cloud-workspace")?.value||"default").trim();
-if(!/^[a-zA-Z0-9_-]{3,64}$/.test(wid)){toast("شناسه فضای کاری معتبر نیست.");return}
-if(token.length<24){toast("ابتدا توکن APP_ACCESS_TOKEN را در بخش همگام‌سازی ابری وارد کن.");return}
-cloudToken=token;
-const base="https://ai-business-core.mohammadfadaiemacbook.workers.dev";
-const headers={"authorization":"Bearer "+token};
-try{
-if(a==="youtube-connect"){
-const response=await fetch(base+"/oauth/google/start?workspace="+encodeURIComponent(wid),{method:"GET",headers,cache:"no-store"});
-const data=await response.json().catch(()=>({}));
-if(!response.ok||!data.authorizationUrl)throw Error(data.error||("خطای شروع اتصال: "+response.status));
-location.assign(data.authorizationUrl);
-return;
-}
-const response=await fetch(base+"/api/social/accounts?workspace="+encodeURIComponent(wid),{headers,cache:"no-store"});
-const data=await response.json().catch(()=>({}));
-if(!response.ok)throw Error(data.error||("خطای دریافت وضعیت: "+response.status));
-const accounts=(data.accounts||[]).filter(x=>x.platform==="youtube"&&x.status==="connected");
-const box=$("#youtube-account-status");
-if(box)box.textContent=accounts.length?accounts.map(x=>"متصل: "+(x.displayName||"کانال یوتیوب")+" · شناسه کانال: "+x.externalAccountId).join(" | "):"هنوز حساب یوتیوبی به این فضای کاری متصل نشده است.";
-if(!accounts.length)toast("اتصال یوتیوبی ثبت نشده است.");
-else toast("وضعیت اتصال یوتیوب دریافت شد.");
-}catch(err){toast(err instanceof TypeError?"خطای شبکه یا CORS؛ مقدار ALLOWED_ORIGIN را بررسی کن.":(err.message||"خطا در اتصال یوتیوب"));}
-return;
-}if(a==="cloud-connect"||a==="cloud-pull"||a==="cloud-push"){
+if(a==="cloud-connect"||a==="cloud-pull"||a==="cloud-push"){
 const token=(a==="cloud-connect"?$("#cloud-token")?.value:cloudToken)||"";
 const wid=($("#cloud-workspace")?.value||"default").trim();
 if(!/^[a-zA-Z0-9_-]{3,64}$/.test(wid)){toast("شناسه فضای کاری باید ۳ تا ۶۴ نویسه انگلیسی، عدد، خط تیره یا زیرخط باشد.");return}
