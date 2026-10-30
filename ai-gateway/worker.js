@@ -75,6 +75,19 @@ export default {
         return json({ error: "Workspace storage operation failed", detail: String(error?.message || "database error").slice(0, 180) }, 500, headers);
       }
     }
+    if (url.pathname === "/api/social/accounts" && request.method === "GET") {
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
+      if (!isAuthorized(request, env)) return json({ error: "Unauthorized" }, 401, headers);
+      if (!env.DB) return json({ error: "Database is not configured" }, 503, headers);
+      const workspace = url.searchParams.get("workspace") || "default";
+      if (!WORKSPACE_ID.test(workspace)) return json({ error: "Invalid workspace id" }, 400, headers);
+      try {
+        const rows = await env.DB.prepare("SELECT id, platform, external_account_id, display_name, account_type, granted_scopes_json, token_expires_at, status, connected_at, last_checked_at FROM social_accounts WHERE workspace_id = ? ORDER BY connected_at DESC").bind(workspace).all();
+        return json({ ok: true, workspace, accounts: (rows.results || []).map(row => ({ id: row.id, platform: row.platform, externalAccountId: row.external_account_id, displayName: row.display_name, accountType: row.account_type, grantedScopes: JSON.parse(row.granted_scopes_json || "[]"), tokenExpiresAt: row.token_expires_at, status: row.status, connectedAt: row.connected_at, lastCheckedAt: row.last_checked_at })) }, 200, headers);
+      } catch (error) {
+        return json({ error: "Could not load connected accounts", detail: String(error?.message || "database error").slice(0, 160) }, 500, headers);
+      }
+    }
     // Google OAuth: authorization-code flow with PKCE; tokens are encrypted before D1 storage.
     if (url.pathname === "/oauth/google/start" && request.method === "GET") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
@@ -102,7 +115,7 @@ export default {
       auth.searchParams.set("state",state);
       auth.searchParams.set("code_challenge",challenge);
       auth.searchParams.set("code_challenge_method","S256");
-      return Response.redirect(auth.toString(),302);
+      return json({ ok: true, authorizationUrl: auth.toString(), expiresIn: 600 }, 200, headers);
     }
     if (url.pathname === "/oauth/google/callback" && request.method === "GET") {
       if (!env.DB || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI || !env.TOKEN_ENCRYPTION_KEY) return new Response("Google OAuth callback is not configured.",{status:503});
