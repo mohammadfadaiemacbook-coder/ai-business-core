@@ -34,6 +34,15 @@ eas build:configure
 eas build --platform android --profile preview
 ```
 
+## GitHub Actions preview APK
+
+Every push that changes `native/expo/**` on `feature/security-expo-hardening` runs **Build Android preview APK**. When the workflow succeeds:
+1. Open the workflow run in GitHub Actions.
+2. Download the `ai-business-core-expo-preview-apk` artifact.
+3. Extract the ZIP and install `app-debug.apk` on Android.
+
+This is a debug-signed preview build for device testing, not a Play Store release. It uses package ID `com.aibusinesscore.expo`, so it installs separately from the legacy app. Export a backup from the old app before moving data. The APK loads the published GitHub Pages frontend; the latest frontend must be published before this shell shows those changes.
+
 ## OTA updates
 Set EAS_PROJECT_ID in the build environment and configure EAS Update before enabling OTA updates. Until then, the native shell does not pretend that remote updates are active. The PWA has its own service-worker update prompt.
 
