@@ -1,6 +1,6 @@
 # Secure AI gateway (Cloudflare Worker)
 
-This is a deployable, provider-compatible gateway for the AI Business Core app. It keeps the provider API key on the server side rather than putting it in GitHub or browser JavaScript. The AI Studio UI already supports a **manual connection**: enter the Worker HTTPS endpoint and app access token in the form. The endpoint is prefilled, while the token is entered per session and is not persisted in local storage. Deploy and configure the Worker before using it.
+This is a deployable, provider-compatible gateway for the AI Business Core app. It keeps the provider API key on the server side rather than putting it in GitHub or browser JavaScript. The AI Studio UI already supports a **manual connection**: enter the Worker HTTPS endpoint and APP_ACCESS_TOKEN in the form. The master token is exchanged for a workspace-scoped HMAC session that expires after 15 minutes; normal API calls use that session. Both tokens remain in memory and are not persisted in local storage. Deploy and configure the Worker before using it.
 
 ## 1. Deploy the Worker
 
@@ -16,12 +16,26 @@ This is a deployable, provider-compatible gateway for the AI Business Core app. 
 5. Use a long, unique token. Never commit either secret to GitHub or share it in a screenshot/chat.
 6. If you use a different AI provider, verify its endpoint and request/response compatibility first. Provider usage may cost money; the gateway does not make API calls free.
 
-## 2. Configure and test
+## 2. Apply D1 migrations
 
-Endpoint: `POST https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/api/generate`
+Before deploying Worker code that reads provider settings, apply the repository migrations (including 0003_provider_secrets):
 
-Headers:
-- `Authorization: Bearer YOUR_APP_ACCESS_TOKEN`
+```bash
+npx wrangler d1 migrations apply ai-business-core-db --remote
+```
+
+Do not run this against production until the release owner has reviewed the migration plan and backup.
+
+## 3. Configure and test
+
+First exchange the master token for a 15-minute session:
+
+```bash
+SESSION=$(curl -fsS -X POST 'https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/api/auth/session?workspace=default' -H 'Authorization: Bearer YOUR_APP_ACCESS_TOKEN' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).sessionToken))')
+```
+
+Then call `POST https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/api/generate` with:
+- `Authorization: Bearer $SESSION`
 - `Content-Type: application/json`
 
 Body example:
@@ -44,6 +58,6 @@ A successful response returns `output`, `task`, and `model`. The gateway does no
 
 - CORS restricts browser origins but is not authentication by itself; the bearer token is also required.
 - Do not place the provider API key in frontend code, GitHub files, or the manifest.
-- Anyone who obtains the app access token can use your gateway and may incur provider charges. Rotate it if exposed.
+The master APP_ACCESS_TOKEN is accepted only by the session-exchange endpoint; normal API routes require a signed, workspace-scoped 15-minute session. Anyone who obtains the master token can still mint sessions and may incur provider charges. Rotate it if exposed.
 - This version has request-size limits and basic error handling, but no durable per-user identity, billing controls, or advanced rate limiting. Set provider spending limits and platform limits before using it publicly.
 - AI Studio calls this endpoint when the user submits the form. The app access token is entered per session and is not stored in local storage. The provider API key remains server-side in Worker secrets.
