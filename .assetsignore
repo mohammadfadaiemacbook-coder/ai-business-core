@@ -1,0 +1,8 @@
+.git
+.github
+ai-gateway
+docs
+node_modules
+wrangler.jsonc
+.assetsignore
+*.md
