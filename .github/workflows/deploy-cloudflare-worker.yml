@@ -1,0 +1,66 @@
+name: Backup, migrate and deploy Cloudflare Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: Type DEPLOY to back up D1, apply migrations and deploy the Worker
+        required: true
+        type: choice
+        options:
+          - NO
+          - DEPLOY
+        default: NO
+
+permissions:
+  contents: read
+
+jobs:
+  production-deploy:
+    if: inputs.confirm_production == 'DEPLOY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+
+      - name: Validate Cloudflare deployment inputs
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN repository secret"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing CLOUDFLARE_ACCOUNT_ID repository secret"; exit 1; }
+          node -e 'const fs=require("fs");const root=fs.readFileSync("wrangler.toml","utf8");const m=root.match(/database_id\s*=\s*"([a-fA-F0-9-]{36})"/);if(!m)throw Error("The existing D1 database ID is missing or invalid in wrangler.toml");const p="ai-gateway/wrangler.toml.example";const t=fs.readFileSync(p,"utf8");if(!t.includes("REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"))throw Error("D1 template placeholder missing");fs.writeFileSync("ai-gateway/wrangler.toml",t.replace("REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID",m[1]));console.log("Existing ai-business-core-db binding copied into isolated Worker config.");'
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+
+      - name: Export remote D1 backup before any schema change
+        run: wrangler d1 export ai-business-core-db --remote --output=cloudflare-d1-backup.sql --config ai-gateway/wrangler.toml
+
+      - name: Apply pending D1 migrations
+        run: wrangler d1 migrations apply ai-business-core-db --remote --config ai-gateway/wrangler.toml
+
+      - name: Deploy Worker
+        run: wrangler deploy --config ai-gateway/wrangler.toml
+
+      - name: Verify deployed Worker and D1 health
+        shell: bash
+        run: |
+          curl --retry 8 --retry-delay 5 --retry-all-errors -fsS "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s);if(d.ok!==true||d.database!=="connected")throw Error("Worker/D1 health check failed: "+s);console.log("Worker and D1 are healthy.")})'
+          status=$(curl -sS -o /tmp/session-check.json -w '%{http_code}' -X POST "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/auth/session" -H "Authorization: Bearer intentionally-invalid-smoke-test-token")
+          test "$status" = "401" || { cat /tmp/session-check.json; echo "Session endpoint smoke test expected 401, got $status"; exit 1; }
+
+      - name: Upload D1 backup
+        if: always() && hashFiles('cloudflare-d1-backup.sql') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-business-core-d1-predeploy-backup
+          path: cloudflare-d1-backup.sql
+          retention-days: 30
