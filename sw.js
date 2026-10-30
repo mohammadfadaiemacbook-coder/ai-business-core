@@ -32,7 +32,7 @@ self.addEventListener("fetch", event => {
     return;
   }
   const path = new URL(request.url).pathname;
-  const networkFirst = /\\/(app\\.js|styles\\.css|manifest\\.webmanifest)$/.test(path);
+  const networkFirst = /\/(app\.js|styles\.css|manifest\.webmanifest)$/.test(path);
   if (networkFirst) {
     event.respondWith(fetch(request).then(response => {
       if (response && response.ok) {
