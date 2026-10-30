@@ -1,7 +1,7 @@
 {
-  "name": "AI Business Core",
-  "short_name": "Business Core",
-  "description": "A local-first workspace for research, tasks, content planning and approvals.",
+  "name": "هسته هوشمند کسب‌وکار",
+  "short_name": "هسته کسب‌وکار",
+  "description": "فضای کاری فارسی برای مدیریت وظایف، پژوهش، محتوا و برنامه‌ریزی کسب‌وکار.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
