@@ -147,7 +147,7 @@ export default {
         VALUES (?,?,?,?,?,?,?,?,?,'connected',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
         ON CONFLICT(workspace_id,platform,external_account_id) DO UPDATE SET display_name=excluded.display_name,granted_scopes_json=excluded.granted_scopes_json,encrypted_token_json=excluded.encrypted_token_json,token_expires_at=excluded.token_expires_at,status='connected',last_checked_at=excluded.last_checked_at`)
         .bind(accountId,saved.workspace_id,"youtube",channel.id,channel.snippet?.title||"YouTube channel","channel",JSON.stringify((tokens.scope||"").split(" ")),JSON.stringify(pack),tokens.expires_in?new Date(Date.now()+tokens.expires_in*1000).toISOString():null).run();
-      const destination=(env.APP_PUBLIC_URL||"https://mohammadfadaiemacbook-coder.github.io/ai-business-core/").replace(/\\/$/,"");
+      const destination=(env.APP_PUBLIC_URL||"https://mohammadfadaiemacbook-coder.github.io/ai-business-core/").replace(/\/$/,"");
       return Response.redirect(destination+"?oauth=youtube_connected",302);
     }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
