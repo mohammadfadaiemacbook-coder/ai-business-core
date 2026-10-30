@@ -136,7 +136,7 @@ export default {
       try{
         if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
         const secrets=await loadProviderSecrets(env,env.DB,workspace);
-        return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),tts:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
+        return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
       }catch(error){return json({error:"Provider settings operation failed",detail:String(error?.message||"unknown").slice(0,180)},500,headers)}
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
