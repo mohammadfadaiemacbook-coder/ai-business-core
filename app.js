@@ -17,7 +17,8 @@ async function workerFetch(input,options={}){
       const response=await fetch(url.origin+"/api/auth/session?workspace="+encodeURIComponent(workspace),{method:"POST",headers:{authorization:"Bearer "+masterToken}});
       const data=await response.json().catch(()=>({}));
       if(!response.ok||!data.sessionToken)throw Error(data.error||"گرفتن نشست امن از Worker ناموفق بود.");
-      session={masterToken,sessionToken:data.sessionToken,expiresAt:Number(data.expiresAt)*1000};
+      const expiresAt=Number(data.expiresAt)*1000;if(!Number.isFinite(expiresAt))throw Error("زمان انقضای نشست معتبر نیست.");
+      session={masterToken,sessionToken:data.sessionToken,expiresAt};
       workerSessionCache.set(cacheKey,session);
     }
     headers.set("authorization","Bearer "+session.sessionToken);
