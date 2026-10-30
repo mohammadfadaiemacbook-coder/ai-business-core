@@ -75,6 +75,68 @@ export default {
         return json({ error: "Workspace storage operation failed", detail: String(error?.message || "database error").slice(0, 180) }, 500, headers);
       }
     }
+    // Google OAuth: authorization-code flow with PKCE; tokens are encrypted before D1 storage.
+    if (url.pathname === "/oauth/google/start" && request.method === "GET") {
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
+      if (!isAuthorized(request, env)) return json({ error: "Unauthorized" }, 401, headers);
+      if (!env.DB || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) return json({ error: "Google OAuth is not configured on the Worker" }, 503, headers);
+      const workspace = url.searchParams.get("workspace") || "default";
+      if (!WORKSPACE_ID.test(workspace)) return json({ error: "Invalid workspace id" }, 400, headers);
+      const state = [...crypto.getRandomValues(new Uint8Array(32))].map(x => x.toString(16).padStart(2,"0")).join("");
+      const verifier = [...crypto.getRandomValues(new Uint8Array(32))].map(x => x.toString(16).padStart(2,"0")).join("");
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+      const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+      const stateHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(state));
+      const stateKey = [...new Uint8Array(stateHash)].map(x=>x.toString(16).padStart(2,"0")).join("");
+      await ensureWorkspace(env.DB, workspace);
+      await env.DB.prepare("INSERT INTO oauth_states (state_hash,workspace_id,platform,code_verifier,redirect_uri,expires_at) VALUES (?,?,?,?,?,?)")
+        .bind(stateKey,workspace,"youtube",verifier,env.GOOGLE_REDIRECT_URI,Math.floor(Date.now()/1000)+600).run();
+      const auth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      auth.searchParams.set("client_id",env.GOOGLE_CLIENT_ID);
+      auth.searchParams.set("redirect_uri",env.GOOGLE_REDIRECT_URI);
+      auth.searchParams.set("response_type","code");
+      auth.searchParams.set("scope","openid email https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload");
+      auth.searchParams.set("access_type","offline");
+      auth.searchParams.set("prompt","consent");
+      auth.searchParams.set("include_granted_scopes","true");
+      auth.searchParams.set("state",state);
+      auth.searchParams.set("code_challenge",challenge);
+      auth.searchParams.set("code_challenge_method","S256");
+      return Response.redirect(auth.toString(),302);
+    }
+    if (url.pathname === "/oauth/google/callback" && request.method === "GET") {
+      if (!env.DB || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI || !env.TOKEN_ENCRYPTION_KEY) return new Response("Google OAuth callback is not configured.",{status:503});
+      const fail = (message,status=400) => new Response(message,{status,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}});
+      const code=url.searchParams.get("code"), state=url.searchParams.get("state"), oauthError=url.searchParams.get("error");
+      if (oauthError) return fail("Google authorization was not completed: "+oauthError);
+      if (!code || !state) return fail("Missing OAuth code or state.");
+      const stateDigest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(state));
+      const stateKey=[...new Uint8Array(stateDigest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+      const saved=await env.DB.prepare("SELECT * FROM oauth_states WHERE state_hash=? AND platform='youtube' AND consumed_at IS NULL AND expires_at>?").bind(stateKey,Math.floor(Date.now()/1000)).first();
+      if (!saved) return fail("OAuth state is invalid or expired. Return to AI Business Core and try again.");
+      await env.DB.prepare("UPDATE oauth_states SET consumed_at=? WHERE state_hash=? AND consumed_at IS NULL").bind(Math.floor(Date.now()/1000),stateKey).run();
+      const tokenResponse=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,redirect_uri:saved.redirect_uri,grant_type:"authorization_code",code_verifier:saved.code_verifier})});
+      const tokens=await tokenResponse.json().catch(()=>({}));
+      if (!tokenResponse.ok || !tokens.access_token) return fail("Google token exchange failed. Check OAuth client and redirect URI.",502);
+      const channelResponse=await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",{headers:{authorization:"Bearer "+tokens.access_token}});
+      const channelData=await channelResponse.json().catch(()=>({}));
+      const channel=channelData.items?.[0];
+      if (!channel) return fail("No accessible YouTube channel was found for this Google account. Create a channel or grant access, then retry.",403);
+      const keyBytes=Uint8Array.from(atob(env.TOKEN_ENCRYPTION_KEY),c=>c.charCodeAt(0));
+      if (keyBytes.length!==32) return fail("TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key.",500);
+      const iv=crypto.getRandomValues(new Uint8Array(12));
+      const cryptoKey=await crypto.subtle.importKey("raw",keyBytes,{name:"AES-GCM"},false,["encrypt"]);
+      const tokenPayload={access_token:tokens.access_token,refresh_token:tokens.refresh_token||null,scope:tokens.scope||"",token_type:tokens.token_type||"Bearer"};
+      const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv},cryptoKey,new TextEncoder().encode(JSON.stringify(tokenPayload)));
+      const pack={iv:btoa(String.fromCharCode(...iv)),data:btoa(String.fromCharCode(...new Uint8Array(encrypted)))};
+      const accountId="youtube_"+channel.id;
+      await env.DB.prepare(`INSERT INTO social_accounts (id,workspace_id,platform,external_account_id,display_name,account_type,granted_scopes_json,encrypted_token_json,token_expires_at,status,last_checked_at)
+        VALUES (?,?,?,?,?,?,?,?,?,'connected',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        ON CONFLICT(workspace_id,platform,external_account_id) DO UPDATE SET display_name=excluded.display_name,granted_scopes_json=excluded.granted_scopes_json,encrypted_token_json=excluded.encrypted_token_json,token_expires_at=excluded.token_expires_at,status='connected',last_checked_at=excluded.last_checked_at`)
+        .bind(accountId,saved.workspace_id,"youtube",channel.id,channel.snippet?.title||"YouTube channel","channel",JSON.stringify((tokens.scope||"").split(" ")),JSON.stringify(pack),tokens.expires_in?new Date(Date.now()+tokens.expires_in*1000).toISOString():null).run();
+      const destination=(env.APP_PUBLIC_URL||"https://mohammadfadaiemacbook-coder.github.io/ai-business-core/").replace(/\\/$/,"");
+      return Response.redirect(destination+"?oauth=youtube_connected",302);
+    }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
