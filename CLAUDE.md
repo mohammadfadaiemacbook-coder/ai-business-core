@@ -40,8 +40,7 @@ AI Business Core is a Persian-first content and business workspace.
 - Captions should be adapted to each platform rather than copied verbatim.
 
 ## Current working branches
-- Release candidate: `feature/voiceover-video-pipeline`
-- Security hardening: `feature/security-expo-hardening`
+- Active development: `feature/security-expo-hardening` (web/PWA, Cloudflare Worker and long-form YouTube autopilot)
 
 ## Review priorities
 1. Persian narration quality, audio muxing, per-scene timing and SRT accuracy.
