@@ -269,7 +269,7 @@ export default {
           const params = new URLSearchParams({part:"snippet",type:"video",maxResults:"25",order:"viewCount",q:query,publishedAfter,regionCode:region,relevanceLanguage:"fa"});
           const searchResponse=await fetch("https://www.googleapis.com/youtube/v3/search?"+params.toString(),{headers:{authorization:"Bearer "+auth.accessToken}});
           const searchData=await searchResponse.json().catch(()=>({}));
-          if(!searchResponse.ok)return json({error:searchData.error?.message||"YouTube trend search failed",detail:searchData.error?.errors?.[0]?.reason||null},searchResponse.status,headers);
+          if(!searchResponse.ok)return youtubeApiError(searchData,searchResponse.status,headers,"YouTube trend search failed");
           const ids=(searchData.items||[]).map(x=>x.id?.videoId).filter(Boolean);
           let videos=[];
           if(ids.length){
@@ -339,7 +339,7 @@ export default {
           const publishAt = publishAtInput ? new Date(publishAtInput) : null;
           const privacyStatus = publishAt ? "private" : requestedPrivacy;
           const tags = String(form.get("tags") || "").split(",").map(x=>x.trim()).filter(Boolean).slice(0,30);
-          if (!file || typeof file.arrayBuffer !== "function" || !file.size) return json({ error: "Select a video file to upload" }, 400, headers);
+          if (!file || typeof file.stream !== "function" || !file.size) return json({ error: "Select a video file to upload" }, 400, headers);
           if (file.size > 64 * 1024 * 1024) return json({ error: "Video upload limit is 64 MB per file in this version" }, 413, headers);
           if (!title) return json({ error: "Video title is required" }, 400, headers);
           if (!["private","unlisted","public"].includes(requestedPrivacy)) return json({ error: "Invalid privacy status" }, 400, headers);
@@ -390,7 +390,7 @@ export default {
         const voice=encodeURIComponent(voiceId);
         const response=await fetch("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
         if(!response.ok){const detail=(await response.text().catch(()=>"")).slice(0,300);return json({error:"TTS provider failed",detail},502,headers)}
-        return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store","access-control-allow-origin":headers["access-control-allow-origin"]||"null","vary":"Origin"}});
+        return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store",...headers}});
       }catch(error){return json({error:"TTS request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
     }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
