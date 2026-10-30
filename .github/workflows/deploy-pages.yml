@@ -1,8 +1,25 @@
 name: Deploy web app to GitHub Pages
 on:
   push:
-    branches: [main, "feat/v2-social-automation-foundation"]
+    branches: [main]
+    paths:
+      - "index.html"
+      - "app.js"
+      - "styles.css"
+      - "sw.js"
+      - "manifest.webmanifest"
+      - "icons/**"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
+    inputs:
+      confirm_publish:
+        description: Type PUBLISH to replace the live GitHub Pages app with this branch
+        required: true
+        type: choice
+        options:
+          - NO
+          - PUBLISH
+        default: NO
 permissions:
   contents: read
   pages: write
@@ -12,29 +29,35 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
+    if: github.event_name == 'push' || inputs.confirm_publish == 'PUBLISH'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out selected release source
         uses: actions/checkout@v4
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Verify required app files
+      - name: Stage only public app assets
         run: |
-          test -s index.html
-          test -s app.js
-          test -s styles.css
-          test -s manifest.webmanifest
-          test -s sw.js
-          node --check app.js
+          set -euo pipefail
+          mkdir -p site
+          cp index.html app.js styles.css sw.js manifest.webmanifest site/
+          cp -R icons site/icons
+          touch site/.nojekyll
+          node --check site/app.js
+          test -s site/index.html
+          test -s site/app.js
+          test -s site/styles.css
+          test -s site/manifest.webmanifest
+          test -s site/sw.js
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: site
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
