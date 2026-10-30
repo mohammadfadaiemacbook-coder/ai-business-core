@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "ai-business-core-shell-v3";
+const CACHE_NAME = "ai-business-core-shell-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
