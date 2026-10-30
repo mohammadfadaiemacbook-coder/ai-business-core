@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, AppState, type AppStateStatus, BackHandler, Linking, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { WebView } from "react-native-webview";
+import * as Updates from "expo-updates";
+
 const NativeWebView: any = WebView;
 type NavigationRequest = { url: string };
-import * as Updates from "expo-updates";
 
 const APP_URL = process.env.EXPO_PUBLIC_APP_URL || "https://mohammadfadaiemacbook-coder.github.io/ai-business-core/";
 const APP_HOST = "mohammadfadaiemacbook-coder.github.io";
@@ -40,7 +41,7 @@ export default function App() {
   useEffect(() => { void checkNativeUpdate(); }, [checkNativeUpdate]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => {
+    const subscription = AppState.addEventListener("change", (state: AppStateStatus) => {
       if (state === "active" && externalAuthOpened.current) {
         externalAuthOpened.current = false;
         webView.current?.reload();
