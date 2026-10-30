@@ -41,6 +41,11 @@ test("video recorder includes synthesized audio when available and has a silent 
   assert.match(app, /ویدئو بدون گویندگی ساخته می‌شود/);
 });
 
+test("media rendering accepts the cloud workspace token when the AI form token is absent", () => {
+  assert.match(app, /const mediaToken=aiToken\|\|cloudToken/);
+  assert.match(app, /authorization":"Bearer "\+mediaToken/);
+});
+
 test("subtitle export and human approval before posting remain present", () => {
   assert.match(app, /generatedSubtitlesBlob=new Blob/);
   assert.match(app, /confirm\("این پاسخ با نام کانال یوتیوب منتشر شود؟"\)/);
