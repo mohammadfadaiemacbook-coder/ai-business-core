@@ -266,6 +266,21 @@ export default {
       if (!isAuthorized(request, env)) return json({error:"Unauthorized"},401,headers);
       return json({ok:true,tts:!!(env.ELEVENLABS_API_KEY&&env.ELEVENLABS_VOICE_ID),secondaryAI:!!(env.AI_SECONDARY_API_URL&&env.AI_SECONDARY_API_KEY&&env.AI_SECONDARY_MODEL),imageGeneration:!!(env.IMAGE_API_URL&&env.IMAGE_API_KEY),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
     }
+    if (url.pathname === "/api/media/image" && request.method === "POST") {
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
+      if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
+      if (!env.IMAGE_API_URL || !env.IMAGE_API_KEY) return json({error:"Image generation is not configured. Set IMAGE_API_URL and IMAGE_API_KEY as Worker secrets."},503,headers);
+      let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Image prompt is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
+      const prompt=String(body?.prompt||"").trim();if(!prompt||prompt.length>4000)return json({error:"Prompt must contain 1 to 4000 characters"},400,headers);
+      try{
+        const response=await fetch(env.IMAGE_API_URL,{method:"POST",headers:{authorization:"Bearer "+env.IMAGE_API_KEY,"content-type":"application/json"},body:JSON.stringify({model:env.IMAGE_MODEL||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok)return json({error:"Image provider failed",detail:String(data.error?.message||"provider error").slice(0,250)},502,headers);
+        const encoded=data?.data?.[0]?.b64_json;if(typeof encoded!=="string"||!encoded)return json({error:"Image provider returned no base64 image"},502,headers);
+        const binary=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+        return new Response(binary,{status:200,headers:{"content-type":"image/png","cache-control":"no-store","access-control-allow-origin":headers["access-control-allow-origin"]||"null","vary":"Origin"}});
+      }catch(error){return json({error:"Image generation request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
+    }
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!isAuthorized(request,env)) return json({error:"Unauthorized"},401,headers);
