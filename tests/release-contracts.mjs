@@ -289,3 +289,14 @@ test("YouTube token refresh and reauthorization writes are scoped to both accoun
   assert.ok(source.includes(".bind(row.id,workspace)"));
   assert.doesNotMatch(source, /WHERE id=\?["']/);
 });
+
+test("OAuth account connection and token lifecycle events are recorded without secrets", () => {
+  assert.ok(worker.includes("async function writeAuditEvent(db,workspace,eventType,targetType,targetId,details={})"));
+  assert.ok(worker.includes('"youtube.account.connected"'));
+  assert.ok(worker.includes('"youtube.token.refreshed"'));
+  assert.ok(worker.includes('"youtube.token.refresh_failed"'));
+  const helper=worker.slice(worker.indexOf("async function writeAuditEvent"),worker.indexOf("\nasync function ensureWorkspace"));
+  assert.ok(helper.includes("workspace,eventType,targetType,targetId"));
+  assert.ok(helper.includes("catch { return false; }"));
+  assert.doesNotMatch(helper,/access_token|refresh_token|client_secret|encrypted_token_json/);
+});
