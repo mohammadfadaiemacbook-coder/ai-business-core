@@ -103,6 +103,11 @@ async function writeAuditEvent(db,workspace,eventType,targetType,targetId,detail
   } catch { return false; }
 }
 
+async function fetchWithTimeout(input, init = {}, timeoutMs = 25000) {
+  const options = { ...init, signal: init.signal || AbortSignal.timeout(timeoutMs) };
+  return fetch(input, options);
+}
+
 function buildPrompt(task, inputs) {
   const taskText = {
     youtube_research: "Create a research plan for a YouTube video in the language requested by the user; default to Persian (Farsi). Separate verified facts, hypotheses, and questions. Do not invent search results, metrics, sources, or citations. Return suggested search queries and a source-evaluation checklist.",
@@ -148,7 +153,7 @@ async function youtubeAccessToken(env, db, workspace) {
     throw new Error("YouTube authorization needs renewal. Reconnect the account.");
   }
   if (token.expires_at && token.expires_at > Date.now() + 60000) return { accessToken: token.access_token, row, token, key };
-  const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, refresh_token: token.refresh_token, grant_type: "refresh_token" }) });
+  const response = await fetchWithTimeout("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, refresh_token: token.refresh_token, grant_type: "refresh_token" }) });
   const refreshed = await response.json().catch(() => ({}));
   if (!response.ok || !refreshed.access_token) {
     await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(row.id,workspace).run().catch(()=>{});
