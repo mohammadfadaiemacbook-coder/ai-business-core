@@ -399,3 +399,11 @@ test("image generation bounds and validates provider base64 output before decodi
   assert.ok(worker.includes('if(encoded.length>24*1024*1024)'));
   assert.ok(worker.includes('Image provider returned invalid image data'));
 });
+
+test("cloud autosave pauses after a version conflict instead of retrying stale writes", () => {
+  const start=app.indexOf("async function pushCloudSnapshot()");
+  const end=app.indexOf("function scheduleCloudSave()",start);
+  const source=app.slice(start,end);
+  assert.ok(source.includes("cloudConflict=true"));
+  assert.ok(source.includes("if(!cloudToken||cloudSaveInFlight||cloudConflict)return"));
+});
