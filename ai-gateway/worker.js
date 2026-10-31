@@ -75,17 +75,22 @@ async function loadProviderSecrets(env,db,workspace="default") {
 }
 async function saveProviderSecrets(env,db,workspace,values) {
   const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsEnglishVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
-  const key=await providerCryptoKey(env);
-  for(const [name,value] of Object.entries(values||{})){
+  if(!values||typeof values!=="object"||Array.isArray(values))throw new Error("Provider settings must be an object");
+  const key=await providerCryptoKey(env),statements=[];
+  for(const [name,value] of Object.entries(values)){
     if(!allowed.has(name)||typeof value!=="string")continue;
-    if(!value.trim()){await db.prepare("DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?").bind(workspace,name).run();continue;}
+    if(!value.trim()){
+      statements.push(db.prepare("DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?").bind(workspace,name));
+      continue;
+    }
     if(value.length>2000)throw new Error("Provider setting is too long");
     const normalized=name.endsWith("Url")?safeProviderUrl(value.trim()):value.trim();
     const iv=crypto.getRandomValues(new Uint8Array(12)),aad=new TextEncoder().encode(workspace+"\\0"+name);
     const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv,additionalData:aad},key,new TextEncoder().encode(normalized));
     const pack={iv:btoa(String.fromCharCode(...iv)),data:btoa(String.fromCharCode(...new Uint8Array(encrypted)))};
-    await db.prepare("INSERT INTO provider_secrets (workspace_id,secret_key,encrypted_value,updated_at) VALUES (?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(workspace_id,secret_key) DO UPDATE SET encrypted_value=excluded.encrypted_value,updated_at=excluded.updated_at").bind(workspace,name,JSON.stringify(pack)).run();
+    statements.push(db.prepare("INSERT INTO provider_secrets (workspace_id,secret_key,encrypted_value,updated_at) VALUES (?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(workspace_id,secret_key) DO UPDATE SET encrypted_value=excluded.encrypted_value,updated_at=excluded.updated_at").bind(workspace,name,JSON.stringify(pack)));
   }
+  if(statements.length)await db.batch(statements);
 }
 async function ensureWorkspace(db, id) {
   await db.prepare("INSERT OR IGNORE INTO workspaces (id, name) VALUES (?, ?)").bind(id, id === "default" ? "فضای کاری اصلی" : id).run();
