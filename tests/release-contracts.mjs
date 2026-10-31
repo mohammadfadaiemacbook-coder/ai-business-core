@@ -146,8 +146,8 @@ test("Provider endpoints require public HTTPS and empty values delete stored sec
   assert.ok(worker.includes("function safeProviderUrl(value)"));
   assert.ok(worker.includes('url.protocol!=="https:"'));
   assert.ok(worker.includes('host==="localhost"'));
-  assert.ok(worker.includes('fetch(safeProviderUrl(secondaryUrl)'));
-  assert.ok(worker.includes('fetch(safeProviderUrl(imageUrl)'));
+  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl)'));
+  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl)'));
   assert.ok(worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
 });
 
@@ -299,4 +299,13 @@ test("OAuth account connection and token lifecycle events are recorded without s
   assert.ok(helper.includes("workspace,eventType,targetType,targetId"));
   assert.ok(helper.includes("catch { return false; }"));
   assert.doesNotMatch(helper,/access_token|refresh_token|client_secret|encrypted_token_json/);
+});
+
+
+test("all Worker upstream HTTP requests have bounded timeouts", () => {
+  assert.ok(worker.includes("async function fetchWithTimeout(input, init = {}, timeoutMs = 25000)"));
+  assert.ok(worker.includes("signal: init.signal || AbortSignal.timeout(timeoutMs)"));
+  assert.doesNotMatch(worker, /await fetch\(/);
+  assert.ok(worker.includes("await fetchWithTimeout(uploadUrl"));
+  assert.ok(worker.includes("signal:AbortSignal.timeout(90000)"));
 });
