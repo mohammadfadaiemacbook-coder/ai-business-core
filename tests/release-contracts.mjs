@@ -226,3 +226,11 @@ test("cloud sync, provider settings, media capabilities, and YouTube trends use 
   assert.ok(app.includes('api/youtube/trends?workspace="+encodeURIComponent(cloudWorkspaceId())+"&q='));
   assert.doesNotMatch(app, /workspace=default/);
 });
+
+
+test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
+  assert.ok(worker.includes('const baseMetrics = "views,estimatedMinutesWatched,averageViewDuration,subscribersGained"'));
+  assert.ok(worker.includes('reportUrl("estimatedRevenue,estimatedAdRevenue,adImpressions,monetizedPlaybacks")'));
+  assert.ok(worker.includes("monetizationAvailable"));
+  assert.ok(worker.includes("if (revenueResponse.ok"));
+});
