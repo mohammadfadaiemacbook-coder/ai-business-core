@@ -252,7 +252,7 @@ export default {
         }
         return json({ ok: true, workspace: wid, version: saved.version, updatedAt: saved.updated_at, ...(auditWarning ? { auditWarning } : {}) }, 200, headers);
       } catch (error) {
-        return json({ error: "Workspace storage operation failed", detail: String(error?.message || "database error").slice(0, 180) }, 500, headers);
+        return json({ error: "Workspace storage operation failed", detail: "Please retry or contact support." }, 500, headers);
       }
     }
     if (url.pathname === "/api/providers" && ["GET","PUT"].includes(request.method)) {
@@ -265,7 +265,7 @@ export default {
         if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
         const secrets=await loadProviderSecrets(env,env.DB,workspace);
         return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&(secrets.elevenlabsVoiceId||secrets.elevenlabsEnglishVoiceId)),ttsPersian:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),ttsEnglish:!!(secrets.elevenlabsKey&&secrets.elevenlabsEnglishVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
-      }catch(error){return json({error:"Provider settings operation failed",detail:String(error?.message||"unknown").slice(0,180)},500,headers)}
+      }catch(error){return json({error:"Provider settings operation failed",detail:"Please retry or contact support."},500,headers)}
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
@@ -277,7 +277,7 @@ export default {
         const rows = await env.DB.prepare("SELECT id, platform, external_account_id, display_name, account_type, granted_scopes_json, token_expires_at, status, connected_at, last_checked_at FROM social_accounts WHERE workspace_id = ? ORDER BY connected_at DESC").bind(workspace).all();
         return json({ ok: true, workspace, accounts: (rows.results || []).map(row => ({ id: row.id, platform: row.platform, externalAccountId: row.external_account_id, displayName: row.display_name, accountType: row.account_type, grantedScopes: JSON.parse(row.granted_scopes_json || "[]"), tokenExpiresAt: row.token_expires_at, status: row.status, connectedAt: row.connected_at, lastCheckedAt: row.last_checked_at })) }, 200, headers);
       } catch (error) {
-        return json({ error: "Could not load connected accounts", detail: String(error?.message || "database error").slice(0, 160) }, 500, headers);
+        return json({ error: "Could not load connected accounts", detail: "Please retry or contact support." }, 500, headers);
       }
     }
     // Google OAuth: authorization-code flow with PKCE; tokens are encrypted before D1 storage.
@@ -474,7 +474,7 @@ export default {
         }
         return json({ error: "Method not allowed or endpoint not found" }, 405, headers);
       } catch (error) {
-        return json({ error: "YouTube operation failed", detail: String(error?.message || "unknown error").slice(0,220) }, 500, headers);
+        return json({ error: "YouTube operation failed", detail: "Please retry or contact support." }, 500, headers);
       }
     }
     if (url.pathname === "/api/media/capabilities" && request.method === "GET") {
@@ -495,7 +495,7 @@ export default {
         const encoded=data?.data?.[0]?.b64_json;if(typeof encoded!=="string"||!encoded)return json({error:"Image provider returned no base64 image"},502,headers);
         const binary=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
         return new Response(binary,{status:200,headers:{"content-type":"image/png","cache-control":"no-store",...headers}});
-      }catch(error){return json({error:"Image generation request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
+      }catch(error){return json({error:"Image generation request failed",detail:"Please retry or contact support."},502,headers)}
     }
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
@@ -508,7 +508,7 @@ export default {
         const response=await fetchWithTimeout("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
         if(!response.ok){const detail=(await response.text().catch(()=>"")).slice(0,300);return json({error:"TTS provider failed",detail},502,headers)}
         return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store",...headers}});
-      }catch(error){return json({error:"TTS request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
+      }catch(error){return json({error:"TTS request failed",detail:"Please retry or contact support."},502,headers)}
     }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
