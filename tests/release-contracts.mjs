@@ -155,9 +155,13 @@ test("Cloudflare deployment preserves existing vars and does not replace the con
   assert.ok(!/^AI_MODEL\\s*=/m.test(wranglerTemplate));
 });
 
-test("approved main-branch release backs up D1 and deploys Worker before Pages", () => {
-  assert.ok(releaseWorkflow.includes("branches: [main]"));
-  assert.ok(releaseWorkflow.includes("on:\n  push:"));
+test("production release requires explicit manual confirmation and deploys Worker before Pages", () => {
+  assert.ok(releaseWorkflow.includes("workflow_dispatch:"));
+  assert.ok(releaseWorkflow.includes("release_confirmation:"));
+  assert.ok(releaseWorkflow.includes("- NO"));
+  assert.ok(releaseWorkflow.includes("- RELEASE"));
+  assert.ok(releaseWorkflow.includes("if: inputs.release_confirmation == 'RELEASE'"));
+  assert.ok(!releaseWorkflow.includes("  push:"));
   assert.ok(releaseWorkflow.includes("needs: deploy-worker"));
   assert.ok(releaseWorkflow.includes("deploy-web:"));
   assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
