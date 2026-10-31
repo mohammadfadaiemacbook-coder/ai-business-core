@@ -302,11 +302,11 @@ export default {
       const nowSeconds=Math.floor(Date.now()/1000);
       const saved=await env.DB.prepare("UPDATE oauth_states SET consumed_at=? WHERE state_hash=? AND platform='youtube' AND consumed_at IS NULL AND CAST(expires_at AS INTEGER)>? RETURNING *").bind(nowSeconds,stateKey,nowSeconds).first();
       if (!saved) return fail("OAuth state is invalid, expired, or already used. Return to AI Business Core and try again.");
-      const tokenResponse=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,redirect_uri:saved.redirect_uri,grant_type:"authorization_code",code_verifier:saved.code_verifier})});
+      const tokenResponse=await fetchWithTimeout("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,redirect_uri:saved.redirect_uri,grant_type:"authorization_code",code_verifier:saved.code_verifier})});
       const tokens=await tokenResponse.json().catch(()=>({}));
       if (!tokenResponse.ok || !tokens.access_token) return fail("Google token exchange failed. Check OAuth client and redirect URI.",502);
       if (!tokens.refresh_token) return fail("Google did not issue a refresh token. Remove this app from your Google Account permissions, then reconnect with consent.",502);
-      const channelResponse=await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",{headers:{authorization:"Bearer "+tokens.access_token}});
+      const channelResponse=await fetchWithTimeout("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",{headers:{authorization:"Bearer "+tokens.access_token}});
       const channelData=await channelResponse.json().catch(()=>({}));
       const channel=channelData.items?.[0];
       if (!channel) return fail("No accessible YouTube channel was found for this Google account. Create a channel or grant access, then retry.",403);
@@ -347,13 +347,13 @@ export default {
           if (!/^[A-Z]{2}$/.test(region)) return json({error:"Invalid region code"},400,headers);
           const publishedAfter = new Date(Date.now()-days*86400000).toISOString();
           const params = new URLSearchParams({part:"snippet",type:"video",maxResults:"25",order:"viewCount",q:query,publishedAfter,regionCode:region,relevanceLanguage:"fa"});
-          const searchResponse=await fetch("https://www.googleapis.com/youtube/v3/search?"+params.toString(),{headers:{authorization:"Bearer "+auth.accessToken}});
+          const searchResponse=await fetchWithTimeout("https://www.googleapis.com/youtube/v3/search?"+params.toString(),{headers:{authorization:"Bearer "+auth.accessToken}});
           const searchData=await searchResponse.json().catch(()=>({}));
           if(!searchResponse.ok)return youtubeApiError(searchData,searchResponse.status,headers,"YouTube trend search failed");
           const ids=(searchData.items||[]).map(x=>x.id?.videoId).filter(Boolean);
           let videos=[];
           if(ids.length){
-            const statsResponse=await fetch("https://www.googleapis.com/youtube/v3/videos?"+new URLSearchParams({part:"statistics,contentDetails,snippet",id:ids.join(",")}),{headers:{authorization:"Bearer "+auth.accessToken}});
+            const statsResponse=await fetchWithTimeout("https://www.googleapis.com/youtube/v3/videos?"+new URLSearchParams({part:"statistics,contentDetails,snippet",id:ids.join(",")}),{headers:{authorization:"Bearer "+auth.accessToken}});
             const statsData=await statsResponse.json().catch(()=>({}));
             if(!statsResponse.ok)return youtubeApiError(statsData,statsResponse.status,headers,"Could not load trend statistics");
             const now=Date.now();
@@ -362,7 +362,7 @@ export default {
           return json({ok:true,query,region,days,method:"YouTube Data API recent videos ordered by views; velocity is views divided by age in hours",videos},200,headers);
         }
         if (url.pathname === "/api/youtube/channel" && request.method === "GET") {
-          const response = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&mine=true", { headers: { authorization: "Bearer " + auth.accessToken } });
+          const response = await fetchWithTimeout("https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&mine=true", { headers: { authorization: "Bearer " + auth.accessToken } });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) return youtubeApiError(data,response.status,headers,"Could not load YouTube channel");
           const channel = data.items?.[0];
@@ -370,7 +370,7 @@ export default {
           const uploads = channel.contentDetails?.relatedPlaylists?.uploads;
           let videos = [];
           if (uploads) {
-            const listResponse = await fetch("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=10&playlistId=" + encodeURIComponent(uploads), { headers: { authorization: "Bearer " + auth.accessToken } });
+            const listResponse = await fetchWithTimeout("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=10&playlistId=" + encodeURIComponent(uploads), { headers: { authorization: "Bearer " + auth.accessToken } });
             const listData = await listResponse.json().catch(() => ({}));
             if (listResponse.ok) videos = (listData.items || []).map(x => ({ videoId: x.contentDetails?.videoId, title: x.snippet?.title, publishedAt: x.contentDetails?.videoPublishedAt || x.snippet?.publishedAt, thumbnail: x.snippet?.thumbnails?.medium?.url || x.snippet?.thumbnails?.default?.url })).filter(x => x.videoId);
           }
@@ -382,12 +382,12 @@ export default {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) return json({ error: "Invalid analytics date range" }, 400, headers);
           const baseMetrics = "views,estimatedMinutesWatched,averageViewDuration,subscribersGained";
           const reportUrl = metrics => "https://youtubeanalytics.googleapis.com/v2/reports?" + new URLSearchParams({ ids:"channel==MINE",startDate,endDate,metrics,dimensions:"day",sort:"day" }).toString();
-          const baseResponse = await fetch(reportUrl(baseMetrics), { headers:{authorization:"Bearer "+auth.accessToken} });
+          const baseResponse = await fetchWithTimeout(reportUrl(baseMetrics), { headers:{authorization:"Bearer "+auth.accessToken} });
           const baseData = await baseResponse.json().catch(()=>({}));
           if (!baseResponse.ok) return youtubeApiError(baseData,baseResponse.status,headers,"Could not load YouTube analytics");
           let columnHeaders = baseData.columnHeaders || [], rows = baseData.rows || [], monetizationAvailable = false;
           try {
-            const revenueResponse = await fetch(reportUrl("estimatedRevenue,estimatedAdRevenue,adImpressions,monetizedPlaybacks"), { headers:{authorization:"Bearer "+auth.accessToken} });
+            const revenueResponse = await fetchWithTimeout(reportUrl("estimatedRevenue,estimatedAdRevenue,adImpressions,monetizedPlaybacks"), { headers:{authorization:"Bearer "+auth.accessToken} });
             const revenueData = await revenueResponse.json().catch(()=>({}));
             if (revenueResponse.ok && Array.isArray(revenueData.columnHeaders) && Array.isArray(revenueData.rows)) {
               const revenueHeaders = revenueData.columnHeaders, revenueIndex = revenueHeaders.findIndex(h=>h.name==="day");
@@ -401,12 +401,12 @@ export default {
         }
 
         if (url.pathname === "/api/youtube/comments" && request.method === "GET") {
-          const channelResponse=await fetch("https://www.googleapis.com/youtube/v3/channels?part=id&mine=true",{headers:{authorization:"Bearer "+auth.accessToken}});
+          const channelResponse=await fetchWithTimeout("https://www.googleapis.com/youtube/v3/channels?part=id&mine=true",{headers:{authorization:"Bearer "+auth.accessToken}});
           const channelData=await channelResponse.json().catch(()=>({}));
           if(!channelResponse.ok)return youtubeApiError(channelData,channelResponse.status,headers,"Could not load YouTube channel");
           const channelId=channelData.items?.[0]?.id;if(!channelId)return json({error:"No connected YouTube channel found"},404,headers);
           const params=new URLSearchParams({part:"snippet,replies",allThreadsRelatedToChannelId:channelId,maxResults:"50",order:"time",textFormat:"plainText"});
-          const response=await fetch("https://www.googleapis.com/youtube/v3/commentThreads?"+params.toString(),{headers:{authorization:"Bearer "+auth.accessToken}});
+          const response=await fetchWithTimeout("https://www.googleapis.com/youtube/v3/commentThreads?"+params.toString(),{headers:{authorization:"Bearer "+auth.accessToken}});
           const data=await response.json().catch(()=>({}));
           if(!response.ok)return youtubeApiError(data,response.status,headers,"Could not load comments");
           const comments=(data.items||[]).map(item=>{const s=item.snippet||{},comment=s.topLevelComment||{},cs=comment.snippet||{};return {threadId:item.id,commentId:comment.id,topLevelCommentId:comment.id,videoId:s.videoId,author:cs.authorDisplayName||"کاربر",text:cs.textOriginal||cs.textDisplay||"",publishedAt:cs.publishedAt||null,replyCount:s.totalReplyCount||0,canReply:s.canReply!==false,videoUrl:"https://www.youtube.com/watch?v="+s.videoId}}).filter(x=>x.commentId);
@@ -416,7 +416,7 @@ export default {
           let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>10000)return json({error:"Reply payload too large"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
           const parentId=String(body?.parentCommentId||body?.commentId||"").trim(),replyText=String(body?.text||"").trim();
           if(!parentId||parentId.length>128||!replyText||replyText.length>10000)return json({error:"A valid commentId and reply text (1-10000 characters) are required"},400,headers);
-          const response=await fetch("https://www.googleapis.com/youtube/v3/comments?part=snippet",{method:"POST",headers:{authorization:"Bearer "+auth.accessToken,"content-type":"application/json"},body:JSON.stringify({snippet:{parentId,textOriginal:replyText}})});
+          const response=await fetchWithTimeout("https://www.googleapis.com/youtube/v3/comments?part=snippet",{method:"POST",headers:{authorization:"Bearer "+auth.accessToken,"content-type":"application/json"},body:JSON.stringify({snippet:{parentId,textOriginal:replyText}})});
           const data=await response.json().catch(()=>({}));
           if(!response.ok)return youtubeApiError(data,response.status,headers,"Could not post comment reply");
           await env.DB.prepare("INSERT INTO audit_events (id,workspace_id,event_type,target_type,target_id,details_json) VALUES (?,?,?,?,?,?)").bind(crypto.randomUUID(),workspace,"youtube.comment.replied","youtube_comment",parentId,JSON.stringify({replyId:data.id||null,characters:replyText.length})).run().catch(()=>{});
@@ -439,11 +439,11 @@ export default {
           if (requestedPrivacy === "public" && String(form.get("confirmPublic") || "") !== "true") return json({ error: "برای انتشار عمومی، تأیید صریح confirmPublic=true الزامی است." }, 400, headers);
           if (publishAt && (!Number.isFinite(publishAt.getTime()) || publishAt.getTime() < Date.now() + 15 * 60000)) return json({ error: "Scheduled publish time must be at least 15 minutes in the future" }, 400, headers);
           const metadata = { snippet: { title, description, tags, categoryId: "22" }, status: { privacyStatus, selfDeclaredMadeForKids: false, ...(publishAt ? { publishAt: publishAt.toISOString() } : {}) } };
-          const init = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", { method: "POST", headers: { authorization: "Bearer " + auth.accessToken, "content-type": "application/json; charset=UTF-8", "x-upload-content-type": file.type || "application/octet-stream", "x-upload-content-length": String(file.size) }, body: JSON.stringify(metadata) });
+          const init = await fetchWithTimeout("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", { method: "POST", headers: { authorization: "Bearer " + auth.accessToken, "content-type": "application/json; charset=UTF-8", "x-upload-content-type": file.type || "application/octet-stream", "x-upload-content-length": String(file.size) }, body: JSON.stringify(metadata) });
           if (!init.ok) { const err = await init.json().catch(()=>({})); return youtubeApiError(err,init.status,headers,"Could not start YouTube upload"); }
           const uploadUrl = init.headers.get("location");
           if (!uploadUrl) return json({ error: "YouTube did not return an upload URL" }, 502, headers);
-          const uploaded = await fetch(uploadUrl, { method: "PUT", headers: { "content-type": file.type || "application/octet-stream", "content-length": String(file.size) }, body: file.stream() });
+          const uploaded = await fetchWithTimeout(uploadUrl, { method: "PUT", headers: { "content-type": file.type || "application/octet-stream", "content-length": String(file.size) }, body: file.stream() });
           const result = await uploaded.json().catch(()=>({}));
           if (!uploaded.ok || !result.id) return youtubeApiError(result,uploaded.status || 502,headers,"YouTube video upload failed");
           await env.DB.prepare("INSERT INTO audit_events (id,workspace_id,event_type,target_type,target_id,details_json) VALUES (?,?,?,?,?,?)").bind(crypto.randomUUID(),workspace,"youtube.video.uploaded","youtube_video",result.id,JSON.stringify({title,privacyStatus,bytes:file.size})).run().catch(()=>{});
@@ -465,7 +465,7 @@ export default {
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Image prompt is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const prompt=String(body?.prompt||"").trim();if(!prompt||prompt.length>4000)return json({error:"Prompt must contain 1 to 4000 characters"},400,headers);
       try{
-        const response=await fetch(safeProviderUrl(imageUrl),{method:"POST",headers:{authorization:"Bearer "+imageApiKey,"content-type":"application/json"},body:JSON.stringify({model:imageModel||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
+        const response=await fetchWithTimeout(safeProviderUrl(imageUrl),{method:"POST",headers:{authorization:"Bearer "+imageApiKey,"content-type":"application/json"},body:JSON.stringify({model:imageModel||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
         const data=await response.json().catch(()=>({}));
         if(!response.ok)return json({error:"Image provider failed",detail:String(data.error?.message||"provider error").slice(0,250)},502,headers);
         const encoded=data?.data?.[0]?.b64_json;if(typeof encoded!=="string"||!encoded)return json({error:"Image provider returned no base64 image"},502,headers);
@@ -480,7 +480,7 @@ export default {
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
       try{
         const voice=encodeURIComponent(voiceId);
-        const response=await fetch("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
+        const response=await fetchWithTimeout("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
         if(!response.ok){const detail=(await response.text().catch(()=>"")).slice(0,300);return json({error:"TTS provider failed",detail},502,headers)}
         return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store",...headers}});
       }catch(error){return json({error:"TTS request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
@@ -498,7 +498,7 @@ export default {
     const aiProviderSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");
     let upstream;
     try {
-      upstream = await fetch(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
+      upstream = await fetchWithTimeout(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
         model: env.AI_MODEL, temperature: 0.4, messages: [
           { role: "system", content: "You are a careful business content assistant. Be transparent about uncertainty. Never fabricate sources, browsing, analytics, experiments, or completed actions. Return useful structured output." },
           { role: "user", content: buildPrompt(body.task, body.inputs) }
@@ -518,14 +518,14 @@ export default {
     const reviewPrompt="Review this AI-generated output against the original brief. Return strengths, factual risks, duplication concerns, title/thumbnail honesty and specific improvements.\n\n"+output.trim()+"\n\nBrief:\n"+buildPrompt(body.task,body.inputs);
     if(claudeKey&&claudeModel){
       try{
-        const review=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"x-api-key":claudeKey,"anthropic-version":"2023-06-01","content-type":"application/json"},body:JSON.stringify({model:claudeModel,max_tokens:900,temperature:0.2,system:reviewSystem,messages:[{role:"user",content:reviewPrompt}]}),signal:AbortSignal.timeout(30000)});
+        const review=await fetchWithTimeout("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"x-api-key":claudeKey,"anthropic-version":"2023-06-01","content-type":"application/json"},body:JSON.stringify({model:claudeModel,max_tokens:900,temperature:0.2,system:reviewSystem,messages:[{role:"user",content:reviewPrompt}]}),signal:AbortSignal.timeout(30000)});
         const reviewData=await review.json().catch(()=>({})),reviewText=(reviewData?.content||[]).filter(x=>x.type==="text").map(x=>x.text).join("\n");
         if(review.ok&&reviewText.trim())consultation={status:"completed",model:"Claude · "+claudeModel,review:reviewText.trim()};
         else consultation={status:"failed",message:"Claude پاسخ معتبر نداد؛ خروجی مدل اصلی حفظ شد."};
       }catch{consultation={status:"failed",message:"ارتباط با Claude برقرار نشد؛ خروجی مدل اصلی حفظ شد."};}
     }else if(secondaryUrl&&secondaryKey&&secondaryModel){
       try{
-        const review=await fetch(safeProviderUrl(secondaryUrl),{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.2,messages:[{role:"system",content:reviewSystem},{role:"user",content:reviewPrompt}]}),signal:AbortSignal.timeout(30000)});
+        const review=await fetchWithTimeout(safeProviderUrl(secondaryUrl),{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.2,messages:[{role:"system",content:reviewSystem},{role:"user",content:reviewPrompt}]}),signal:AbortSignal.timeout(30000)});
         const reviewData=await review.json().catch(()=>({})),reviewText=reviewData?.choices?.[0]?.message?.content;
         if(review.ok&&typeof reviewText==="string"&&reviewText.trim())consultation={status:"completed",model:secondaryModel,review:reviewText.trim()};
         else consultation={status:"failed",message:"مدل دوم پاسخ معتبر نداد؛ خروجی مدل اصلی حفظ شد."};
