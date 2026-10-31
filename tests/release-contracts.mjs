@@ -415,3 +415,11 @@ test("manual cloud push also pauses autosave when the server reports a version c
   assert.ok(source.includes('if(err.status===409){cloudConflict=true;'));
   assert.ok(source.includes('ذخیره خودکار متوقف شد'));
 });
+
+test("all media capability, image and TTS requests are scoped to the active workspace", () => {
+  for (const route of ["capabilities", "image", "tts"]) {
+    assert.ok(app.includes('/api/media/'+route+'?workspace="+encodeURIComponent(cloudWorkspaceId())'));
+  }
+  assert.equal((app.match(/\/api\/media\/image\?workspace=/g)||[]).length, 2);
+  assert.equal((app.match(/\/api\/media\/tts\?workspace=/g)||[]).length, 2);
+});
