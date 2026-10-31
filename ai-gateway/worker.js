@@ -108,6 +108,21 @@ async function fetchWithTimeout(input, init = {}, timeoutMs = 25000) {
   return fetch(input, options);
 }
 
+
+async function enforceRateLimit(db, workspace, route, limit, headers) {
+  if (!db) return json({ error: "Rate limiting is temporarily unavailable" }, 503, headers);
+  const now = Math.floor(Date.now() / 60000);
+  const bucket = workspace + ":" + route;
+  try {
+    const row = await db.prepare("INSERT INTO api_rate_limits (bucket_key, window_start, request_count) VALUES (?, ?, 1) ON CONFLICT(bucket_key, window_start) DO UPDATE SET request_count=request_count+1 RETURNING request_count").bind(bucket, now).first();
+    if (now % 15 === 0) await db.prepare("DELETE FROM api_rate_limits WHERE window_start < ?").bind(now - 120).run();
+    if ((row?.request_count || 0) > limit) return json({ error: "تعداد درخواست‌ها بیش از حد مجاز است؛ یک دقیقه دیگر دوباره تلاش کنید." }, 429, { ...headers, "retry-after": "60" });
+    return null;
+  } catch {
+    return json({ error: "Rate limiting is temporarily unavailable" }, 503, headers);
+  }
+}
+
 function buildPrompt(task, inputs) {
   const taskText = {
     youtube_research: "Create a research plan for a YouTube video in the language requested by the user; default to Persian (Farsi). Separate verified facts, hypotheses, and questions. Do not invent search results, metrics, sources, or citations. Return suggested search queries and a source-evaluation checklist.",
@@ -171,8 +186,11 @@ async function youtubeAccessToken(env, db, workspace) {
 
 export default {
   async fetch(request, env) {
+    const requestId = crypto.randomUUID();
+    let headers = { "cache-control": "no-store", "x-request-id": requestId };
+    try {
     const url = new URL(request.url);
-    const headers = corsHeaders(request, env);
+    headers = { ...corsHeaders(request, env), "x-request-id": requestId };
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
     if (url.pathname === "/api/auth/session") {
       if (request.method !== "POST") return json({error:"Method not allowed"},405,{...headers,allow:"POST, OPTIONS"});
@@ -234,7 +252,7 @@ export default {
         }
         return json({ ok: true, workspace: wid, version: saved.version, updatedAt: saved.updated_at, ...(auditWarning ? { auditWarning } : {}) }, 200, headers);
       } catch (error) {
-        return json({ error: "Workspace storage operation failed", detail: String(error?.message || "database error").slice(0, 180) }, 500, headers);
+        return json({ error: "Workspace storage operation failed", detail: "Please retry or contact support." }, 500, headers);
       }
     }
     if (url.pathname === "/api/providers" && ["GET","PUT"].includes(request.method)) {
@@ -247,7 +265,7 @@ export default {
         if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
         const secrets=await loadProviderSecrets(env,env.DB,workspace);
         return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&(secrets.elevenlabsVoiceId||secrets.elevenlabsEnglishVoiceId)),ttsPersian:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),ttsEnglish:!!(secrets.elevenlabsKey&&secrets.elevenlabsEnglishVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
-      }catch(error){return json({error:"Provider settings operation failed",detail:String(error?.message||"unknown").slice(0,180)},500,headers)}
+      }catch(error){return json({error:"Provider settings operation failed",detail:"Please retry or contact support."},500,headers)}
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
@@ -259,7 +277,7 @@ export default {
         const rows = await env.DB.prepare("SELECT id, platform, external_account_id, display_name, account_type, granted_scopes_json, token_expires_at, status, connected_at, last_checked_at FROM social_accounts WHERE workspace_id = ? ORDER BY connected_at DESC").bind(workspace).all();
         return json({ ok: true, workspace, accounts: (rows.results || []).map(row => ({ id: row.id, platform: row.platform, externalAccountId: row.external_account_id, displayName: row.display_name, accountType: row.account_type, grantedScopes: JSON.parse(row.granted_scopes_json || "[]"), tokenExpiresAt: row.token_expires_at, status: row.status, connectedAt: row.connected_at, lastCheckedAt: row.last_checked_at })) }, 200, headers);
       } catch (error) {
-        return json({ error: "Could not load connected accounts", detail: String(error?.message || "database error").slice(0, 160) }, 500, headers);
+        return json({ error: "Could not load connected accounts", detail: "Please retry or contact support." }, 500, headers);
       }
     }
     // Google OAuth: authorization-code flow with PKCE; tokens are encrypted before D1 storage.
@@ -413,6 +431,7 @@ export default {
           return json({ok:true,comments,nextPageToken:data.nextPageToken||null},200,headers);
         }
         if (url.pathname === "/api/youtube/comments/reply" && request.method === "POST") {
+          const limited = await enforceRateLimit(env.DB, workspace, "youtube-comment-reply", 10, headers); if (limited) return limited;
           let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>10000)return json({error:"Reply payload too large"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
           const parentId=String(body?.parentCommentId||body?.commentId||"").trim(),replyText=String(body?.text||"").trim();
           if(!parentId||parentId.length>128||!replyText||replyText.length>10000)return json({error:"A valid commentId and reply text (1-10000 characters) are required"},400,headers);
@@ -423,6 +442,9 @@ export default {
           return json({ok:true,replyId:data.id||null,parentId},200,headers);
         }
         if (url.pathname === "/api/youtube/upload" && request.method === "POST") {
+          const limited = await enforceRateLimit(env.DB, workspace, "youtube-upload", 3, headers); if (limited) return limited;
+          const declaredLength = Number(request.headers.get("content-length") || 0);
+          if (declaredLength > 66 * 1024 * 1024) return json({ error: "Video upload limit is 64 MB per file in this version" }, 413, headers);
           const form = await request.formData();
           const file = form.get("video");
           const title = String(form.get("title") || "").trim().slice(0,100);
@@ -433,6 +455,7 @@ export default {
           const privacyStatus = publishAt ? "private" : requestedPrivacy;
           const tags = String(form.get("tags") || "").split(",").map(x=>x.trim()).filter(Boolean).slice(0,30);
           if (!file || typeof file.stream !== "function" || !file.size) return json({ error: "Select a video file to upload" }, 400, headers);
+          if (file.type && !file.type.startsWith("video/")) return json({ error: "Only video files are accepted" }, 415, headers);
           if (file.size > 64 * 1024 * 1024) return json({ error: "Video upload limit is 64 MB per file in this version" }, 413, headers);
           if (!title) return json({ error: "Video title is required" }, 400, headers);
           if (!["private","unlisted","public"].includes(requestedPrivacy)) return json({ error: "Invalid privacy status" }, 400, headers);
@@ -451,7 +474,7 @@ export default {
         }
         return json({ error: "Method not allowed or endpoint not found" }, 405, headers);
       } catch (error) {
-        return json({ error: "YouTube operation failed", detail: String(error?.message || "unknown error").slice(0,220) }, 500, headers);
+        return json({ error: "YouTube operation failed", detail: "Please retry or contact support." }, 500, headers);
       }
     }
     if (url.pathname === "/api/media/capabilities" && request.method === "GET") {
@@ -461,6 +484,7 @@ export default {
     if (url.pathname === "/api/media/image" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
+      const limited = await enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-image", 5, headers); if (limited) return limited;
       const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),imageUrl=mediaSecrets.imageUrl||env.IMAGE_API_URL,imageApiKey=mediaSecrets.imageKey||env.IMAGE_API_KEY,imageModel=mediaSecrets.imageModel||env.IMAGE_MODEL;if(!imageUrl||!imageApiKey)return json({error:"Image generation is not configured in app provider settings."},503,headers);
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Image prompt is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const prompt=String(body?.prompt||"").trim();if(!prompt||prompt.length>4000)return json({error:"Prompt must contain 1 to 4000 characters"},400,headers);
@@ -471,11 +495,12 @@ export default {
         const encoded=data?.data?.[0]?.b64_json;if(typeof encoded!=="string"||!encoded)return json({error:"Image provider returned no base64 image"},502,headers);
         const binary=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
         return new Response(binary,{status:200,headers:{"content-type":"image/png","cache-control":"no-store",...headers}});
-      }catch(error){return json({error:"Image generation request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
+      }catch(error){return json({error:"Image generation request failed",detail:"Please retry or contact support."},502,headers)}
     }
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
+      const limited = await enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-tts", 20, headers); if (limited) return limited;
       const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}const language=String(body?.language||"fa").toLowerCase(),voiceId=language==="en"?(mediaSecrets.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID):(mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID);if(!ttsKey||!voiceId)return json({error:language==="en"?"English TTS is not configured. Add an English Voice ID in secure provider settings.":"Persian TTS is not configured in app provider settings."},503,headers);
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
       try{
@@ -483,12 +508,13 @@ export default {
         const response=await fetchWithTimeout("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
         if(!response.ok){const detail=(await response.text().catch(()=>"")).slice(0,300);return json({error:"TTS provider failed",detail},502,headers)}
         return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store",...headers}});
-      }catch(error){return json({error:"TTS request failed",detail:String(error?.message||"unknown").slice(0,180)},502,headers)}
+      }catch(error){return json({error:"TTS request failed",detail:"Please retry or contact support."},502,headers)}
     }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
     if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized. Exchange APP_ACCESS_TOKEN for a 15-minute session at /api/auth/session." }, 401, headers);
+    const limited = await enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "ai-generate", 20, headers); if (limited) return limited;
     let body;
     try { const raw = await request.text(); if (new TextEncoder().encode(raw).byteLength > 32 * 1024) return json({ error: "Request too large" }, 413, headers); body = JSON.parse(raw); }
     catch { return json({ error: "Expected a valid JSON body" }, 400, headers); }
@@ -532,5 +558,8 @@ export default {
       }catch{consultation={status:"failed",message:"ارتباط با مدل دوم برقرار نشد؛ خروجی مدل اصلی حفظ شد."};}
     }
     return json({ output: output.trim(), task: body.task, model: env.AI_MODEL, consultation }, 200, headers);
+    } catch {
+      return json({ error: "خطای داخلی سرور رخ داد. شناسه پیگیری: " + requestId }, 500, headers);
+    }
   }
 };

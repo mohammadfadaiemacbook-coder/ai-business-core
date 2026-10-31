@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [worker, app, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration] = await Promise.all([
+const [worker, app, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, rateLimitMigration] = await Promise.all([
   readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8"),
   readFile(new URL("../app.js", import.meta.url), "utf8"),
   readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8"),
   readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8"),
   readFile(new URL("../migrations/0001_v2_social_foundation.sql", import.meta.url), "utf8"),
-  readFile(new URL("../migrations/0004_legacy_schema_compat.sql", import.meta.url), "utf8")
+  readFile(new URL("../migrations/0004_legacy_schema_compat.sql", import.meta.url), "utf8"),
+  readFile(new URL("../migrations/0006_api_rate_limits.sql", import.meta.url), "utf8")
 ]);
 
 test("all creator studio tasks are allow-listed and have task-specific prompts", () => {
@@ -250,7 +251,7 @@ test("D1 migration sequence is numbered, additive, and includes workspace-scoped
   const { readdir, readFile } = await import("node:fs/promises");
   const dir = new URL("../migrations/", import.meta.url);
   const files = (await readdir(dir)).filter(name => /^\d{4}_.+\.sql$/.test(name)).sort();
-  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql"]);
+  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql","0006_api_rate_limits.sql"]);
   const migration = await readFile(new URL("../migrations/0005_workspace_query_indexes.sql", import.meta.url), "utf8");
   for (const index of ["idx_campaigns_workspace_updated","idx_audit_workspace_event_time","idx_publish_workspace_due","idx_approvals_workspace_status_created","idx_media_workspace_created","idx_social_workspace_status"]) assert.ok(migration.includes(index));
   assert.doesNotMatch(migration, /\b(DROP TABLE|DROP COLUMN|DELETE FROM)\b/i);
@@ -308,4 +309,30 @@ test("all Worker upstream HTTP requests have bounded timeouts", () => {
   assert.doesNotMatch(worker, /await fetch\(/);
   assert.ok(worker.includes("await fetchWithTimeout(uploadUrl"));
   assert.ok(worker.includes("signal:AbortSignal.timeout(90000)"));
+});
+
+
+test("Worker rate limits expensive operations with atomic D1 buckets and fails closed", () => {
+  assert.ok(worker.includes("async function enforceRateLimit(db, workspace, route, limit, headers)"));
+  assert.ok(worker.includes("ON CONFLICT(bucket_key, window_start) DO UPDATE SET request_count=request_count+1 RETURNING request_count"));
+  assert.ok(worker.includes('"retry-after": "60"'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "youtube-upload", 3, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-image", 5, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-tts", 20, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "ai-generate", 20, headers)'));
+});
+test("Worker errors are correlated by request ID and never return raw exception details", () => {
+  assert.ok(worker.includes('const requestId = crypto.randomUUID()'));
+  assert.ok(worker.includes('"x-request-id": requestId'));
+  assert.ok(worker.includes('خطای داخلی سرور رخ داد. شناسه پیگیری: '));
+  assert.doesNotMatch(worker, /detail:String\(error\?\.message/);
+});
+test("YouTube upload rejects non-video content and oversized declared bodies before parsing multipart data", () => {
+  assert.ok(worker.includes('declaredLength > 66 * 1024 * 1024'));
+  assert.ok(worker.includes('!file.type.startsWith("video/")'));
+});
+test("rate limit migration creates an atomic per-route bucket table", () => {
+  const migration = rateLimitMigration;
+  assert.match(migration, /PRIMARY KEY \(bucket_key, window_start\)/);
+  assert.match(migration, /idx_api_rate_limits_window/);
 });
