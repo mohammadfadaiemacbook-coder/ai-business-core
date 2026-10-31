@@ -190,6 +190,11 @@ test("AI generation loads provider secrets only from the authenticated URL works
   assert.ok(!worker.includes('loadProviderSecrets(env,env.DB,body.inputs.workspace'));
 });
 
+
+test("English voice preview explicitly requests the English voice", () => {
+  assert.match(app, /video-voice-preview[\s\S]*?JSON\.stringify\(\{text:aiOutput\.slice\(0,3500\),language:"en"\}\)/);
+});
+
 test("D1 compatibility migration adds legacy columns before creating their indexes", () => {
   assert.equal(baseMigration.includes("idx_content_workspace"), false);
   assert.equal(baseMigration.includes("idx_approvals_workspace_status"), false);
