@@ -5,6 +5,7 @@
 ALTER TABLE content_items ADD COLUMN workspace_id TEXT;
 UPDATE content_items SET workspace_id = 'default' WHERE workspace_id IS NULL;
 ALTER TABLE content_items ADD COLUMN content_type TEXT NOT NULL DEFAULT 'post';
+ALTER TABLE content_items ADD COLUMN content_hash TEXT NOT NULL DEFAULT '';
 ALTER TABLE content_items ADD COLUMN caption TEXT;
 ALTER TABLE content_items ADD COLUMN script TEXT;
 ALTER TABLE content_items ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
