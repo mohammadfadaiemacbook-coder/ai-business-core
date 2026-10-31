@@ -295,7 +295,7 @@ test("OAuth account connection and token lifecycle events are recorded without s
   assert.ok(worker.includes('"youtube.account.connected"'));
   assert.ok(worker.includes('"youtube.token.refreshed"'));
   assert.ok(worker.includes('"youtube.token.refresh_failed"'));
-  const helper=worker.slice(worker.indexOf("async function writeAuditEvent"),worker.indexOf("\nasync function ensureWorkspace"));
+  const helper=worker.slice(worker.indexOf("async function writeAuditEvent"),worker.indexOf("\nfunction buildPrompt"));
   assert.ok(helper.includes("workspace,eventType,targetType,targetId"));
   assert.ok(helper.includes("catch { return false; }"));
   assert.doesNotMatch(helper,/access_token|refresh_token|client_secret|encrypted_token_json/);
