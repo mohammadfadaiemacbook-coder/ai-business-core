@@ -374,3 +374,9 @@ test("mobile styles include safe-area and keyboard focus support", async () => {
   assert.match(css, /@media\(forced-colors:active\)/);
   assert.match(css, /button:focus-visible/);
 });
+
+
+test("web app shell does not include the retired native APK update flow", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /AndroidApp|checkAndroidRelease|app-debug\\.apk|app-update-banner/);
+});
