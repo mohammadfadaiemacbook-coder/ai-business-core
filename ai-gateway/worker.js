@@ -74,7 +74,7 @@ async function loadProviderSecrets(env,db,workspace="default") {
   return out;
 }
 async function saveProviderSecrets(env,db,workspace,values) {
-  const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
+  const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsEnglishVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
   const key=await providerCryptoKey(env);
   for(const [name,value] of Object.entries(values||{})){
     if(!allowed.has(name)||typeof value!=="string")continue;
@@ -347,7 +347,7 @@ export default {
           const endDate = url.searchParams.get("endDate") || new Date().toISOString().slice(0,10);
           const startDate = url.searchParams.get("startDate") || new Date(Date.now()-29*86400000).toISOString().slice(0,10);
           if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) return json({ error: "Invalid analytics date range" }, 400, headers);
-          const params = new URLSearchParams({ ids: "channel==MINE", startDate, endDate, metrics: "views,estimatedMinutesWatched,averageViewDuration,subscribersGained", dimensions: "day", sort: "day" });
+          const params = new URLSearchParams({ ids: "channel==MINE", startDate, endDate, metrics: "views,estimatedMinutesWatched,averageViewDuration,subscribersGained,estimatedRevenue,estimatedAdRevenue,adImpressions,monetizedPlaybacks", dimensions: "day", sort: "day" });
           const response = await fetch("https://youtubeanalytics.googleapis.com/v2/reports?" + params.toString(), { headers: { authorization: "Bearer " + auth.accessToken } });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) return youtubeApiError(data,response.status,headers,"Could not load YouTube analytics");
@@ -430,8 +430,7 @@ export default {
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
-      const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,voiceId=mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;if(!ttsKey||!voiceId)return json({error:"Persian TTS is not configured in app provider settings."},503,headers);
-      let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
+      const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}const language=String(body?.language||"fa").toLowerCase(),voiceId=language==="en"?(mediaSecrets.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID||mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID):(mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID);if(!ttsKey||!voiceId)return json({error:language==="en"?"English TTS is not configured. Add an English Voice ID in secure provider settings.":"Persian TTS is not configured in app provider settings."},503,headers);
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
       try{
         const voice=encodeURIComponent(voiceId);
