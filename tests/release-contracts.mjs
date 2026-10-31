@@ -214,3 +214,13 @@ test("D1 compatibility migration adds legacy columns before creating their index
   assert.ok(compatibilityMigration.includes("ALTER TABLE audit_events ADD COLUMN event_type"));
   assert.ok(compatibilityMigration.includes("ALTER TABLE campaigns ADD COLUMN brief_json"));
 });
+
+
+test("cloud sync, provider settings, media capabilities, and YouTube trends use the active workspace", () => {
+  assert.ok(app.includes("function cloudWorkspaceId()"));
+  assert.ok(app.includes('api/workspace?workspace="+encodeURIComponent(cloudWorkspaceId())'));
+  assert.ok(app.includes('api/providers?workspace="+encodeURIComponent(cloudWorkspaceId())'));
+  assert.ok(app.includes('api/media/capabilities?workspace="+encodeURIComponent(cloudWorkspaceId())'));
+  assert.ok(app.includes('api/youtube/trends?workspace="+encodeURIComponent(cloudWorkspaceId())+"&q='));
+  assert.doesNotMatch(app, /workspace=default/);
+});
