@@ -346,3 +346,10 @@ test("browser Worker requests use bounded timeouts and YouTube uploads allow a l
   assert.ok(worker.includes("body: JSON.stringify(metadata), signal: AbortSignal.timeout(180000)"));
   assert.ok(worker.includes("body: file.stream(), signal: AbortSignal.timeout(180000)"));
 });
+
+
+test("dashboard UI does not expose internal provider detail fields in API errors", () => {
+  assert.ok(app.includes("async function readWorkerJson(response, fallback"));
+  assert.doesNotMatch(app, /data\\.detail\\s*\\?/);
+  assert.ok(app.includes('response.headers.get("x-request-id")'));
+});
