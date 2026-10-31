@@ -48,7 +48,7 @@ async function initializeCloudSync(){
   if(!remembered)return;
   cloudToken=remembered;
   try{
-    const endpoint="https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/workspace?workspace=default";
+    const endpoint="https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/workspace?workspace="+encodeURIComponent(cloudWorkspaceId());
     const response=await workerFetch(endpoint,{headers:{authorization:"Bearer "+cloudToken},cache:"no-store"});
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw Error(data.error||"دریافت فضای ابری ناموفق بود");
