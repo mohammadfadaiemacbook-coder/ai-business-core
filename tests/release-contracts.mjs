@@ -280,3 +280,12 @@ test("YouTube OAuth callback responses are non-cacheable and do not disclose pro
   assert.ok(worker.includes('"cache-control":"no-store"'));
   assert.doesNotMatch(worker, /return json\(\{[^}]*access_token/);
 });
+
+test("YouTube token refresh and reauthorization writes are scoped to both account ID and workspace", () => {
+  const start=worker.indexOf("async function youtubeAccessToken");
+  const end=worker.indexOf("\nexport default",start);
+  const source=worker.slice(start,end);
+  assert.ok(source.includes("WHERE id=? AND workspace_id=?"));
+  assert.ok(source.includes(".bind(row.id,workspace)"));
+  assert.doesNotMatch(source, /WHERE id=\?["']/);
+});
