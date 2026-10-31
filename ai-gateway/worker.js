@@ -123,24 +123,34 @@ async function youtubeAccessToken(env, db, workspace) {
   if (keyBytes.length !== 32) throw new Error("TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key.");
   const pack = JSON.parse(row.encrypted_token_json);
   const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt", "encrypt"]);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: Uint8Array.from(atob(pack.iv), c => c.charCodeAt(0)) }, key, Uint8Array.from(atob(pack.data), c => c.charCodeAt(0)));
+  const ivBytes=Uint8Array.from(atob(pack.iv),c=>c.charCodeAt(0)),cipherBytes=Uint8Array.from(atob(pack.data),c=>c.charCodeAt(0));
+  const aad=new TextEncoder().encode(workspace+"\\0youtube\\0"+row.id);
+  let decrypted,legacy=false;
+  try{decrypted=await crypto.subtle.decrypt({name:"AES-GCM",iv:ivBytes,additionalData:aad},key,cipherBytes)}
+  catch{try{decrypted=await crypto.subtle.decrypt({name:"AES-GCM",iv:ivBytes},key,cipherBytes);legacy=true}catch{throw new Error("Unable to decrypt YouTube account token. Reconnect the account.")}}
   const token = JSON.parse(new TextDecoder().decode(decrypted));
+  if(legacy){
+    const nextIv=crypto.getRandomValues(new Uint8Array(12));
+    const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv:nextIv,additionalData:aad},key,decrypted);
+    const migrated={iv:btoa(String.fromCharCode(...nextIv)),data:btoa(String.fromCharCode(...new Uint8Array(encrypted)))};
+    await db.prepare("UPDATE social_accounts SET encrypted_token_json=? WHERE id=? AND workspace_id=?").bind(JSON.stringify(migrated),row.id,workspace).run();
+  }
   if (!token.access_token || !token.refresh_token) {
-    await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(row.id).run().catch(()=>{});
+    await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(row.id,workspace).run().catch(()=>{});
     throw new Error("YouTube authorization needs renewal. Reconnect the account.");
   }
   if (token.expires_at && token.expires_at > Date.now() + 60000) return { accessToken: token.access_token, row, token, key };
   const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, refresh_token: token.refresh_token, grant_type: "refresh_token" }) });
   const refreshed = await response.json().catch(() => ({}));
   if (!response.ok || !refreshed.access_token) {
-    await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(row.id).run().catch(()=>{});
+    await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(row.id,workspace).run().catch(()=>{});
     throw new Error("Google token refresh failed. Reconnect the YouTube account.");
   }
-  const next = { ...token, access_token: refreshed.access_token, expires_at: Date.now() + (refreshed.expires_in || 3600) * 1000, scope: refreshed.scope || token.scope };
+  const next = { ...token, access_token: refreshed.access_token, refresh_token: refreshed.refresh_token || token.refresh_token, expires_at: Date.now() + (refreshed.expires_in || 3600) * 1000, scope: refreshed.scope || token.scope };
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(JSON.stringify(next)));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData:aad }, key, new TextEncoder().encode(JSON.stringify(next)));
   const updatedPack = { iv: btoa(String.fromCharCode(...iv)), data: btoa(String.fromCharCode(...new Uint8Array(encrypted))) };
-  await db.prepare("UPDATE social_accounts SET encrypted_token_json=?, token_expires_at=?, last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(JSON.stringify(updatedPack), new Date(next.expires_at).toISOString(), row.id).run();
+  await db.prepare("UPDATE social_accounts SET encrypted_token_json=?, token_expires_at=?, last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(JSON.stringify(updatedPack), new Date(next.expires_at).toISOString(), row.id, workspace).run();
   return { accessToken: next.access_token, row, token: next, key };
 }
 
@@ -280,6 +290,7 @@ export default {
       const tokenResponse=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,redirect_uri:saved.redirect_uri,grant_type:"authorization_code",code_verifier:saved.code_verifier})});
       const tokens=await tokenResponse.json().catch(()=>({}));
       if (!tokenResponse.ok || !tokens.access_token) return fail("Google token exchange failed. Check OAuth client and redirect URI.",502);
+      if (!tokens.refresh_token) return fail("Google did not issue a refresh token. Remove this app from your Google Account permissions, then reconnect with consent.",502);
       const channelResponse=await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",{headers:{authorization:"Bearer "+tokens.access_token}});
       const channelData=await channelResponse.json().catch(()=>({}));
       const channel=channelData.items?.[0];
@@ -289,7 +300,8 @@ export default {
       const iv=crypto.getRandomValues(new Uint8Array(12));
       const cryptoKey=await crypto.subtle.importKey("raw",keyBytes,{name:"AES-GCM"},false,["encrypt"]);
       const tokenPayload={access_token:tokens.access_token,refresh_token:tokens.refresh_token||null,scope:tokens.scope||"",token_type:tokens.token_type||"Bearer",expires_at:Date.now()+(tokens.expires_in||3600)*1000};
-      const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv},cryptoKey,new TextEncoder().encode(JSON.stringify(tokenPayload)));
+      const tokenAad=new TextEncoder().encode(saved.workspace_id+"\\0youtube\\0"+("youtube_"+channel.id));
+      const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv,additionalData:tokenAad},cryptoKey,new TextEncoder().encode(JSON.stringify(tokenPayload)));
       const pack={iv:btoa(String.fromCharCode(...iv)),data:btoa(String.fromCharCode(...new Uint8Array(encrypted)))};
       const accountId="youtube_"+channel.id;
       await env.DB.prepare(`INSERT INTO social_accounts (id,workspace_id,platform,external_account_id,display_name,account_type,granted_scopes_json,encrypted_token_json,token_expires_at,status,last_checked_at)

@@ -262,3 +262,30 @@ test("release workflow validates a non-empty pre-migration D1 backup and exposes
   assert.match(releaseWorkflow, /ai-business-core-d1-predeploy-backup/);
   assert.match(releaseWorkflow, /retention-days: 30/);
 });
+
+test("YouTube OAuth rejects token exchanges without a refresh token", () => {
+  assert.ok(worker.includes('if (!tokens.refresh_token) return fail("Google did not issue a refresh token.'));
+});
+
+test("YouTube OAuth tokens are authenticated to their workspace and account with AES-GCM AAD", () => {
+  assert.ok(worker.includes('saved.workspace_id+"\\\\0youtube\\\\0"+("youtube_"+channel.id)'));
+  assert.ok(worker.includes('workspace+"\\\\0youtube\\\\0"+row.id'));
+  assert.ok(worker.includes('additionalData:tokenAad'));
+  assert.ok(worker.includes('additionalData:aad'));
+  assert.ok(worker.includes('catch{try{decrypted=await crypto.subtle.decrypt({name:"AES-GCM",iv:ivBytes},key,cipherBytes);legacy=true'));
+  assert.ok(worker.includes('refreshed.refresh_token || token.refresh_token'));
+});
+
+test("YouTube OAuth callback responses are non-cacheable and do not disclose provider token payloads", () => {
+  assert.ok(worker.includes('"cache-control":"no-store"'));
+  assert.doesNotMatch(worker, /return json\(\{[^}]*access_token/);
+});
+
+test("YouTube token refresh and reauthorization writes are scoped to both account ID and workspace", () => {
+  const start=worker.indexOf("async function youtubeAccessToken");
+  const end=worker.indexOf("\nexport default",start);
+  const source=worker.slice(start,end);
+  assert.ok(source.includes("WHERE id=? AND workspace_id=?"));
+  assert.ok(source.includes(".bind(row.id,workspace)"));
+  assert.doesNotMatch(source, /WHERE id=\?["']/);
+});
