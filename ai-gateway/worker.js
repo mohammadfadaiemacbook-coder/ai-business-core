@@ -494,8 +494,9 @@ export default {
     if (url.pathname === "/api/media/image" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
-      const limited = await enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-image", 5, headers); if (limited) return limited;
-      const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),imageUrl=mediaSecrets.imageUrl||env.IMAGE_API_URL,imageApiKey=mediaSecrets.imageKey||env.IMAGE_API_KEY,imageModel=mediaSecrets.imageModel||env.IMAGE_MODEL;if(!imageUrl||!imageApiKey)return json({error:"Image generation is not configured in app provider settings."},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+     const limited = await enforceRateLimit(env.DB, workspace, "media-image", 5, headers); if (limited) return limited;
+      const mediaSecrets=await loadProviderSecrets(env,env.DB,workspace),imageUrl=mediaSecrets.imageUrl||env.IMAGE_API_URL,imageApiKey=mediaSecrets.imageKey||env.IMAGE_API_KEY,imageModel=mediaSecrets.imageModel||env.IMAGE_MODEL;if(!imageUrl||!imageApiKey)return json({error:"Image generation is not configured in app provider settings."},503,headers);
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Image prompt is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const prompt=String(body?.prompt||"").trim();if(!prompt||prompt.length>4000)return json({error:"Prompt must contain 1 to 4000 characters"},400,headers);
       try{
@@ -511,8 +512,9 @@ export default {
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
-      const limited = await enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-tts", 20, headers); if (limited) return limited;
-      const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}const language=String(body?.language||"fa").toLowerCase();if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);const voiceId=language==="en"?(mediaSecrets.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID):(mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID);if(!ttsKey||!voiceId)return json({error:language==="en"?"English TTS is not configured. Add an English Voice ID in secure provider settings.":"Persian TTS is not configured in app provider settings."},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+     const limited = await enforceRateLimit(env.DB, workspace, "media-tts", 20, headers); if (limited) return limited;
+      const mediaSecrets=await loadProviderSecrets(env,env.DB,workspace),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}const language=String(body?.language||"fa").toLowerCase();if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);const voiceId=language==="en"?(mediaSecrets.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID):(mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID);if(!ttsKey||!voiceId)return json({error:language==="en"?"English TTS is not configured. Add an English Voice ID in secure provider settings.":"Persian TTS is not configured in app provider settings."},503,headers);
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
       try{
         const voice=encodeURIComponent(voiceId);
@@ -525,14 +527,15 @@ export default {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
     if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized. Exchange APP_ACCESS_TOKEN for a 15-minute session at /api/auth/session." }, 401, headers);
-    const limited = await enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "ai-generate", 20, headers); if (limited) return limited;
+    const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+     const limited = await enforceRateLimit(env.DB, workspace, "ai-generate", 20, headers); if (limited) return limited;
     let body;
     try { const raw = await request.text(); if (new TextEncoder().encode(raw).byteLength > 32 * 1024) return json({ error: "Request too large" }, 413, headers); body = JSON.parse(raw); }
     catch { return json({ error: "Expected a valid JSON body" }, 400, headers); }
     if (!body || typeof body.task !== "string" || !ALLOWED_TASKS.has(body.task)) return json({ error: "Unsupported task" }, 400, headers);
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
     if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
-    const aiProviderSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");
+    const aiProviderSecrets=await loadProviderSecrets(env,env.DB,workspace);
     let upstream;
     try {
       upstream = await fetchWithTimeout(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
