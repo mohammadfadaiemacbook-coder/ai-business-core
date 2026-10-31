@@ -51,7 +51,7 @@ async function pushCloudSnapshot(){
     const endpoint="https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/workspace?workspace="+encodeURIComponent(cloudWorkspaceId());
     const response=await workerFetch(endpoint,{method:"PUT",headers:{"authorization":"Bearer "+cloudToken,"content-type":"application/json"},body:JSON.stringify({data:state,expectedVersion:cloudVersion})});
     const data=await response.json().catch(()=>({}));
-    if(!response.ok){if(response.status===409){toast("تعارض نسخه ابری شناسایی شد؛ داده محلی حفظ شد. از تنظیمات، نسخه‌ها را بررسی کن.");return}throw Error(data.error||"همگام‌سازی ابری ناموفق بود")}
+    if(!response.ok){if(response.status===409){cloudConflict=true;toast("تعارض نسخه ابری شناسایی شد؛ ذخیره خودکار متوقف شد و داده محلی حفظ شد. ابتدا نسخه ابری را بررسی و آگاهانه دریافت یا ادغام کن.");return}throw Error(data.error||"همگام‌سازی ابری ناموفق بود")}
     cloudVersion=data.version||cloudVersion;
   }catch(error){console.warn("Cloud autosave failed",error);toast("ذخیره محلی انجام شد؛ همگام‌سازی ابری ناموفق بود. اتصال را در تنظیمات بررسی کن.")}
   finally{cloudSaveInFlight=false}
