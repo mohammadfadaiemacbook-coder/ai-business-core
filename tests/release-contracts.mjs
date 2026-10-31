@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [worker, app, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration] = await Promise.all([
+const [worker, app, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, rateLimitMigration] = await Promise.all([
   readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8"),
   readFile(new URL("../app.js", import.meta.url), "utf8"),
   readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8"),
   readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8"),
   readFile(new URL("../migrations/0001_v2_social_foundation.sql", import.meta.url), "utf8"),
-  readFile(new URL("../migrations/0004_legacy_schema_compat.sql", import.meta.url), "utf8")
+  readFile(new URL("../migrations/0004_legacy_schema_compat.sql", import.meta.url), "utf8"),
+  readFile(new URL("../migrations/0006_api_rate_limits.sql", import.meta.url), "utf8")
 ]);
 
 test("all creator studio tasks are allow-listed and have task-specific prompts", () => {
@@ -331,7 +332,7 @@ test("YouTube upload rejects non-video content and oversized declared bodies bef
   assert.ok(worker.includes('!file.type.startsWith("video/")'));
 });
 test("rate limit migration creates an atomic per-route bucket table", () => {
-  const migration = readFileSync(new URL("../migrations/0006_api_rate_limits.sql", import.meta.url), "utf8");
+  const migration = rateLimitMigration;
   assert.match(migration, /PRIMARY KEY \(bucket_key, window_start\)/);
   assert.match(migration, /idx_api_rate_limits_window/);
 });
