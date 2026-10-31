@@ -188,7 +188,7 @@ test("long-form YouTube video builds a preview and requires explicit publishing"
 
 
 test("AI generation loads provider secrets only from the authenticated URL workspace", () => {
-  assert.ok(worker.includes('const aiProviderSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default")'));
+  assert.ok(worker.includes('const aiProviderSecrets=await loadProviderSecrets(env,env.DB,workspace)'));
   assert.ok(!worker.includes('loadProviderSecrets(env,env.DB,body.inputs.workspace'));
 });
 
@@ -317,9 +317,9 @@ test("Worker rate limits expensive operations with atomic D1 buckets and fails c
   assert.ok(worker.includes("ON CONFLICT(bucket_key, window_start) DO UPDATE SET request_count=request_count+1 RETURNING request_count"));
   assert.ok(worker.includes('"retry-after": "60"'));
   assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "youtube-upload", 3, headers)'));
-  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-image", 5, headers)'));
-  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-tts", 20, headers)'));
-  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "ai-generate", 20, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "media-image", 5, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "media-tts", 20, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "ai-generate", 20, headers)'));
 });
 test("Worker errors are correlated by request ID and never return raw exception details", () => {
   assert.ok(worker.includes('const requestId = crypto.randomUUID()'));
