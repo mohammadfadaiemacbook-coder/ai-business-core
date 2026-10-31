@@ -49,10 +49,17 @@ jobs:
         run: npm install --global wrangler@4
 
       - name: Export D1 backup before migration
-        run: wrangler d1 export ai-business-core-db --remote --output=cloudflare-d1-predeploy-backup.sql --config ai-gateway/wrangler.toml
+        run: |
+          set -euo pipefail
+          wrangler d1 export ai-business-core-db --remote --output=cloudflare-d1-predeploy-backup.sql --config ai-gateway/wrangler.toml
+          test -s cloudflare-d1-predeploy-backup.sql
+          echo "Pre-migration D1 export created."
 
       - name: Apply pending D1 migrations
-        run: wrangler d1 migrations apply ai-business-core-db --remote --config ai-gateway/wrangler.toml
+        run: |
+          set -euo pipefail
+          wrangler d1 migrations apply ai-business-core-db --remote --config ai-gateway/wrangler.toml
+          wrangler d1 migrations list ai-business-core-db --remote --config ai-gateway/wrangler.toml
 
       - name: Deploy hardened Worker
         run: wrangler deploy --config ai-gateway/wrangler.toml

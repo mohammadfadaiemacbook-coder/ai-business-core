@@ -234,3 +234,31 @@ test("YouTube core analytics remains available when monetization metrics are una
   assert.ok(worker.includes("monetizationAvailable"));
   assert.ok(worker.includes("if (revenueResponse.ok"));
 });
+
+test("provider secret updates are prepared fully and committed as one D1 batch", () => {
+  const start=worker.indexOf("async function saveProviderSecrets");
+  const end=worker.indexOf("\nasync function ensureWorkspace",start);
+  const source=worker.slice(start,end);
+  assert.ok(source.includes("const key=await providerCryptoKey(env),statements=[]"));
+  assert.ok(source.includes("statements.push(db.prepare"));
+  assert.ok(source.includes("if(statements.length)await db.batch(statements)"));
+  assert.ok(!source.includes(".run()"));
+  assert.ok(source.includes("Array.isArray(values)"));
+});
+
+test("D1 migration sequence is numbered, additive, and includes workspace-scoped indexes", async () => {
+  const { readdir, readFile } = await import("node:fs/promises");
+  const dir = new URL("../migrations/", import.meta.url);
+  const files = (await readdir(dir)).filter(name => /^\d{4}_.+\.sql$/.test(name)).sort();
+  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql"]);
+  const migration = await readFile(new URL("../migrations/0005_workspace_query_indexes.sql", import.meta.url), "utf8");
+  for (const index of ["idx_campaigns_workspace_updated","idx_audit_workspace_event_time","idx_publish_workspace_due","idx_approvals_workspace_status_created","idx_media_workspace_created","idx_social_workspace_status"]) assert.ok(migration.includes(index));
+  assert.doesNotMatch(migration, /\b(DROP TABLE|DROP COLUMN|DELETE FROM)\b/i);
+});
+
+test("release workflow validates a non-empty pre-migration D1 backup and exposes it as an artifact", () => {
+  assert.match(releaseWorkflow, /test -s cloudflare-d1-predeploy-backup\.sql/);
+  assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
+  assert.match(releaseWorkflow, /ai-business-core-d1-predeploy-backup/);
+  assert.match(releaseWorkflow, /retention-days: 30/);
+});
