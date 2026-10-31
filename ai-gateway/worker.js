@@ -151,7 +151,7 @@ async function youtubeAccessToken(env, db, workspace) {
   const aad=new TextEncoder().encode(workspace+"\\0youtube\\0"+row.id);
   const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData:aad }, key, new TextEncoder().encode(JSON.stringify(next)));
   const updatedPack = { iv: btoa(String.fromCharCode(...iv)), data: btoa(String.fromCharCode(...new Uint8Array(encrypted))) };
-  await db.prepare("UPDATE social_accounts SET encrypted_token_json=?, token_expires_at=?, last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(JSON.stringify(updatedPack), new Date(next.expires_at).toISOString(), row.id).run();
+  await db.prepare("UPDATE social_accounts SET encrypted_token_json=?, token_expires_at=?, last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(JSON.stringify(updatedPack), new Date(next.expires_at).toISOString(), row.id, workspace).run();
   return { accessToken: next.access_token, row, token: next, key };
 }
 
