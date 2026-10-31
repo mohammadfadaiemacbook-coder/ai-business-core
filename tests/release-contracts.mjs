@@ -407,3 +407,11 @@ test("cloud autosave pauses after a version conflict instead of retrying stale w
   assert.ok(source.includes("cloudConflict=true"));
   assert.ok(source.includes("if(!cloudToken||cloudSaveInFlight||cloudConflict)return"));
 });
+
+test("manual cloud push also pauses autosave when the server reports a version conflict", () => {
+  const start=app.indexOf('if(a==="cloud-connect"||a==="cloud-pull"||a==="cloud-push")');
+  const end=app.indexOf('if(a==="export-data")',start);
+  const source=app.slice(start,end);
+  assert.ok(source.includes('if(err.status===409){cloudConflict=true;'));
+  assert.ok(source.includes('ذخیره خودکار متوقف شد'));
+});
