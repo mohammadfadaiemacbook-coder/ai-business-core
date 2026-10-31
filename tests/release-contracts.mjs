@@ -146,8 +146,8 @@ test("Provider endpoints require public HTTPS and empty values delete stored sec
   assert.ok(worker.includes("function safeProviderUrl(value)"));
   assert.ok(worker.includes('url.protocol!=="https:"'));
   assert.ok(worker.includes('host==="localhost"'));
-  assert.ok(worker.includes('fetch(safeProviderUrl(secondaryUrl)'));
-  assert.ok(worker.includes('fetch(safeProviderUrl(imageUrl)'));
+  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl)'));
+  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl)'));
   assert.ok(worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
 });
 
