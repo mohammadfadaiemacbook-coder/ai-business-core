@@ -353,3 +353,24 @@ test("dashboard UI does not expose internal provider detail fields in API errors
   assert.doesNotMatch(app, /data\\.detail\\s*\\?/);
   assert.ok(app.includes('response.headers.get("x-request-id")'));
 });
+
+
+test("PWA shell includes accessible skip navigation and mobile menu semantics", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  assert.match(html, /class="skip-link" href="#view-root"/);
+  assert.match(html, /aria-controls="sidebar" aria-expanded="false"/);
+  assert.match(app, /menu\.setAttribute\("aria-expanded",String\(opened\)\)/);
+  assert.match(app, /e\.key==="Escape"/);
+});
+test("service worker cache writes are tied to fetch event lifetime", async () => {
+  const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
+  assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
+  assert.match(sw, /ai-business-core-shell-v10/);
+});
+test("mobile styles include safe-area and keyboard focus support", async () => {
+  const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
+  assert.match(css, /env\(safe-area-inset-bottom\)/);
+  assert.match(css, /@media\(forced-colors:active\)/);
+  assert.match(css, /button:focus-visible/);
+});

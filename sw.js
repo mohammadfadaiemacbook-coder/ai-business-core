@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "ai-business-core-shell-v9";
+const CACHE_NAME = "ai-business-core-shell-v10";
 const APP_SHELL = ["./","./index.html","./styles.css","./app.js","./manifest.webmanifest","./icons/icon.svg","./icons/icon-maskable.svg"];
 
 self.addEventListener("install", event => {
@@ -25,7 +25,7 @@ self.addEventListener("fetch", event => {
     event.respondWith(fetch(request).then(response => {
       if (response && response.ok) {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy));
+        event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy)));
       }
       return response;
     }).catch(() => caches.match("./index.html")));
@@ -37,7 +37,7 @@ self.addEventListener("fetch", event => {
     event.respondWith(fetch(request).then(response => {
       if (response && response.ok) {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+        event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(request, copy)));
       }
       return response;
     }).catch(() => caches.match(request)));

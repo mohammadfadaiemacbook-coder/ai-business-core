@@ -69,3 +69,15 @@ button,input,select,textarea{font-family:inherit}
 .app-footer{font-size:11px}
 @media(max-width:1050px){.app-shell{grid-template-columns:minmax(0,1fr) 224px}.sidebar{padding-inline:14px}}
 @media(max-width:700px){.sidebar{width:min(290px,86vw);padding:24px 16px}.sidebar.open{box-shadow:-20px 0 60px #0009}.topbar{height:62px}.view-root{padding:24px 14px 36px}.page-heading h1{font-size:27px}.stats-grid{gap:10px}.stat-card{padding:14px;min-height:112px}.stat-value{font-size:27px}.panel{padding:16px}.list-card{padding:14px}.quick-action{padding:13px}.app-footer{font-size:10px}}
+
+
+/* Mobile, safe-area and accessibility hardening */
+html{min-width:320px;scroll-padding-top:76px}
+body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}
+.skip-link{position:fixed;z-index:100001;top:8px;right:8px;padding:10px 14px;border-radius:10px;background:#fff;color:#07152e;font-weight:800;transform:translateY(-160%);transition:transform .15s}
+.skip-link:focus{transform:translateY(0)}
+button,a,input,select,textarea{touch-action:manipulation}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #a9c6ff;outline-offset:3px}
+@media(max-width:700px){.nav-item,.button,.quick-action,.icon-button{min-height:42px}.sidebar{padding-bottom:max(18px,env(safe-area-inset-bottom))}.topbar{padding-top:env(safe-area-inset-top)}.view-root{overflow-wrap:anywhere}}
+@media(hover:none){.nav-item:hover,.button:hover,.quick-action:hover{filter:none;transform:none}}
+@media(forced-colors:active){:focus-visible{outline:2px solid Highlight}.status-dot{forced-color-adjust:none}}
