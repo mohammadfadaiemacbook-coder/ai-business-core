@@ -12,6 +12,7 @@ const workerSessionCache=new Map();
 async function workerFetch(input,options={}){
   const url=new URL(typeof input==="string"?input:input.url,location.href),headers=new Headers(options.headers||{});
   const authorization=headers.get("authorization")||"";
+  if(url.hostname===WORKER_HOST&&url.pathname!=="/api/auth/session"&&!url.searchParams.has("workspace"))url.searchParams.set("workspace",cloudWorkspaceId());
   if(url.hostname===WORKER_HOST&&authorization.startsWith("Bearer ")){
     const masterToken=authorization.slice(7),workspace=url.searchParams.get("workspace")||"default",cacheKey=url.origin+"|"+workspace;
     let session=workerSessionCache.get(cacheKey);
@@ -25,7 +26,7 @@ async function workerFetch(input,options={}){
     }
     headers.set("authorization","Bearer "+session.sessionToken);
   }
-  return fetch(input,{...options,headers});
+  return fetch(url.toString(),{...options,headers});
 }
 let cloudSaveTimer=null,cloudSaveInFlight=false,cloudConflict=false;
 function cloudWorkspaceId(){return ($("#cloud-workspace")?.value||"default").trim()}
