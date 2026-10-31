@@ -1,0 +1,47 @@
+{
+  "name": "nexora-ai-desktop",
+  "version": "1.0.1",
+  "private": true,
+  "description": "Nexora AI desktop app for macOS",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg --universal",
+    "release:mac": "electron-builder --mac dmg --universal --publish always"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.nexoraai.desktop",
+    "productName": "Nexora AI",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "publish": [{
+      "provider": "github",
+      "owner": "mohammadfadaiemacbook-coder",
+      "repo": "ai-business-core",
+      "releaseType": "release"
+    }],
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Nexora AI uses audio access for voice and media creation features.",
+        "NSCameraUsageDescription": "Nexora AI may use camera access for supported media features."
+      }
+    },
+    "dmg": {
+      "title": "Nexora AI",
+      "contents": [
+        { "x": 130, "y": 160 },
+        { "x": 410, "y": 160, "type": "link", "path": "/Applications" }
+      ]
+    }
+  }
+}
