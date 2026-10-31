@@ -2,11 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [worker, app, wranglerTemplate, releaseWorkflow] = await Promise.all([
+const [worker, app, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration] = await Promise.all([
   readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8"),
   readFile(new URL("../app.js", import.meta.url), "utf8"),
   readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8"),
-  readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8")
+  readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8"),
+  readFile(new URL("../migrations/0001_v2_social_foundation.sql", import.meta.url), "utf8"),
+  readFile(new URL("../migrations/0004_legacy_schema_compat.sql", import.meta.url), "utf8")
 ]);
 
 test("all creator studio tasks are allow-listed and have task-specific prompts", () => {
@@ -180,4 +182,17 @@ test("long-form YouTube video builds a preview and requires explicit publishing"
   assert.doesNotMatch(app, /autopilot-auto-upload/);
   assert.match(app, /autopilot-public/);
   assert.match(app, /autopilot-publish-at/);
+});
+
+test("D1 compatibility migration adds legacy columns before creating their indexes", () => {
+  assert.equal(baseMigration.includes("idx_content_workspace"), false);
+  assert.equal(baseMigration.includes("idx_approvals_workspace_status"), false);
+  assert.equal(baseMigration.includes("idx_publish_jobs_due"), false);
+  assert.ok(compatibilityMigration.indexOf("ALTER TABLE content_items ADD COLUMN workspace_id") < compatibilityMigration.indexOf("CREATE INDEX IF NOT EXISTS idx_content_workspace"));
+  assert.ok(compatibilityMigration.includes("UPDATE content_items SET workspace_id = 'default'"));
+  assert.ok(compatibilityMigration.includes("UPDATE media_assets SET workspace_id = 'default'"));
+  assert.ok(compatibilityMigration.includes("UPDATE approval_requests SET workspace_id = 'default'"));
+  assert.ok(compatibilityMigration.includes("UPDATE publish_jobs SET workspace_id = 'default'"));
+  assert.ok(compatibilityMigration.includes("ALTER TABLE audit_events ADD COLUMN event_type"));
+  assert.ok(compatibilityMigration.includes("ALTER TABLE campaigns ADD COLUMN brief_json"));
 });
