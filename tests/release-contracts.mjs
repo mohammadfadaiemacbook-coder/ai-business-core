@@ -195,6 +195,13 @@ test("English voice preview explicitly requests the English voice", () => {
   assert.match(app, /video-voice-preview[\s\S]*?JSON\.stringify\(\{text:aiOutput\.slice\(0,3500\),language:"en"\}\)/);
 });
 
+
+test("English and Persian TTS capabilities are reported independently", () => {
+  assert.match(worker, /ttsPersian:!!\(secrets\.elevenlabsKey&&secrets\.elevenlabsVoiceId\)/);
+  assert.match(worker, /ttsEnglish:!!\(secrets\.elevenlabsKey&&secrets\.elevenlabsEnglishVoiceId\)/);
+  assert.match(app, /\["ttsEnglish","گویندگی انگلیسی"\]/);
+});
+
 test("D1 compatibility migration adds legacy columns before creating their indexes", () => {
   assert.equal(baseMigration.includes("idx_content_workspace"), false);
   assert.equal(baseMigration.includes("idx_approvals_workspace_status"), false);

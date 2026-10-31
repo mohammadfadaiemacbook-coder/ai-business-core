@@ -216,7 +216,7 @@ export default {
         await ensureWorkspace(env.DB,workspace);
         if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
         const secrets=await loadProviderSecrets(env,env.DB,workspace);
-        return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
+        return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&(secrets.elevenlabsVoiceId||secrets.elevenlabsEnglishVoiceId)),ttsPersian:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),ttsEnglish:!!(secrets.elevenlabsKey&&secrets.elevenlabsEnglishVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
       }catch(error){return json({error:"Provider settings operation failed",detail:String(error?.message||"unknown").slice(0,180)},500,headers)}
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
@@ -410,7 +410,7 @@ export default {
     }
     if (url.pathname === "/api/media/capabilities" && request.method === "GET") {
       if (!(await isAuthorized(request, env))) return json({error:"Unauthorized"},401,headers);
-      const p=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");return json({ok:true,tts:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID)),secondaryAI:!!(((p.secondaryUrl||env.AI_SECONDARY_API_URL)&&(p.secondaryKey||env.AI_SECONDARY_API_KEY)&&(p.secondaryModel||env.AI_SECONDARY_MODEL))||(p.claudeKey&&p.claudeModel)),claude:!!(p.claudeKey&&p.claudeModel),imageGeneration:!!((p.imageUrl||env.IMAGE_API_URL)&&(p.imageKey||env.IMAGE_API_KEY)),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
+      const p=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");return json({ok:true,tts:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID||p.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID)),ttsPersian:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID)),ttsEnglish:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID)),secondaryAI:!!(((p.secondaryUrl||env.AI_SECONDARY_API_URL)&&(p.secondaryKey||env.AI_SECONDARY_API_KEY)&&(p.secondaryModel||env.AI_SECONDARY_MODEL))||(p.claudeKey&&p.claudeModel)),claude:!!(p.claudeKey&&p.claudeModel),imageGeneration:!!((p.imageUrl||env.IMAGE_API_URL)&&(p.imageKey||env.IMAGE_API_KEY)),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
     }
     if (url.pathname === "/api/media/image" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
