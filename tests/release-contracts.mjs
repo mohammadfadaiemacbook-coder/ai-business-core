@@ -300,3 +300,12 @@ test("OAuth account connection and token lifecycle events are recorded without s
   assert.ok(helper.includes("catch { return false; }"));
   assert.doesNotMatch(helper,/access_token|refresh_token|client_secret|encrypted_token_json/);
 });
+
+
+test("all Worker upstream HTTP requests have bounded timeouts", () => {
+  assert.ok(worker.includes("async function fetchWithTimeout(input, init = {}, timeoutMs = 25000)"));
+  assert.ok(worker.includes("signal: init.signal || AbortSignal.timeout(timeoutMs)"));
+  assert.doesNotMatch(worker, /await fetch\(/);
+  assert.ok(worker.includes("await fetchWithTimeout(uploadUrl"));
+  assert.ok(worker.includes("signal:AbortSignal.timeout(90000)"));
+});
