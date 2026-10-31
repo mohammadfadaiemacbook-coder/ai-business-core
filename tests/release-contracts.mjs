@@ -220,7 +220,8 @@ test("cloud sync, provider settings, media capabilities, and YouTube trends use 
   assert.ok(app.includes("function cloudWorkspaceId()"));
   assert.ok(app.includes('api/workspace?workspace="+encodeURIComponent(cloudWorkspaceId())'));
   assert.ok(app.includes('api/providers?workspace="+encodeURIComponent(cloudWorkspaceId())'));
-  assert.ok(app.includes('api/media/capabilities?workspace="+encodeURIComponent(cloudWorkspaceId())'));
+  assert.ok(app.includes('/api/media/capabilities'));
+  assert.ok(app.includes('url.searchParams.set("workspace",cloudWorkspaceId())'));
   assert.ok(app.includes('api/youtube/trends?workspace="+encodeURIComponent(cloudWorkspaceId())+"&q='));
   assert.doesNotMatch(app, /workspace=default/);
 });
