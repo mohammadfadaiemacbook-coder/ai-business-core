@@ -80,7 +80,7 @@ async function saveProviderSecrets(env,db,workspace,values) {
   for(const [name,value] of Object.entries(values)){
     if(!allowed.has(name)||typeof value!=="string")continue;
     if(!value.trim()){
-      statements.push(db.prepare("DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?").bind(workspace,name));
+      // Empty password fields are omitted by the UI after saving; preserve existing secrets.
       continue;
     }
     if(value.length>2000)throw new Error("Provider setting is too long");

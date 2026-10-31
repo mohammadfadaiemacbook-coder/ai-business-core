@@ -143,13 +143,15 @@ test("Cloud sync preserves local data and downloads a backup on version conflict
   assert.ok(app.includes("داده محلی دست‌نخورده ماند"));
 });
 
-test("Provider endpoints require public HTTPS and empty values delete stored secrets", () => {
+test("Provider endpoints require public HTTPS and blank form fields preserve saved secrets", () => {
   assert.ok(worker.includes("function safeProviderUrl(value)"));
   assert.ok(worker.includes('url.protocol!=="https:"'));
   assert.ok(worker.includes('host==="localhost"'));
   assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl)'));
   assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl)'));
-  assert.ok(worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
+  assert.ok(worker.includes("// Empty password fields are omitted by the UI after saving; preserve existing secrets."));
+  assert.ok(worker.includes("if(!value.trim()){"));
+  assert.ok(!worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
 });
 
 test("Cloudflare deployment preserves existing vars and does not replace the configured AI model", () => {
