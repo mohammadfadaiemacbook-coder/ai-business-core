@@ -26,9 +26,9 @@ test("Claude review uses Anthropic Messages API and server-side secret storage",
 });
 
 test("YouTube reply uses the comment-thread ID required by comments.insert", () => {
-  assert.match(worker, /threadId:item\.id,commentId:item\.id/);
+  assert.match(worker, /threadId:item\.id,commentId:comment\.id,topLevelCommentId:comment\.id/);\n  assert.match(worker, /parentId=String\(body\?\.parentCommentId\|\|body\?\.commentId/);
   assert.match(worker, /parentId,textOriginal:replyText/);
-  assert.match(app, /JSON\.stringify\(\{threadId:item\.threadId,text:reply\}\)/);
+  assert.match(app, /JSON\.stringify\(\{parentCommentId:item\.topLevelCommentId\|\|item\.commentId,text:reply\}\)/);
 });
 
 test("comments that cannot be replied to are not offered a reply composer", () => {
