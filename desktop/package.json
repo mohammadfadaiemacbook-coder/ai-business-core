@@ -1,8 +1,12 @@
 {
   "name": "nexora-ai-desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Nexora AI desktop app for macOS",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mohammadfadaiemacbook-coder/ai-business-core.git"
+  },
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
