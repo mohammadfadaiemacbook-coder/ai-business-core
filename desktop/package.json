@@ -11,7 +11,7 @@
   "scripts": {
     "start": "electron .",
     "dist:mac": "electron-builder --mac dmg --universal --publish never",
-    "release:mac": "electron-builder --mac dmg --universal --publish always"
+    "release:mac": "electron-builder --mac dmg --universal --publish never"
   },
   "devDependencies": {
     "electron": "^37.2.6",
