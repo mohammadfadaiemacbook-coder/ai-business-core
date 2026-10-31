@@ -95,6 +95,14 @@ async function saveProviderSecrets(env,db,workspace,values) {
 async function ensureWorkspace(db, id) {
   await db.prepare("INSERT OR IGNORE INTO workspaces (id, name) VALUES (?, ?)").bind(id, id === "default" ? "فضای کاری اصلی" : id).run();
 }
+async function writeAuditEvent(db,workspace,eventType,targetType,targetId,details={}) {
+  try {
+    await db.prepare("INSERT INTO audit_events (id,workspace_id,event_type,target_type,target_id,details_json) VALUES (?,?,?,?,?,?)")
+      .bind(crypto.randomUUID(),workspace,eventType,targetType,targetId||null,JSON.stringify(details)).run();
+    return true;
+  } catch { return false; }
+}
+
 function buildPrompt(task, inputs) {
   const taskText = {
     youtube_research: "Create a research plan for a YouTube video in the language requested by the user; default to Persian (Farsi). Separate verified facts, hypotheses, and questions. Do not invent search results, metrics, sources, or citations. Return suggested search queries and a source-evaluation checklist.",
@@ -144,6 +152,7 @@ async function youtubeAccessToken(env, db, workspace) {
   const refreshed = await response.json().catch(() => ({}));
   if (!response.ok || !refreshed.access_token) {
     await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(row.id,workspace).run().catch(()=>{});
+    await writeAuditEvent(db,workspace,"youtube.token.refresh_failed","social_account",row.id,{reauthorizationRequired:true});
     throw new Error("Google token refresh failed. Reconnect the YouTube account.");
   }
   const next = { ...token, access_token: refreshed.access_token, refresh_token: refreshed.refresh_token || token.refresh_token, expires_at: Date.now() + (refreshed.expires_in || 3600) * 1000, scope: refreshed.scope || token.scope };
@@ -151,6 +160,7 @@ async function youtubeAccessToken(env, db, workspace) {
   const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData:aad }, key, new TextEncoder().encode(JSON.stringify(next)));
   const updatedPack = { iv: btoa(String.fromCharCode(...iv)), data: btoa(String.fromCharCode(...new Uint8Array(encrypted))) };
   await db.prepare("UPDATE social_accounts SET encrypted_token_json=?, token_expires_at=?, last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(JSON.stringify(updatedPack), new Date(next.expires_at).toISOString(), row.id, workspace).run();
+  await writeAuditEvent(db,workspace,"youtube.token.refreshed","social_account",row.id,{expiresAt:new Date(next.expires_at).toISOString()});
   return { accessToken: next.access_token, row, token: next, key };
 }
 
@@ -308,6 +318,7 @@ export default {
         VALUES (?,?,?,?,?,?,?,?,?,'connected',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
         ON CONFLICT(workspace_id,platform,external_account_id) DO UPDATE SET display_name=excluded.display_name,granted_scopes_json=excluded.granted_scopes_json,encrypted_token_json=excluded.encrypted_token_json,token_expires_at=excluded.token_expires_at,status='connected',last_checked_at=excluded.last_checked_at`)
         .bind(accountId,saved.workspace_id,"youtube",channel.id,channel.snippet?.title||"YouTube channel","channel",JSON.stringify((tokens.scope||"").split(" ")),JSON.stringify(pack),tokens.expires_in?new Date(Date.now()+tokens.expires_in*1000).toISOString():null).run();
+      await writeAuditEvent(env.DB,saved.workspace_id,"youtube.account.connected","social_account",accountId,{platform:"youtube",externalAccountId:channel.id,grantedScopeCount:(tokens.scope||"").split(" ").filter(Boolean).length});
       const destination=(env.APP_PUBLIC_URL||"https://mohammadfadaiemacbook-coder.github.io/ai-business-core/").replace(/\/$/,"");
       return Response.redirect(destination+"?oauth=youtube_connected",302);
     }
