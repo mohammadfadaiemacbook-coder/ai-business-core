@@ -449,7 +449,7 @@ export default {
     if (!body || typeof body.task !== "string" || !ALLOWED_TASKS.has(body.task)) return json({ error: "Unsupported task" }, 400, headers);
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
     if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
-    const aiProviderSecrets=await loadProviderSecrets(env,env.DB,body.inputs.workspace||"default");
+    const aiProviderSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");
     let upstream;
     try {
       upstream = await fetch(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
