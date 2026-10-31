@@ -184,6 +184,12 @@ test("long-form YouTube video builds a preview and requires explicit publishing"
   assert.match(app, /autopilot-publish-at/);
 });
 
+
+test("AI generation loads provider secrets only from the authenticated URL workspace", () => {
+  assert.ok(worker.includes('const aiProviderSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default")'));
+  assert.ok(!worker.includes('loadProviderSecrets(env,env.DB,body.inputs.workspace'));
+});
+
 test("D1 compatibility migration adds legacy columns before creating their indexes", () => {
   assert.equal(baseMigration.includes("idx_content_workspace"), false);
   assert.equal(baseMigration.includes("idx_approvals_workspace_status"), false);
