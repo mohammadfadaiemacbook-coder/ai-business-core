@@ -380,3 +380,22 @@ test("web app shell does not include the retired native APK update flow", async 
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.doesNotMatch(html, /AndroidApp|checkAndroidRelease|app-debug\\.apk|app-update-banner/);
 });
+
+test("media capability endpoint enforces CORS, method, workspace and safe provider lookup", () => {
+  const start=worker.indexOf('if (url.pathname === "/api/media/capabilities")');
+  const end=worker.indexOf('if (url.pathname === "/api/media/image"',start);
+  const source=worker.slice(start,end);
+  assert.ok(source.includes('request.method !== "GET"'));
+  assert.ok(source.includes('Origin not allowed'));
+  assert.ok(source.includes('WORKSPACE_ID.test(workspace)'));
+  assert.ok(source.includes('catch { return json({error:"Media capability settings are temporarily unavailable"},503,headers); }'));
+  assert.ok(source.includes('ttsPersian=!!(ttsKey&&'));
+  assert.ok(source.includes('ttsEnglish=!!(ttsKey&&'));
+});
+test("TTS accepts only explicit Persian or English language codes", () => {
+  assert.ok(worker.includes('if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers)'));
+});
+test("image generation bounds and validates provider base64 output before decoding", () => {
+  assert.ok(worker.includes('if(encoded.length>24*1024*1024)'));
+  assert.ok(worker.includes('Image provider returned invalid image data'));
+});
