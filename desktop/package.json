@@ -1,0 +1,36 @@
+{
+  "name": "nexora-ai-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nexora AI desktop app for macOS",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg --universal"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.nexoraai.desktop",
+    "productName": "Nexora AI",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "title": "Nexora AI",
+      "contents": [
+        { "x": 130, "y": 160 },
+        { "x": 410, "y": 160, "type": "link", "path": "/Applications" }
+      ]
+    }
+  }
+}
