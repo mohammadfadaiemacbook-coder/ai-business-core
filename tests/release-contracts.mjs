@@ -423,3 +423,16 @@ test("all media capability, image and TTS requests are scoped to the active work
   assert.equal((app.match(/\/api\/media\/image\?workspace=/g)||[]).length, 2);
   assert.equal((app.match(/\/api\/media\/tts\?workspace=/g)||[]).length, 2);
 });
+
+test("AI generation, image generation and TTS reject malformed workspace identifiers", () => {
+  const routes = [
+    worker.slice(worker.indexOf('if (url.pathname === "/api/media/image"'), worker.indexOf('if (url.pathname === "/api/media/tts"')),
+    worker.slice(worker.indexOf('if (url.pathname === "/api/media/tts"'), worker.indexOf('if (url.pathname !== "/api/generate")')),
+    worker.slice(worker.indexOf('if (url.pathname !== "/api/generate")'))
+  ];
+  for (const source of routes) {
+    assert.ok(source.includes('WORKSPACE_ID.test(workspace)'));
+    assert.ok(source.includes('enforceRateLimit(env.DB, workspace'));
+  }
+  assert.ok(worker.includes('loadProviderSecrets(env,env.DB,workspace)'));
+});
