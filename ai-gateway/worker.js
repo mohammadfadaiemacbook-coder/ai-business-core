@@ -252,7 +252,7 @@ export default {
       auth.searchParams.set("client_id",env.GOOGLE_CLIENT_ID);
       auth.searchParams.set("redirect_uri",env.GOOGLE_REDIRECT_URI);
       auth.searchParams.set("response_type","code");
-      auth.searchParams.set("scope","openid email https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.force-ssl https://www.googleapis.com/auth/yt-analytics.readonly");
+      auth.searchParams.set("scope","openid email https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.force-ssl https://www.googleapis.com/auth/yt-analytics.readonly https://www.googleapis.com/auth/yt-analytics-monetary.readonly");
       auth.searchParams.set("access_type","offline");
       auth.searchParams.set("prompt","consent");
       auth.searchParams.set("include_granted_scopes","true");
