@@ -477,9 +477,19 @@ export default {
         return json({ error: "YouTube operation failed", detail: "Please retry or contact support." }, 500, headers);
       }
     }
-    if (url.pathname === "/api/media/capabilities" && request.method === "GET") {
+    if (url.pathname === "/api/media/capabilities") {
+      if (request.method !== "GET") return json({error:"Method not allowed"},405,{...headers,allow:"GET, OPTIONS"});
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request, env))) return json({error:"Unauthorized"},401,headers);
-      const p=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default");return json({ok:true,tts:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID||p.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID)),ttsPersian:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID)),ttsEnglish:!!((p.elevenlabsKey||env.ELEVENLABS_API_KEY)&&(p.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID)),secondaryAI:!!(((p.secondaryUrl||env.AI_SECONDARY_API_URL)&&(p.secondaryKey||env.AI_SECONDARY_API_KEY)&&(p.secondaryModel||env.AI_SECONDARY_MODEL))||(p.claudeKey&&p.claudeModel)),claude:!!(p.claudeKey&&p.claudeModel),imageGeneration:!!((p.imageUrl||env.IMAGE_API_URL)&&(p.imageKey||env.IMAGE_API_KEY)),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+      try {
+        const p=await loadProviderSecrets(env,env.DB,workspace);
+        const ttsKey=p.elevenlabsKey||env.ELEVENLABS_API_KEY;
+        const ttsPersian=!!(ttsKey&&(p.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID));
+        const ttsEnglish=!!(ttsKey&&(p.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID));
+        return json({ok:true,tts:ttsPersian||ttsEnglish,ttsPersian,ttsEnglish,secondaryAI:!!(((p.secondaryUrl||env.AI_SECONDARY_API_URL)&&(p.secondaryKey||env.AI_SECONDARY_API_KEY)&&(p.secondaryModel||env.AI_SECONDARY_MODEL))||(p.claudeKey&&p.claudeModel)),claude:!!(p.claudeKey&&p.claudeModel),imageGeneration:!!((p.imageUrl||env.IMAGE_API_URL)&&(p.imageKey||env.IMAGE_API_KEY)),videoProvider:!!(env.VIDEO_API_URL&&env.VIDEO_API_KEY)},200,headers);
+      } catch { return json({error:"Media capability settings are temporarily unavailable"},503,headers); }
     }
     if (url.pathname === "/api/media/image" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
@@ -493,7 +503,8 @@ export default {
         const data=await response.json().catch(()=>({}));
         if(!response.ok)return json({error:"Image provider failed",detail:String(data.error?.message||"provider error").slice(0,250)},502,headers);
         const encoded=data?.data?.[0]?.b64_json;if(typeof encoded!=="string"||!encoded)return json({error:"Image provider returned no base64 image"},502,headers);
-        const binary=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+        if(encoded.length>24*1024*1024)return json({error:"Generated image exceeds the response size limit"},502,headers);
+        let binary;try{binary=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0))}catch{return json({error:"Image provider returned invalid image data"},502,headers)}
         return new Response(binary,{status:200,headers:{"content-type":"image/png","cache-control":"no-store",...headers}});
       }catch(error){return json({error:"Image generation request failed",detail:"Please retry or contact support."},502,headers)}
     }
@@ -501,7 +512,7 @@ export default {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
       const limited = await enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-tts", 20, headers); if (limited) return limited;
-      const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}const language=String(body?.language||"fa").toLowerCase(),voiceId=language==="en"?(mediaSecrets.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID):(mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID);if(!ttsKey||!voiceId)return json({error:language==="en"?"English TTS is not configured. Add an English Voice ID in secure provider settings.":"Persian TTS is not configured in app provider settings."},503,headers);
+      const mediaSecrets=await loadProviderSecrets(env,env.DB,url.searchParams.get("workspace")||"default"),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}const language=String(body?.language||"fa").toLowerCase();if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);const voiceId=language==="en"?(mediaSecrets.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID):(mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID);if(!ttsKey||!voiceId)return json({error:language==="en"?"English TTS is not configured. Add an English Voice ID in secure provider settings.":"Persian TTS is not configured in app provider settings."},503,headers);
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
       try{
         const voice=encodeURIComponent(voiceId);
