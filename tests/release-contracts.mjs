@@ -248,8 +248,7 @@ test("provider secret updates are prepared fully and committed as one D1 batch",
 
 test("D1 migration sequence is numbered, additive, and includes workspace-scoped indexes", async () => {
   const { readdir, readFile } = await import("node:fs/promises");
-  const { join } = await import("node:path");
-  const dir = new URL("../migrations/", import.meta.url);
+    const dir = new URL("../migrations/", import.meta.url);
   const files = (await readdir(dir)).filter(name => /^\\d{4}_.+\\.sql$/.test(name)).sort();
   assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql"]);
   const migration = await readFile(new URL("../migrations/0005_workspace_query_indexes.sql", import.meta.url), "utf8");
