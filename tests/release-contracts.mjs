@@ -336,3 +336,13 @@ test("rate limit migration creates an atomic per-route bucket table", () => {
   assert.match(migration, /PRIMARY KEY \(bucket_key, window_start\)/);
   assert.match(migration, /idx_api_rate_limits_window/);
 });
+
+
+test("browser Worker requests use bounded timeouts and YouTube uploads allow a longer transfer window", () => {
+  assert.ok(app.includes("const {timeoutMs=60000,...fetchOptions}=options"));
+  assert.ok(app.includes("AbortSignal.timeout(15000)"));
+  assert.ok(app.includes("signal:fetchOptions.signal||AbortSignal.timeout(timeoutMs)"));
+  assert.ok(app.includes("timeoutMs:180000"));
+  assert.ok(worker.includes("body: JSON.stringify(metadata), signal: AbortSignal.timeout(180000)"));
+  assert.ok(worker.includes("body: file.stream(), signal: AbortSignal.timeout(180000)"));
+});
