@@ -136,14 +136,14 @@ async function youtubeAccessToken(env, db, workspace) {
     await db.prepare("UPDATE social_accounts SET encrypted_token_json=? WHERE id=? AND workspace_id=?").bind(JSON.stringify(migrated),row.id,workspace).run();
   }
   if (!token.access_token || !token.refresh_token) {
-    await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(row.id).run().catch(()=>{});
+    await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(row.id,workspace).run().catch(()=>{});
     throw new Error("YouTube authorization needs renewal. Reconnect the account.");
   }
   if (token.expires_at && token.expires_at > Date.now() + 60000) return { accessToken: token.access_token, row, token, key };
   const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, refresh_token: token.refresh_token, grant_type: "refresh_token" }) });
   const refreshed = await response.json().catch(() => ({}));
   if (!response.ok || !refreshed.access_token) {
-    await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(row.id).run().catch(()=>{});
+    await db.prepare("UPDATE social_accounts SET status='needs_reauth',last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(row.id,workspace).run().catch(()=>{});
     throw new Error("Google token refresh failed. Reconnect the YouTube account.");
   }
   const next = { ...token, access_token: refreshed.access_token, refresh_token: refreshed.refresh_token || token.refresh_token, expires_at: Date.now() + (refreshed.expires_in || 3600) * 1000, scope: refreshed.scope || token.scope };
