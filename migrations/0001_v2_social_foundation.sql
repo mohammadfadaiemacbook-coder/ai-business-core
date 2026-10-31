@@ -123,7 +123,4 @@ CREATE TABLE IF NOT EXISTS audit_events (
 
 CREATE INDEX IF NOT EXISTS idx_social_accounts_workspace ON social_accounts(workspace_id, platform);
 CREATE INDEX IF NOT EXISTS idx_oauth_states_expiry ON oauth_states(expires_at);
-CREATE INDEX IF NOT EXISTS idx_content_workspace ON content_items(workspace_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_approvals_workspace_status ON approval_requests(workspace_id, status);
-CREATE INDEX IF NOT EXISTS idx_publish_jobs_due ON publish_jobs(status, scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_audit_workspace_time ON audit_events(workspace_id, created_at);
