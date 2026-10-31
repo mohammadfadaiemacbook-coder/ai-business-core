@@ -20,14 +20,10 @@
     "directories": {
       "output": "dist"
     },
-    "publish": [{
-      "provider": "github",
-      "owner": "mohammadfadaiemacbook-coder",
-      "repo": "ai-business-core",
-      "releaseType": "release"
-    }],
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "category": "public.app-category.productivity",
       "identity": null,
       "hardenedRuntime": false,
@@ -39,8 +35,16 @@
     "dmg": {
       "title": "Nexora AI",
       "contents": [
-        { "x": 130, "y": 160 },
-        { "x": 410, "y": 160, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 160
+        },
+        {
+          "x": 410,
+          "y": 160,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     }
   }
