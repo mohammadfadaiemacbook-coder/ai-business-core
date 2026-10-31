@@ -25,12 +25,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
-      - name: Install dependencies
+       - name: Install dependencies
         run: |
-          npm install --package-lock-only
-          npm ci
+          npm install --no-audit --no-fund
       - name: Build universal macOS DMG
         run: npm run dist:mac
       - name: Upload installer
