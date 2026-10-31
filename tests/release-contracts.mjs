@@ -309,3 +309,29 @@ test("all Worker upstream HTTP requests have bounded timeouts", () => {
   assert.ok(worker.includes("await fetchWithTimeout(uploadUrl"));
   assert.ok(worker.includes("signal:AbortSignal.timeout(90000)"));
 });
+
+
+test("Worker rate limits expensive operations with atomic D1 buckets and fails closed", () => {
+  assert.ok(worker.includes("async function enforceRateLimit(db, workspace, route, limit, headers)"));
+  assert.ok(worker.includes("ON CONFLICT(bucket_key, window_start) DO UPDATE SET request_count=request_count+1 RETURNING request_count"));
+  assert.ok(worker.includes('"retry-after": "60"'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "youtube-upload", 3, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-image", 5, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "media-tts", 20, headers)'));
+  assert.ok(worker.includes('enforceRateLimit(env.DB, url.searchParams.get("workspace") || "default", "ai-generate", 20, headers)'));
+});
+test("Worker errors are correlated by request ID and never return raw exception details", () => {
+  assert.ok(worker.includes('const requestId = crypto.randomUUID()'));
+  assert.ok(worker.includes('"x-request-id": requestId'));
+  assert.ok(worker.includes('خطای داخلی سرور رخ داد. شناسه پیگیری: '));
+  assert.doesNotMatch(worker, /detail:String\(error\?\.message/);
+});
+test("YouTube upload rejects non-video content and oversized declared bodies before parsing multipart data", () => {
+  assert.ok(worker.includes('declaredLength > 66 * 1024 * 1024'));
+  assert.ok(worker.includes('!file.type.startsWith("video/")'));
+});
+test("rate limit migration creates an atomic per-route bucket table", () => {
+  const migration = readFileSync(new URL("../migrations/0006_api_rate_limits.sql", import.meta.url), "utf8");
+  assert.match(migration, /PRIMARY KEY \(bucket_key, window_start\)/);
+  assert.match(migration, /idx_api_rate_limits_window/);
+});
