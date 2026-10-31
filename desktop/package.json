@@ -10,7 +10,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "dist:mac": "electron-builder --mac dmg --universal",
+    "dist:mac": "electron-builder --mac dmg --universal --publish never",
     "release:mac": "electron-builder --mac dmg --universal --publish always"
   },
   "devDependencies": {
