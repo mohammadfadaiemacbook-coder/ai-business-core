@@ -347,11 +347,24 @@ export default {
           const endDate = url.searchParams.get("endDate") || new Date().toISOString().slice(0,10);
           const startDate = url.searchParams.get("startDate") || new Date(Date.now()-29*86400000).toISOString().slice(0,10);
           if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) return json({ error: "Invalid analytics date range" }, 400, headers);
-          const params = new URLSearchParams({ ids: "channel==MINE", startDate, endDate, metrics: "views,estimatedMinutesWatched,averageViewDuration,subscribersGained,estimatedRevenue,estimatedAdRevenue,adImpressions,monetizedPlaybacks", dimensions: "day", sort: "day" });
-          const response = await fetch("https://youtubeanalytics.googleapis.com/v2/reports?" + params.toString(), { headers: { authorization: "Bearer " + auth.accessToken } });
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) return youtubeApiError(data,response.status,headers,"Could not load YouTube analytics");
-          return json({ ok: true, columnHeaders: data.columnHeaders || [], rows: data.rows || [], startDate, endDate }, 200, headers);
+          const baseMetrics = "views,estimatedMinutesWatched,averageViewDuration,subscribersGained";
+          const reportUrl = metrics => "https://youtubeanalytics.googleapis.com/v2/reports?" + new URLSearchParams({ ids:"channel==MINE",startDate,endDate,metrics,dimensions:"day",sort:"day" }).toString();
+          const baseResponse = await fetch(reportUrl(baseMetrics), { headers:{authorization:"Bearer "+auth.accessToken} });
+          const baseData = await baseResponse.json().catch(()=>({}));
+          if (!baseResponse.ok) return youtubeApiError(baseData,baseResponse.status,headers,"Could not load YouTube analytics");
+          let columnHeaders = baseData.columnHeaders || [], rows = baseData.rows || [], monetizationAvailable = false;
+          try {
+            const revenueResponse = await fetch(reportUrl("estimatedRevenue,estimatedAdRevenue,adImpressions,monetizedPlaybacks"), { headers:{authorization:"Bearer "+auth.accessToken} });
+            const revenueData = await revenueResponse.json().catch(()=>({}));
+            if (revenueResponse.ok && Array.isArray(revenueData.columnHeaders) && Array.isArray(revenueData.rows)) {
+              const revenueHeaders = revenueData.columnHeaders, revenueIndex = revenueHeaders.findIndex(h=>h.name==="day");
+              const baseDayIndex = columnHeaders.findIndex(h=>h.name==="day"), revenueMetricHeaders = revenueHeaders.filter(h=>h.name!=="day");
+              const revenueRows = new Map(revenueData.rows.map(row=>[String(row[revenueIndex]),row]));
+              const mergedRows = rows.map(row=>{const revenueRow=revenueRows.get(String(row[baseDayIndex]));return [...row,...revenueMetricHeaders.map(h=>{const i=revenueHeaders.findIndex(x=>x.name===h.name);return revenueRow?.[i]??0})]});
+              columnHeaders = [...columnHeaders,...revenueMetricHeaders]; rows = mergedRows; monetizationAvailable = true;
+            }
+          } catch {}
+          return json({ok:true,columnHeaders,rows,startDate,endDate,monetizationAvailable},200,headers);
         }
 
         if (url.pathname === "/api/youtube/comments" && request.method === "GET") {
