@@ -152,6 +152,21 @@ const total=metric=>{const index=headers.findIndex(h=>h.name===metric);return in
 return;
 }
 
+if(a==="youtube-publish-now"){
+if(!generatedVideoBlob){toast("ابتدا از دکمه تولید خودکار محتوا، ویدئو را بساز.");return}
+if(!confirm("آیا پیش‌نویس بررسی شده و انتشار عمومی همین ویدئو را تأیید می‌کنی؟"))return;
+const flag=$("#autopilot-public");if(flag)flag.checked=true;const schedule=$("#autopilot-publish-at");if(schedule)schedule.value="";
+b.disabled=true;try{const result=await uploadGeneratedVideo();const item=state.content.find(x=>x.title===(generatedVideoMetadata?.title||""));if(item){item.status="Published";item.publishedAt=new Date().toISOString();item.youtubeUrl=result.url||"";save()}const status=$("#yt-draft-status");if(status)status.textContent="منتشر شد";toast("ویدئو با موفقیت به‌صورت عمومی منتشر شد.")}catch(err){toast(err.message||"انتشار ویدئو ناموفق بود")}finally{b.disabled=false}return
+}
+if(a==="youtube-schedule"){
+if(!generatedVideoBlob){toast("ابتدا محتوای ویدئویی را تولید کن.");return}
+const token=(cloudToken||$("#cloud-token")?.value||"").trim(),wid=($("#cloud-workspace")?.value||"default").trim();if(token.length<24){toast("ابتدا در بخش اتصال، توکن دسترسی برنامه را ثبت کن.");return}
+b.disabled=true;try{const response=await workerFetch("https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/youtube/channel?workspace="+encodeURIComponent(wid),{headers:{authorization:"Bearer "+token},cache:"no-store"});const data=await readWorkerJson(response,"اطلاعات کانال برای تخمین زمان انتشار دریافت نشد.");
+const videos=(data.recentVideos||[]).filter(v=>v.publishedAt&&Number(v.viewCount)>0),byHour=new Map();for(const video of videos){const d=new Date(video.publishedAt),age=Math.max(1,(Date.now()-d.getTime())/3600000);if(!Number.isFinite(age))continue;const h=d.getHours(),row=byHour.get(h)||{score:0,count:0};row.score+=Number(video.viewCount)/age;row.count++;byHour.set(h,row)}
+const ranked=[...byHour.entries()].filter(([,v])=>v.count>=2).sort((x,y)=>(y[1].score/y[1].count)-(x[1].score/x[1].count));const hour=ranked.length?ranked[0][0]:17,when=new Date();when.setDate(when.getDate()+1);when.setHours(hour,0,0,0);const local=new Date(when.getTime()-when.getTimezoneOffset()*60000).toISOString().slice(0,16);
+const field=$("#autopilot-publish-at");if(field)field.value=local;const flag=$("#autopilot-public");if(flag)flag.checked=false;const result=await uploadGeneratedVideo();const item=state.content.find(x=>x.title===(generatedVideoMetadata?.title||""));if(item){item.status="Scheduled";item.publishAt=when.toISOString();item.youtubeUrl=result.url||"";save()}const status=$("#yt-draft-status");if(status)status.textContent="زمان‌بندی شد";const box=$("#youtube-inline-video");if(box)box.textContent="زمان انتشار پیشنهادی: "+when.toLocaleString("fa-IR")+". "+(ranked.length?"بر اساس عملکرد ویدئوهای اخیر کانال.":"داده ساعتی کافی نبود؛ ساعت پیش‌فرض ۱۷:۰۰ انتخاب شد.");toast("ویدئو برای زمان پیشنهادی زمان‌بندی شد؛ این تخمین تضمین بازدید نیست.")
+}catch(err){toast(err.message||"زمان‌بندی خودکار ناموفق بود")}finally{b.disabled=false}return
+}
 if(a==="cloud-connect"||a==="cloud-pull"||a==="cloud-push"){
 const token=(a==="cloud-connect"?($("#cloud-token")?.value||cloudToken):cloudToken)||"";
 const wid=($("#cloud-workspace")?.value||"default").trim();
