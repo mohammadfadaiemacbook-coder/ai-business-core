@@ -37,6 +37,8 @@ test("manual trend discovery and creator helpers stay aligned with the English i
   assert.match(app, /artificial intelligence education/);
   assert.match(app, /&region=US&days=7/);
   assert.match(app, /Global English-speaking audience interested in /);
+  assert.match(app, /Recent YouTube Data API observations from the last 7 days in the US market/);
+  assert.match(app, /Selected topic from the trend radar\. Develop a fresh educational angle in natural English/);
   assert.match(app, /15 compelling, accurate, non-clickbait English YouTube titles/);
   assert.match(app, /5 distinct professional YouTube thumbnail concepts in English/);
   assert.match(app, /separate natural English captions for YouTube and Instagram/);
