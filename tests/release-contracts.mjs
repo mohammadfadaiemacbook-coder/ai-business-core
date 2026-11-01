@@ -41,6 +41,8 @@ test("manual trend discovery and creator helpers stay aligned with the English i
   assert.match(app, /5 distinct professional YouTube thumbnail concepts in English/);
   assert.match(app, /separate natural English captions for YouTube and Instagram/);
   assert.match(app, /گویندگی انگلیسی/);
+  assert.match(app, /videoBitsPerSecond:600000,audioBitsPerSecond:64000/);
+  assert.match(app, /English-language Nexora AI YouTube video/);
 });
 
 test("YouTube replies use the actual top-level comment ID required by comments.insert", () => {
