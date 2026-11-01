@@ -1,6 +1,9 @@
 name: Complete release - Worker and web app
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       release_confirmation:
@@ -21,7 +24,7 @@ concurrency:
 
 jobs:
   deploy-worker:
-    if: inputs.release_confirmation == 'RELEASE'
+    if: github.event_name == 'push' || inputs.release_confirmation == 'RELEASE'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -88,7 +91,7 @@ jobs:
           retention-days: 30
 
   deploy-web:
-    if: inputs.release_confirmation == 'RELEASE'
+    if: github.event_name == 'push' || inputs.release_confirmation == 'RELEASE'
     needs: deploy-worker
     runs-on: ubuntu-latest
     timeout-minutes: 15
