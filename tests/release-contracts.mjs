@@ -509,3 +509,9 @@ test("AI generation, image generation and TTS reject malformed workspace identif
   }
   assert.ok(worker.includes('loadProviderSecrets(env,env.DB,workspace)'));
 });
+
+test("YouTube view survives older or incomplete local settings and exposes a render recovery action", () => {
+  assert.ok(app.includes("state.settings={...empty().settings"));
+  assert.ok(app.includes("View render failed:"));
+  assert.ok(app.includes('data-action="retry-render"'));
+});
