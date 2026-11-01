@@ -264,7 +264,7 @@ test("cloud sync, provider settings, media capabilities, and YouTube trends use 
 
 test("automatic YouTube video generation checks saved history and rejects duplicate topics and titles", () => {
   assert.ok(app.includes("function isDuplicateVideo(candidate,history=[])"));
-  assert.ok(app.includes("state.content.filter(x=>!x.platform||x.platform===\\"YouTube\\").slice(0,100)"));
+  assert.ok(app.includes('state.content.filter(x=>!x.platform||x.platform===\"YouTube\").slice(0,100)'));
   assert.ok(app.includes("همه ایده‌های پیشنهادی با موضوعات قبلی کانال مشابه‌اند"));
   assert.ok(app.includes("عنوان نهایی با محتوای قبلی کانال شباهت زیادی دارد"));
   assert.ok(app.includes("metadata:generatedVideoMetadata"));
