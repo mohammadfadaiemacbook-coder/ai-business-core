@@ -359,12 +359,12 @@ export default {
       try {
         const auth = await youtubeAccessToken(env, env.DB, workspace);
         if (url.pathname === "/api/youtube/trends" && request.method === "GET") {
-          const query = String(url.searchParams.get("q") || "هوش مصنوعی").trim().slice(0,100);
-          const region = String(url.searchParams.get("region") || "IR").toUpperCase();
+          const query = String(url.searchParams.get("q") || "artificial intelligence education").trim().slice(0,100);
+          const region = String(url.searchParams.get("region") || "US").toUpperCase();
           const days = Math.min(30,Math.max(1,Number(url.searchParams.get("days")||7)));
           if (!/^[A-Z]{2}$/.test(region)) return json({error:"Invalid region code"},400,headers);
           const publishedAfter = new Date(Date.now()-days*86400000).toISOString();
-          const params = new URLSearchParams({part:"snippet",type:"video",maxResults:"25",order:"viewCount",q:query,publishedAfter,regionCode:region,relevanceLanguage:"fa"});
+          const params = new URLSearchParams({part:"snippet",type:"video",maxResults:"25",order:"viewCount",q:query,publishedAfter,regionCode:region,relevanceLanguage:"en"});
           const searchResponse=await fetchWithTimeout("https://www.googleapis.com/youtube/v3/search?"+params.toString(),{headers:{authorization:"Bearer "+auth.accessToken}});
           const searchData=await searchResponse.json().catch(()=>({}));
           if(!searchResponse.ok)return youtubeApiError(searchData,searchResponse.status,headers,"YouTube trend search failed");
