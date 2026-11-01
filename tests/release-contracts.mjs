@@ -62,10 +62,10 @@ test("YouTube comment write permission is requested during OAuth", () => {
   assert.match(worker, /youtube\.force-ssl/);
 });
 
-test("long-form video recorder requires synthesized Persian narration and attaches it to the video stream", () => {
+test("long-form video recorder requires synthesized English narration and attaches it to the video stream", () => {
   assert.match(app, /createMediaStreamDestination/);
   assert.match(app, /audioDestination\.stream\.getAudioTracks\(\)/);
-  assert.match(app, /برای ساخت ویدئوی بلند با گویندگی فارسی/);
+  assert.match(app, /برای ساخت ویدئوی بلند با گویندگی انگلیسی/);
   assert.match(app, /decodeAudioData\(audioParts\[i\]\.slice\(0\)\)/);
 });
 
