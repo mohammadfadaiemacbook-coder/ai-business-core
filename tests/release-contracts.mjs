@@ -279,6 +279,16 @@ test("YouTube tools live in a dedicated main navigation workspace", async () => 
   assert.ok(app.includes("youtube-upload-form"));
   assert.ok(app.includes("youtube-comments"));
 });
+test("YouTube workspace keeps a simplified three-action dashboard and inline preview", () => {
+  assert.ok(app.includes('data-action="video-auto"'));
+  assert.ok(app.includes('data-action="youtube-publish-now"'));
+  assert.ok(app.includes('data-action="youtube-schedule"'));
+  assert.ok(app.includes('id="youtube-inline-draft"'));
+  assert.ok(app.includes('id="youtube-inline-video"'));
+  assert.ok(app.includes('yt-chart-grid'));
+  assert.ok(app.includes('id="youtube-engine"'));
+});
+
 
 test("YouTube publish-time estimate uses recent channel video statistics and labels its confidence", () => {
   assert.ok(app.includes('data-action="youtube-best-time" data-target="autopilot-publish-at"'));
@@ -289,7 +299,7 @@ test("YouTube publish-time estimate uses recent channel video statistics and lab
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v12/);
+  assert.match(sw, /ai-business-core-shell-v13/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
@@ -429,7 +439,7 @@ test("PWA shell includes accessible skip navigation and mobile menu semantics", 
 test("service worker cache writes are tied to fetch event lifetime", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
-  assert.match(sw, /ai-business-core-shell-v12/);
+  assert.match(sw, /ai-business-core-shell-v13/);
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
