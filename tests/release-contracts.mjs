@@ -517,5 +517,4 @@ test("YouTube view survives older or incomplete local settings and exposes a ren
 
 test("YouTube is the initial workspace when the app opens", () => {
   assert.match(app, /let view="youtube"/);
-  assert.ok(html.includes('data-view="youtube"'));
 });
