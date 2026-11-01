@@ -434,7 +434,7 @@ test("PWA shell includes accessible skip navigation and mobile menu semantics", 
   const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
   assert.match(html, /class="skip-link" href="#view-root"/);
   assert.match(html, /aria-controls="sidebar" aria-expanded="false"/);
-  assert.match(app, /menu\.setAttribute\("aria-expanded",String\(opened\)\)/);
+  assert.match(app, /menu\.setAttribute\("aria-expanded","true"\)/);
   assert.match(app, /e\.key==="Escape"/);
 });
 test("service worker cache writes are tied to fetch event lifetime", async () => {
