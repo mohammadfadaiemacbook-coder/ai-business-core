@@ -526,3 +526,12 @@ test("Home dashboard replaces the mobile drawer with direct section cards", () =
   for (const section of ["youtube","tasks","research","content","calendar","approvals","ai","settings"]) assert.ok(app.includes('["'+section+'"'));
   assert.ok(css.includes(".home-module-grid"));
 });
+
+
+test("AI generation falls back to the configured secondary provider on primary rate limits and reports actionable quota details", () => {
+  assert.ok(worker.includes('upstream.status===429||upstream.status>=500'));
+  assert.ok(worker.includes('activeModel=secondaryModel;usedFallback=true'));
+  assert.ok(worker.includes('retryAfterSeconds:limited?retryAfter:undefined'));
+  assert.ok(worker.includes('fallbackConfigured:!!(secondaryUrl&&secondaryKey&&secondaryModel)'));
+  assert.ok(worker.includes('providerFallback:usedFallback'));
+});
