@@ -299,7 +299,7 @@ test("YouTube publish-time estimate uses recent channel video statistics and lab
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v13/);
+  assert.match(sw, /ai-business-core-shell-v14/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
@@ -439,7 +439,7 @@ test("PWA shell includes accessible skip navigation and mobile menu semantics", 
 test("service worker cache writes are tied to fetch event lifetime", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
-  assert.match(sw, /ai-business-core-shell-v13/);
+  assert.match(sw, /ai-business-core-shell-v14/);
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
@@ -514,4 +514,9 @@ test("YouTube view survives older or incomplete local settings and exposes a ren
   assert.ok(app.includes("state.settings={...empty().settings"));
   assert.ok(app.includes("View render failed:"));
   assert.ok(app.includes('data-action="retry-render"'));
+});
+
+test("YouTube is the initial workspace when the app opens", () => {
+  assert.match(app, /let view="youtube"/);
+  assert.ok(html.includes('data-view="youtube"'));
 });
