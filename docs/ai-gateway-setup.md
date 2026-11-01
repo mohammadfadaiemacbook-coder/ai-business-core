@@ -35,7 +35,7 @@ Optional Worker variables/secrets:
 2. Add `CLOUDFLARE_API_TOKEN` with Cloudflare permissions **Workers Scripts: Edit**, **D1: Edit**, and the account read permission Wrangler requires.
 3. Add `CLOUDFLARE_ACCOUNT_ID`.
 4. Keep all existing Cloudflare Worker secrets/variables intact: `APP_ACCESS_TOKEN`, `TOKEN_ENCRYPTION_KEY`, Google OAuth credentials, primary AI provider credentials and optional media-provider credentials. Never replace `TOKEN_ENCRYPTION_KEY` for an existing database.
-5. In GitHub Actions, select **Complete release - Worker and web app**, choose the `feature/security-expo-hardening` branch, and set confirmation to `RELEASE`.
+5. In GitHub Actions, select **Complete release - Worker and web app**, choose the `main` branch (after merging the reviewed changes), and set confirmation to `RELEASE`. Do not select retired experimental branches.
 6. The workflow exports a D1 backup, applies all pending migrations, deploys the Worker, verifies Worker/D1 health, publishes only the public app files to GitHub Pages.
 7. Download and retain the artifact named `ai-business-core-d1-predeploy-backup`. 
 
