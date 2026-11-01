@@ -4,7 +4,7 @@ const CLOUD_TOKEN_KEY="ai-business-core-cloud-token-v1";
 const LOCAL_DATA_PRESENT=!!localStorage.getItem(KEY);
 const empty=()=>({tasks:[],research:[],content:[],events:[],approvals:[],settings:{workspaceName:"AI Business Core"}});
 let state;try{state={...empty(),...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch{state=empty()}state.settings={...empty().settings,...(state.settings&&typeof state.settings==="object"?state.settings:{})};
-let view="overview",search="",filter="all",editing=null,editingType=null,aiOutput="",aiReview="",aiBusy=false,aiEndpoint="",aiToken="",trendSnapshot=[],generatedVideoMetadata=null,generatedArtwork=null,cloudToken="",cloudVersion=0,generatedVideoUrl="",generatedVideoBlob=null,generatedSubtitlesBlob=null,generatedThumbnailBlob=null,generatedVoicePreviewUrl=null,youtubeComments=[];
+let view="youtube",search="",filter="all",editing=null,editingType=null,aiOutput="",aiReview="",aiBusy=false,aiEndpoint="",aiToken="",trendSnapshot=[],generatedVideoMetadata=null,generatedArtwork=null,cloudToken="",cloudVersion=0,generatedVideoUrl="",generatedVideoBlob=null,generatedSubtitlesBlob=null,generatedThumbnailBlob=null,generatedVoicePreviewUrl=null,youtubeComments=[];
 const $=s=>document.querySelector(s), esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
 const WORKER_HOST="ai-business-core.mohammadfadaiemacbook.workers.dev";
