@@ -388,9 +388,12 @@ export default {
           const uploads = channel.contentDetails?.relatedPlaylists?.uploads;
           let videos = [];
           if (uploads) {
-            const listResponse = await fetchWithTimeout("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=10&playlistId=" + encodeURIComponent(uploads), { headers: { authorization: "Bearer " + auth.accessToken } });
+            const listResponse = await fetchWithTimeout("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=25&playlistId=" + encodeURIComponent(uploads), { headers: { authorization: "Bearer " + auth.accessToken } });
             const listData = await listResponse.json().catch(() => ({}));
-            if (listResponse.ok) videos = (listData.items || []).map(x => ({ videoId: x.contentDetails?.videoId, title: x.snippet?.title, publishedAt: x.contentDetails?.videoPublishedAt || x.snippet?.publishedAt, thumbnail: x.snippet?.thumbnails?.medium?.url || x.snippet?.thumbnails?.default?.url })).filter(x => x.videoId);
+            if (listResponse.ok) {
+              videos = (listData.items || []).map(x => ({ videoId: x.contentDetails?.videoId, title: x.snippet?.title, publishedAt: x.contentDetails?.videoPublishedAt || x.snippet?.publishedAt, thumbnail: x.snippet?.thumbnails?.medium?.url || x.snippet?.thumbnails?.default?.url })).filter(x => x.videoId);
+              if(videos.length){const ids=videos.map(v=>v.videoId).join(",");const statsResponse=await fetchWithTimeout("https://www.googleapis.com/youtube/v3/videos?part=statistics&id="+encodeURIComponent(ids),{headers:{authorization:"Bearer "+auth.accessToken}});const statsData=await statsResponse.json().catch(()=>({}));if(statsResponse.ok){const stats=new Map((statsData.items||[]).map(v=>[v.id,Number(v.statistics?.viewCount||0)]));videos=videos.map(v=>({...v,viewCount:stats.get(v.videoId)||0}));}}
+            }
           }
           return json({ ok: true, channel: { id: channel.id, title: channel.snippet?.title, description: channel.snippet?.description, customUrl: channel.snippet?.customUrl, publishedAt: channel.snippet?.publishedAt, thumbnail: channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url, subscribers: channel.statistics?.subscriberCount || "0", views: channel.statistics?.viewCount || "0", videos: channel.statistics?.videoCount || "0" }, recentVideos: videos }, 200, headers);
         }
