@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [worker, app, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, rateLimitMigration] = await Promise.all([
+const [worker, app, html, css, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, rateLimitMigration] = await Promise.all([
   readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8"),
   readFile(new URL("../app.js", import.meta.url), "utf8"),
+  readFile(new URL("../index.html", import.meta.url), "utf8"),
+  readFile(new URL("../styles.css", import.meta.url), "utf8"),
   readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8"),
   readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8"),
   readFile(new URL("../migrations/0001_v2_social_foundation.sql", import.meta.url), "utf8"),
