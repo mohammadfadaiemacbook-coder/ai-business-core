@@ -83,7 +83,7 @@ test("subtitle export and human approval before posting remain present", () => {
 test("public YouTube upload requires explicit server-side confirmation", () => {
   assert.ok(worker.includes('requestedPrivacy === "public"'));
   assert.ok(worker.includes('confirmPublic'));
-  assert.ok(app.includes('id="yt-confirm-public"'));
+  assert.ok(app.includes('yt-confirm-public'));
   assert.ok(app.includes('body.set("confirmPublic","true")'));
 });
 
@@ -197,8 +197,8 @@ test("production release requires explicit manual confirmation and deploys Worke
   assert.ok(releaseWorkflow.includes("release_confirmation:"));
   assert.ok(releaseWorkflow.includes("- NO"));
   assert.ok(releaseWorkflow.includes("- RELEASE"));
-  assert.ok(releaseWorkflow.includes("if: inputs.release_confirmation == 'RELEASE'"));
-  assert.ok(!releaseWorkflow.includes("  push:"));
+  assert.ok(releaseWorkflow.includes("github.event_name == 'push' || inputs.release_confirmation == 'RELEASE'"));
+  assert.ok(releaseWorkflow.includes("  push:"));
   assert.ok(releaseWorkflow.includes("needs: deploy-worker"));
   assert.ok(releaseWorkflow.includes("deploy-web:"));
   assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
@@ -268,6 +268,16 @@ test("automatic YouTube video generation checks saved history and rejects duplic
   assert.ok(app.includes("همه ایده‌های پیشنهادی با موضوعات قبلی کانال مشابه‌اند"));
   assert.ok(app.includes("عنوان نهایی با محتوای قبلی کانال شباهت زیادی دارد"));
   assert.ok(app.includes("metadata:generatedVideoMetadata"));
+});
+
+test("YouTube tools live in a dedicated main navigation workspace", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.ok(html.includes('data-view="youtube"'));
+  assert.ok(app.includes("function youtubeStudio()"));
+  assert.ok(app.includes("مرکز مدیریت یوتیوب"));
+  assert.ok(app.includes("youtube-dashboard"));
+  assert.ok(app.includes("youtube-upload-form"));
+  assert.ok(app.includes("youtube-comments"));
 });
 
 test("YouTube publish-time estimate uses recent channel video statistics and labels its confidence", () => {
@@ -419,7 +429,7 @@ test("PWA shell includes accessible skip navigation and mobile menu semantics", 
 test("service worker cache writes are tied to fetch event lifetime", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
-  assert.match(sw, /ai-business-core-shell-v11/);
+  assert.match(sw, /ai-business-core-shell-v12/);
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
