@@ -36,6 +36,13 @@ jobs:
         with:
           node-version: "22.13.1"
 
+      - name: Validate app, Worker and release contracts
+        run: |
+          set -euo pipefail
+          node --check app.js
+          node --check ai-gateway/worker.js
+          node --test tests/release-contracts.mjs
+
       - name: Validate Cloudflare credentials and existing D1 binding
         shell: bash
         run: |
