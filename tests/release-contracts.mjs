@@ -180,6 +180,16 @@ test("Cloudflare deployment preserves existing vars and does not replace the con
   assert.ok(!/^AI_MODEL\\s*=/m.test(wranglerTemplate));
 });
 
+test("production release runs syntax and contract tests before any Cloudflare operation", () => {
+  const validation = releaseWorkflow.indexOf("Validate app, Worker and release contracts");
+  const cloudflare = releaseWorkflow.indexOf("Validate Cloudflare credentials and existing D1 binding");
+  const backup = releaseWorkflow.indexOf("Export D1 backup before migration");
+  assert.ok(validation >= 0 && validation < cloudflare && cloudflare < backup);
+  assert.match(releaseWorkflow, /node --check app\.js/);
+  assert.match(releaseWorkflow, /node --check ai-gateway\/worker\.js/);
+  assert.match(releaseWorkflow, /node --test tests\/release-contracts\.mjs/);
+});
+
 test("production release requires explicit manual confirmation and deploys Worker before Pages", () => {
   assert.ok(releaseWorkflow.includes("workflow_dispatch:"));
   assert.ok(releaseWorkflow.includes("release_confirmation:"));
