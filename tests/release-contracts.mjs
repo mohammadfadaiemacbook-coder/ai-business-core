@@ -298,7 +298,7 @@ test("YouTube publish-time estimate uses recent channel video statistics and lab
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v14/);
+  assert.match(sw, /ai-business-core-shell-v15/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
@@ -438,7 +438,7 @@ test("PWA shell includes accessible skip navigation and mobile menu semantics", 
 test("service worker cache writes are tied to fetch event lifetime", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
-  assert.match(sw, /ai-business-core-shell-v14/);
+  assert.match(sw, /ai-business-core-shell-v15/);
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
@@ -517,4 +517,13 @@ test("YouTube view survives older or incomplete local settings and exposes a ren
 
 test("YouTube is the initial workspace when the app opens", () => {
   assert.match(app, /let view="youtube"/);
+});
+
+test("Mobile navigation drawer closes from backdrop and close control", () => {
+  assert.ok(html.includes('id="sidebar-close"'));
+  assert.ok(html.includes('id="sidebar-backdrop"'));
+  assert.ok(app.includes('backdrop?.addEventListener("click",closeSidebar)'));
+  assert.ok(app.includes('$("#sidebar-close")?.addEventListener("click",closeSidebar)'));
+  assert.ok(css.includes("right:0;left:auto"));
+  assert.ok(css.includes("transform:translateX(110%)"));
 });
