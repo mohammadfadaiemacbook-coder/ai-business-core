@@ -300,7 +300,7 @@ test("YouTube publish-time estimate uses recent channel video statistics and lab
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v15/);
+  assert.match(sw, /ai-business-core-shell-v16/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
@@ -429,18 +429,18 @@ test("dashboard UI does not expose internal provider detail fields in API errors
 });
 
 
-test("PWA shell includes accessible skip navigation and mobile menu semantics", async () => {
+test("PWA shell includes accessible skip navigation and home dashboard", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
   assert.match(html, /class="skip-link" href="#view-root"/);
-  assert.match(html, /aria-controls="sidebar" aria-expanded="false"/);
+  assert.match(html, /class="home-brand"/);
   assert.match(app, /menu\.setAttribute\("aria-expanded","true"\)/);
   assert.match(app, /e\.key==="Escape"/);
 });
 test("service worker cache writes are tied to fetch event lifetime", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
-  assert.match(sw, /ai-business-core-shell-v15/);
+  assert.match(sw, /ai-business-core-shell-v16/);
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
@@ -521,11 +521,12 @@ test("YouTube is the initial workspace when the app opens", () => {
   assert.match(app, /let view="youtube"/);
 });
 
-test("Mobile navigation drawer closes from backdrop and close control", () => {
-  assert.ok(html.includes('id="sidebar-close"'));
-  assert.ok(html.includes('id="sidebar-backdrop"'));
-  assert.ok(app.includes('backdrop?.addEventListener("click",closeSidebar)'));
-  assert.ok(app.includes('$("#sidebar-close")?.addEventListener("click",closeSidebar)'));
-  assert.ok(css.includes("right:0;left:auto"));
-  assert.ok(css.includes("transform:translateX(110%)"));
+test("Home dashboard replaces the mobile drawer with direct section cards", () => {
+  assert.ok(!html.includes('id="sidebar"'));
+  assert.ok(!html.includes('id="mobile-menu"'));
+  assert.ok(html.includes('class="home-brand"'));
+  assert.ok(app.includes('let view="overview"'));
+  assert.ok(app.includes('class="home-module-grid"'));
+  for (const section of ["youtube","tasks","research","content","calendar","approvals","ai","settings"]) assert.ok(app.includes('data-view="'+section+'"'));
+  assert.ok(css.includes(".home-module-grid"));
 });
