@@ -33,6 +33,16 @@ test("YouTube trend discovery defaults to English-language AI education in the U
   assert.doesNotMatch(worker, /relevanceLanguage:"fa"/);
 });
 
+test("manual trend discovery and creator helpers stay aligned with the English international channel", () => {
+  assert.match(app, /artificial intelligence education/);
+  assert.match(app, /&region=US&days=7/);
+  assert.match(app, /Global English-speaking audience interested in /);
+  assert.match(app, /15 compelling, accurate, non-clickbait English YouTube titles/);
+  assert.match(app, /5 distinct professional YouTube thumbnail concepts in English/);
+  assert.match(app, /separate natural English captions for YouTube and Instagram/);
+  assert.match(app, /گویندگی انگلیسی/);
+});
+
 test("YouTube replies use the actual top-level comment ID required by comments.insert", () => {
   assert.match(worker, /threadId:item\.id,commentId:comment\.id,topLevelCommentId:comment\.id/);
   assert.match(worker, /parentId=String\(body\?\.parentCommentId\|\|body\?\.commentId/);
