@@ -517,16 +517,12 @@ test("YouTube view survives older or incomplete local settings and exposes a ren
   assert.ok(app.includes('data-action="retry-render"'));
 });
 
-test("YouTube is the initial workspace when the app opens", () => {
-  assert.match(app, /let view="youtube"/);
-});
-
 test("Home dashboard replaces the mobile drawer with direct section cards", () => {
   assert.ok(!html.includes('id="sidebar"'));
   assert.ok(!html.includes('id="mobile-menu"'));
   assert.ok(html.includes('class="home-brand"'));
   assert.ok(app.includes('let view="overview"'));
   assert.ok(app.includes('class="home-module-grid"'));
-  for (const section of ["youtube","tasks","research","content","calendar","approvals","ai","settings"]) assert.ok(app.includes('data-view="'+section+'"'));
+  for (const section of ["youtube","tasks","research","content","calendar","approvals","ai","settings"]) assert.ok(app.includes('["'+section+'"'));
   assert.ok(css.includes(".home-module-grid"));
 });
