@@ -272,7 +272,7 @@ test("automatic YouTube video generation checks saved history and rejects duplic
 
 test("YouTube tools live in a dedicated main navigation workspace", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
-  assert.ok(html.includes('data-view="youtube"'));
+  assert.ok(app.includes('data-view="youtube"'));
   assert.ok(app.includes("function youtubeStudio()"));
   assert.ok(app.includes("مرکز مدیریت یوتیوب"));
   assert.ok(app.includes("youtube-dashboard"));
