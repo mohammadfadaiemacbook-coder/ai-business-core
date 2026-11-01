@@ -539,16 +539,25 @@ export default {
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
     if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
     const aiProviderSecrets=await loadProviderSecrets(env,env.DB,workspace);
-    let upstream;
+    const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;
+    const primaryMessages=[
+      { role: "system", content: "You are a careful business content assistant. Be transparent about uncertainty. Never fabricate sources, browsing, analytics, experiments, or completed actions. Return useful structured output." },
+      { role: "user", content: buildPrompt(body.task, body.inputs) }
+    ];
+    let upstream,activeModel=env.AI_MODEL,usedFallback=false;
     try {
-      upstream = await fetchWithTimeout(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({
-        model: env.AI_MODEL, temperature: 0.4, messages: [
-          { role: "system", content: "You are a careful business content assistant. Be transparent about uncertainty. Never fabricate sources, browsing, analytics, experiments, or completed actions. Return useful structured output." },
-          { role: "user", content: buildPrompt(body.task, body.inputs) }
-        ]
-      }), signal: AbortSignal.timeout(45000) });
-    } catch { return json({ error: "AI provider request failed or timed out" }, 502, headers); }
-    if (!upstream.ok) return json({ error: upstream.status === 429 ? "AI provider rate limit reached" : "AI provider returned an error" }, upstream.status === 429 ? 429 : 502, headers);
+      upstream = await fetchWithTimeout(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({model:env.AI_MODEL,temperature:0.4,messages:primaryMessages}), signal: AbortSignal.timeout(45000) });
+    } catch { return json({ error: "ارتباط با سرویس اصلی هوش مصنوعی برقرار نشد؛ اتصال و وضعیت سرویس را بررسی کنید." }, 502, headers); }
+    if(!upstream.ok&&(upstream.status===429||upstream.status>=500)&&secondaryUrl&&secondaryKey&&secondaryModel){
+      try{
+        const fallback=await fetchWithTimeout(safeProviderUrl(secondaryUrl),{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.4,messages:primaryMessages}),signal:AbortSignal.timeout(45000)});
+        if(fallback.ok){upstream=fallback;activeModel=secondaryModel;usedFallback=true;}
+      }catch{}
+    }
+    if (!upstream.ok) {
+      const limited=upstream.status===429,retryAfter=Math.max(1,Math.min(3600,Number(upstream.headers.get("retry-after"))||60));
+      return json({error:limited?"سهمیه یا محدودیت درخواست سرویس هوش مصنوعی پر شده است. کمی بعد دوباره تلاش کنید یا اعتبار/سقف مصرف سرویس‌دهنده را بررسی کنید.":"سرویس هوش مصنوعی موقتاً پاسخ‌گو نیست؛ کمی بعد دوباره تلاش کنید.",providerStatus:upstream.status,retryAfterSeconds:limited?retryAfter:undefined,fallbackConfigured:!!(secondaryUrl&&secondaryKey&&secondaryModel)},limited?429:502,{...headers,...(limited?{"retry-after":String(retryAfter)}:{})});
+    }
     let result;
     try { result = await upstream.json(); } catch { return json({ error: "AI provider returned invalid JSON" }, 502, headers); }
     const output = result?.choices?.[0]?.message?.content;
@@ -556,7 +565,6 @@ export default {
 
     let consultation = {status:"not_configured",message:"مدل دوم تنظیم نشده است؛ می‌توانی Claude API یا یک endpoint سازگار با OpenAI را در اتصال‌های امن وارد کنی."};
     const claudeKey=aiProviderSecrets.claudeKey,claudeModel=aiProviderSecrets.claudeModel;
-    const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;
     const reviewSystem="You are an independent Persian-language editorial reviewer. Critique originality, factual risk, audience value, title honesty, clarity and audience safety. Return concise actionable improvements in Persian; do not rewrite blindly.";
     const reviewPrompt="Review this AI-generated output against the original brief. Return strengths, factual risks, duplication concerns, title/thumbnail honesty and specific improvements.\n\n"+output.trim()+"\n\nBrief:\n"+buildPrompt(body.task,body.inputs);
     if(claudeKey&&claudeModel){
@@ -574,7 +582,7 @@ export default {
         else consultation={status:"failed",message:"مدل دوم پاسخ معتبر نداد؛ خروجی مدل اصلی حفظ شد."};
       }catch{consultation={status:"failed",message:"ارتباط با مدل دوم برقرار نشد؛ خروجی مدل اصلی حفظ شد."};}
     }
-    return json({ output: output.trim(), task: body.task, model: env.AI_MODEL, consultation }, 200, headers);
+    return json({ output: output.trim(), task: body.task, model: activeModel, providerFallback:usedFallback, consultation }, 200, headers);
     } catch {
       return json({ error: "خطای داخلی سرور رخ داد. شناسه پیگیری: " + requestId }, 500, headers);
     }
