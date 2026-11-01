@@ -26,7 +26,14 @@ test("Claude review uses Anthropic Messages API and server-side secret storage",
   assert.match(worker, /claude:!!\(secrets\.claudeKey&&secrets\.claudeModel\)/);
 });
 
-test("YouTube trend discovery defaults to English-language AI education in the US market", () => {\n  assert.match(worker, /url\.searchParams\.get\("q"\) \\|\\| "artificial intelligence education"/);\n  assert.match(worker, /url\.searchParams\.get\("region"\) \\|\\| "US"/);\n  assert.match(worker, /relevanceLanguage:"en"/);\n  assert.doesNotMatch(worker, /relevanceLanguage:"fa"/);\n});\n\ntest("YouTube replies use the actual top-level comment ID required by comments.insert", () => {
+test("YouTube trend discovery defaults to English-language AI education in the US market", () => {
+  assert.match(worker, /url\.searchParams\.get\("q"\) \|\| "artificial intelligence education"/);
+  assert.match(worker, /url\.searchParams\.get\("region"\) \|\| "US"/);
+  assert.match(worker, /relevanceLanguage:"en"/);
+  assert.doesNotMatch(worker, /relevanceLanguage:"fa"/);
+});
+
+test("YouTube replies use the actual top-level comment ID required by comments.insert", () => {
   assert.match(worker, /threadId:item\.id,commentId:comment\.id,topLevelCommentId:comment\.id/);
   assert.match(worker, /parentId=String\(body\?\.parentCommentId\|\|body\?\.commentId/);
   assert.match(worker, /parentId,textOriginal:replyText/);
