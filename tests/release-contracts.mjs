@@ -262,6 +262,26 @@ test("cloud sync, provider settings, media capabilities, and YouTube trends use 
 });
 
 
+test("automatic YouTube video generation checks saved history and rejects duplicate topics and titles", () => {
+  assert.ok(app.includes("function isDuplicateVideo(candidate,history=[])"));
+  assert.ok(app.includes("state.content.filter(x=>!x.platform||x.platform===\\"YouTube\\").slice(0,100)"));
+  assert.ok(app.includes("همه ایده‌های پیشنهادی با موضوعات قبلی کانال مشابه‌اند"));
+  assert.ok(app.includes("عنوان نهایی با محتوای قبلی کانال شباهت زیادی دارد"));
+  assert.ok(app.includes("metadata:generatedVideoMetadata"));
+});
+
+test("YouTube publish-time estimate uses recent channel video statistics and labels its confidence", () => {
+  assert.ok(app.includes('data-action="youtube-best-time" data-target="autopilot-publish-at"'));
+  assert.ok(app.includes("میانگین بازدید ساعتی در این ساعت"));
+  assert.ok(worker.includes("part=statistics&id="));
+  assert.ok(worker.includes("viewCount:stats.get(v.videoId)||0"));
+});
+
+test("service worker cache is bumped for the automatic content and scheduling update", async () => {
+  const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
+  assert.match(sw, /ai-business-core-shell-v12/);
+});
+
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
   assert.ok(worker.includes('const baseMetrics = "views,estimatedMinutesWatched,averageViewDuration,subscribersGained"'));
   assert.ok(worker.includes('reportUrl("estimatedRevenue,estimatedAdRevenue,adImpressions,monetizedPlaybacks")'));
