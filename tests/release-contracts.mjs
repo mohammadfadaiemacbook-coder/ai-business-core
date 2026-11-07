@@ -373,7 +373,7 @@ test("YouTube publish-time estimate uses recent channel video statistics and lab
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v19/);
+  assert.match(sw, /ai-business-core-shell-v20/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
@@ -398,7 +398,7 @@ test("D1 migration sequence is numbered, additive, and includes workspace-scoped
   const { readdir, readFile } = await import("node:fs/promises");
   const dir = new URL("../migrations/", import.meta.url);
   const files = (await readdir(dir)).filter(name => /^\d{4}_.+\.sql$/.test(name)).sort();
-  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql","0006_api_rate_limits.sql","0007_youtube_video_jobs.sql"]);
+  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql","0006_api_rate_limits.sql","0007_youtube_video_jobs.sql","0008_youtube_media_renderer.sql"]);
   const migration = await readFile(new URL("../migrations/0005_workspace_query_indexes.sql", import.meta.url), "utf8");
   for (const index of ["idx_campaigns_workspace_updated","idx_audit_workspace_event_time","idx_publish_workspace_due","idx_approvals_workspace_status_created","idx_media_workspace_created","idx_social_workspace_status"]) assert.ok(migration.includes(index));
   assert.doesNotMatch(migration, /\b(DROP TABLE|DROP COLUMN|DELETE FROM)\b/i);
@@ -529,7 +529,7 @@ test("PWA shell includes accessible skip navigation and home dashboard", async (
 test("service worker cache writes are tied to fetch event lifetime", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
-  assert.match(sw, /ai-business-core-shell-v19/);
+  assert.match(sw, /ai-business-core-shell-v20/);
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
@@ -651,4 +651,30 @@ test("web-first YouTube drafts are persisted in D1 and restored across PWA devic
   assert.match(appSource, /syncYoutubeDraftsFromCloud/);
   assert.match(appSource, /!item\.cloudJobId&&\(item\.topic\|\|item\.title\)===job\.topic/);
   assert.match(appSource, /initializeCloudSync\(\)\.then\(\(\)=>syncYoutubeDraftsFromCloud\(\)\)/);
+});
+
+ 
+test("R2-backed YouTube media and durable Mac renderer queue are wired end to end", async () => {
+  const migration = await readFile(new URL("../migrations/0008_youtube_media_renderer.sql", import.meta.url), "utf8");
+  const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
+  const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
+  const wrangler = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_media_assets/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_render_jobs/);
+  assert.match(migration, /max_attempts INTEGER NOT NULL DEFAULT 3/);
+  assert.match(workerSource, /env\.MEDIA\.put/);
+  assert.match(workerSource, /\/api\/renderer\/jobs\/claim/);
+  assert.match(workerSource, /lease_expires_at/);
+  assert.match(workerSource, /rendererAuthorized/);
+  assert.match(workerSource, /access-control-allow-methods.*PATCH/);
+  assert.match(appSource, /queueGeneratedVideoForRenderer/);
+  assert.match(appSource, /data-action="renderer-queue"/);
+  assert.match(appSource, /data-action="renderer-status"/);
+  assert.match(rendererSource, /spawn\(FFMPEG/);
+  assert.match(rendererSource, /\/api\/generate/);
+  assert.match(rendererSource, /api\/generate/);
+  assert.match(rendererSource, /OLLAMA_MODEL/);
+  assert.match(wrangler, /binding = "MEDIA"/);
+  assert.doesNotMatch(appSource, /تأییدd|ردed/);
 });
