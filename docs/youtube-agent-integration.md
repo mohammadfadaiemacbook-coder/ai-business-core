@@ -2,6 +2,8 @@
 
 This branch adapts the MIT-licensed workflow ideas from [Jakeschincariol/youtube-agent-skill](https://github.com/Jakeschincariol/youtube-agent-skill) for AI Business Core.
 
+The upstream copyright and MIT terms are retained in `licenses/youtube-agent-skill-MIT.txt`.
+
 ## Integration
 
 - `ai-gateway/youtube-agent-skills.js` contains model-agnostic workflow instructions for all eleven upstream skills.
