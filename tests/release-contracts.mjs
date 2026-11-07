@@ -660,6 +660,7 @@ test("R2-backed YouTube media and durable Mac renderer queue are wired end to en
   const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
   const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
   const wrangler = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  const releaseWorkflow = await readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8");
   assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_media_assets/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_render_jobs/);
   assert.match(migration, /max_attempts INTEGER NOT NULL DEFAULT 3/);
@@ -676,5 +677,10 @@ test("R2-backed YouTube media and durable Mac renderer queue are wired end to en
   assert.match(rendererSource, /\/api\/media\/assets/);
   assert.match(rendererSource, /OLLAMA_MODEL/);
   assert.match(wrangler, /binding = "MEDIA"/);
+  assert.match(workerSource, /mediaStorage: !!env\.MEDIA/);
+  assert.match(workerSource, /rendererConfigured: String\(env\.RENDERER_SHARED_SECRET/);
+  assert.match(releaseWorkflow, /wrangler r2 bucket create ai-business-core-media/);
+  assert.match(releaseWorkflow, /wrangler secret put RENDERER_SHARED_SECRET/);
+  assert.match(appSource, /ai-business-core-long-video\.mp4/);
   assert.doesNotMatch(appSource, /تأییدd|ردed/);
 });
