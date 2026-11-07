@@ -636,3 +636,18 @@ test("AI generation falls back to the configured secondary provider on primary r
   assert.ok(worker.includes('fallbackConfigured:!!(secondaryUrl&&secondaryKey&&secondaryModel)'));
   assert.ok(worker.includes('providerFallback:usedFallback'));
 });
+
+test("web-first YouTube drafts are persisted in D1 and restored across PWA devices", async () => {
+  const migration = await readFile(new URL("../migrations/0007_youtube_video_jobs.sql", import.meta.url), "utf8");
+  const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
+  const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_video_jobs/);
+  assert.match(migration, /workspace_id TEXT NOT NULL REFERENCES workspaces/);
+  assert.match(migration, /version INTEGER NOT NULL DEFAULT 1/);
+  assert.match(workerSource, /url\.pathname === "\/api\/youtube\/jobs"/);
+  assert.match(workerSource, /expectedVersion/);
+  assert.match(workerSource, /FROM youtube_video_jobs WHERE workspace_id/);
+  assert.match(appSource, /persistYoutubeDraftToCloud/);
+  assert.match(appSource, /syncYoutubeDraftsFromCloud/);
+  assert.match(appSource, /initializeCloudSync\(\)\.then\(\(\)=>syncYoutubeDraftsFromCloud\(\)\)/);
+});
