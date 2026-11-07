@@ -527,7 +527,7 @@ test("Home dashboard replaces the mobile drawer with direct section cards", () =
   assert.ok(app.includes('class="home-module-grid"'));
   for (const section of ["youtube","instagram","website","settings"]) assert.ok(app.includes('["'+section+'"'));
   const homeStart = app.indexOf("function overview()");
-  const homeEnd = app.indexOf("\\n\\nfunction stat(", homeStart);
+  const homeEnd = app.indexOf("function stat(", homeStart);
   const homeMarkup = app.slice(homeStart, homeEnd);
   assert.ok(!homeMarkup.includes('["tasks"'));
   assert.ok(css.includes(".home-module-grid"));
