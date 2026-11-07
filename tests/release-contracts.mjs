@@ -235,8 +235,8 @@ test("Provider endpoints require public HTTPS and blank form fields preserve sav
   assert.ok(worker.includes("function safeProviderUrl(value)"));
   assert.ok(worker.includes('url.protocol!=="https:"'));
   assert.ok(worker.includes('host==="localhost"'));
-  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl)'));
-  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl)'));
+  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl),{redirect:"error"'));
+  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl),{redirect:"error"'));
   assert.ok(worker.includes("// Empty password fields are omitted by the UI after saving; preserve existing secrets."));
   assert.ok(worker.includes("if(!value.trim()){"));
   assert.ok(!worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
