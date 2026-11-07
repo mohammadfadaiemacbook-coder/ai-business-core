@@ -221,6 +221,11 @@ test("Cloudflare deployment preserves existing vars and does not replace the con
   assert.ok(!/^AI_MODEL\\s*=/m.test(wranglerTemplate));
 });
 
+test("Cloudflare preview deployments cannot bind to the production D1 database", async () => {
+  const config = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  assert.doesNotMatch(config, /\[\[previews\.d1_databases\]\]/);
+  assert.match(config, /database_name = "ai-business-core-db"/);
+});
 test("production release runs syntax and contract tests before any Cloudflare operation", () => {
   const validation = releaseWorkflow.indexOf("Validate app, Worker and release contracts");
   const cloudflare = releaseWorkflow.indexOf("Validate Cloudflare credentials and existing D1 binding");
@@ -236,8 +241,9 @@ test("production release requires explicit manual confirmation and deploys Worke
   assert.ok(releaseWorkflow.includes("release_confirmation:"));
   assert.ok(releaseWorkflow.includes("- NO"));
   assert.ok(releaseWorkflow.includes("- RELEASE"));
-  assert.ok(releaseWorkflow.includes("github.event_name == 'push' || inputs.release_confirmation == 'RELEASE'"));
-  assert.ok(releaseWorkflow.includes("  push:"));
+  assert.ok(releaseWorkflow.includes("if: inputs.release_confirmation == 'RELEASE'"));
+  assert.ok(!releaseWorkflow.includes("  push:"));
+  assert.ok(!releaseWorkflow.includes("github.event_name == 'push'"));
   assert.ok(releaseWorkflow.includes("needs: deploy-worker"));
   assert.ok(releaseWorkflow.includes("deploy-web:"));
   assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
