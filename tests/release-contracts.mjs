@@ -215,6 +215,11 @@ test("Cloud sync preserves local data and downloads a backup on version conflict
   assert.ok(app.includes("داده محلی دست‌نخورده ماند"));
 });
 
+test("provider URL validation normalizes trailing dots and blocks reserved local suffixes", () => {
+  assert.ok(worker.includes('url.hostname.toLowerCase().replace(/\\.+$/,"")'));
+  assert.ok(worker.includes('".home.arpa"'));
+  assert.ok(worker.includes('reservedSuffixes.some(suffix=>host.endsWith(suffix))'));
+});
 test("provider endpoint IPv4 literal guard uses a literal dot matcher", () => {
   assert.ok(worker.includes(String.raw`/^[0-9]{1,3}(?:\.[0-9]{1,3}){3}$/`));
 });
