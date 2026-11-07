@@ -20,22 +20,6 @@ public class MainActivity extends Activity {
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
 
-    public class AppBridge {
-        @JavascriptInterface public int getVersionCode() {
-            try {
-                return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
-            } catch (Exception e) {
-                return 0;
-            }
-        }
-        @JavascriptInterface public void openUpdate(String url) {
-            Uri uri = Uri.parse(url);
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || !"github.com".equalsIgnoreCase(uri.getHost()) || uri.getPath() == null || !uri.getPath().startsWith("/mohammadfadaiemacbook-coder/ai-business-core/releases/download/android-v") || !uri.getPath().endsWith("/app-debug.apk")) return;
-            try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
-            catch (ActivityNotFoundException e) { runOnUiThread(() -> Toast.makeText(MainActivity.this, "امکان باز کردن دانلود بروزرسانی وجود ندارد", Toast.LENGTH_LONG).show()); }
-        }
-    }
-
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         webView = new WebView(this);
@@ -58,7 +42,6 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        webView.addJavascriptInterface(new AppBridge(), "AndroidApp");
         webView.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
