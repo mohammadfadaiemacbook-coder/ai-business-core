@@ -35,7 +35,7 @@ Optional Worker variables/secrets:
 2. Add `CLOUDFLARE_API_TOKEN` with Cloudflare permissions **Workers Scripts: Edit**, **D1: Edit**, and the account read permission Wrangler requires.
 3. Add `CLOUDFLARE_ACCOUNT_ID`.
 4. Keep all existing Cloudflare Worker secrets/variables intact: `APP_ACCESS_TOKEN`, `TOKEN_ENCRYPTION_KEY`, Google OAuth credentials, primary AI provider credentials and optional media-provider credentials. Never replace `TOKEN_ENCRYPTION_KEY` for an existing database.
-5. In GitHub Actions, select **Complete release - Worker and web app**, choose the `feature/security-expo-hardening` branch, and set confirmation to `RELEASE`.
+5. In GitHub Actions, select **Complete release - Worker and web app**, choose the `feature/voiceover-video-pipeline` branch, and set confirmation to `RELEASE`.
 6. The workflow exports a D1 backup, applies all pending migrations, deploys the Worker, verifies Worker/D1 health, publishes only the public app files to GitHub Pages.
 7. Download and retain the artifact named `ai-business-core-d1-predeploy-backup`. 
 
@@ -65,7 +65,7 @@ Body example:
 }
 ```
 
-Supported tasks include `youtube_research`, `trend_strategy`, `video_outline`, `video_script`, `title_ideas`, `youtube_metadata`, `social_caption`, `comment_reply`, and `thumbnail_brief`.
+Supported tasks include `youtube_research`, `trend_strategy`, `video_outline`, `video_script`, `title_ideas`, `youtube_metadata`, `social_caption`, `comment_reply`, `thumbnail_brief`, `yt_plan`, `yt_viral`, `yt_edit`, `yt_retention`, `yt_shorts`, `yt_seo`, `yt_chapters`, and `yt_audit`. The YouTube Agent workflows are prompt-based adaptations; the upstream Python CLI utilities are not executed by the Cloudflare Worker.
 
 A successful response returns `output`, `task`, and `model`. The gateway does not browse the web, verify claims, publish content, or execute business actions. Treat output as a draft; verify factual claims and sources before approval.
 
