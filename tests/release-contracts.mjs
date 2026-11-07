@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [worker, app, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration] = await Promise.all([
+const [worker, app, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, youtubeAgentSkills] = await Promise.all([
   readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8"),
   readFile(new URL("../app.js", import.meta.url), "utf8"),
   readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8"),
   readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8"),
   readFile(new URL("../migrations/0001_v2_social_foundation.sql", import.meta.url), "utf8"),
-  readFile(new URL("../migrations/0004_legacy_schema_compat.sql", import.meta.url), "utf8")
+  readFile(new URL("../migrations/0004_legacy_schema_compat.sql", import.meta.url), "utf8"),
+  readFile(new URL("../ai-gateway/youtube-agent-skills.js", import.meta.url), "utf8")
 ]);
 
 test("all creator studio tasks are allow-listed and have task-specific prompts", () => {
@@ -195,4 +196,15 @@ test("D1 compatibility migration adds legacy columns before creating their index
   assert.ok(compatibilityMigration.includes("UPDATE publish_jobs SET workspace_id = 'default'"));
   assert.ok(compatibilityMigration.includes("ALTER TABLE audit_events ADD COLUMN event_type"));
   assert.ok(compatibilityMigration.includes("ALTER TABLE campaigns ADD COLUMN brief_json"));
+});
+
+
+test("YouTube Agent workflows are exposed in the Worker and Persian AI Studio", () => {
+  for (const task of ["yt_plan", "yt_viral", "yt_edit", "yt_retention", "yt_shorts", "yt_seo", "yt_chapters", "yt_audit"]) {
+    assert.ok(worker.includes('"' + task + '"'), task + " must be allow-listed by the Worker");
+    assert.ok(youtubeAgentSkills.includes(task + ":"), task + " must have an agent workflow prompt");
+    assert.ok(app.includes(task), task + " must be selectable in AI Studio");
+  }
+  assert.ok(worker.includes("YOUTUBE_AGENT_PROMPTS[task]"));
+  assert.ok(worker.includes("Never publish, upload, reply, or schedule from this generation endpoint."));
 });
