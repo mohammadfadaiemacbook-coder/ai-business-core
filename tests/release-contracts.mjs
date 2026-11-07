@@ -49,6 +49,10 @@ test("expired or rejected cloud master tokens are removed from the browser sessi
   assert.ok(app.includes("error.status=response.status;throw error"));
   assert.ok(app.includes('if(error.status===401){cloudToken="";workerSessionCache.clear()'));
 });
+test("YouTube hidden engine does not duplicate the master token into a hidden DOM field", () => {
+  assert.ok(app.includes('<input id="cloud-token" type="password" autocomplete="off">'));
+  assert.ok(!app.includes('id="cloud-token" value="\'+esc(cloudToken'));
+});
 test("application master token uses session storage and offers explicit disconnect", () => {
   assert.ok(app.includes("sessionStorage.setItem(CLOUD_TOKEN_KEY,token)"));
   assert.ok(app.includes("localStorage.removeItem(CLOUD_TOKEN_KEY)"));
