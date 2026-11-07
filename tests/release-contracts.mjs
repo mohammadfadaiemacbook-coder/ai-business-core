@@ -502,6 +502,11 @@ test("dashboard UI does not expose internal provider detail fields in API errors
 });
 
 
+test("Android WebView does not expose an unused JavaScript native bridge", async () => {
+  const source = await readFile(new URL("../android/app/src/main/java/com/aibusinesscore/app/MainActivity.java", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /addJavascriptInterface/);
+  assert.doesNotMatch(source, /class AppBridge/);
+});
 test("Android APK releases do not replace the latest macOS DMG release", async () => {
   const androidWorkflow = await readFile(new URL("../.github/workflows/build-android.yml", import.meta.url), "utf8");
   assert.match(androidWorkflow, /make_latest: false/);
