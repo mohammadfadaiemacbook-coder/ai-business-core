@@ -22,6 +22,15 @@ test("all creator studio tasks are allow-listed and have task-specific prompts",
   }
 });
 
+test("settings expose only service connection checks and a copyable error preview", () => {
+  assert.ok(app.includes("پیش‌نمایش خطاها"));
+  assert.ok(app.includes('data-action="check-connection"'));
+  assert.ok(app.includes('data-action="copy-errors"'));
+  assert.ok(app.includes("window.addEventListener(\"error\""));
+  assert.ok(app.includes("window.addEventListener(\"unhandledrejection\""));
+  assert.ok(worker.includes("/api/connections/status"));
+  assert.ok(worker.includes("social_accounts WHERE workspace_id=?"));
+});
 test("all 11 YouTube Agent skills are available to the Worker", () => {
   for (const task of ["yt_plan","yt_viral","yt_edit","yt_retention","yt_shorts","yt_seo","yt_chapters","yt_audit"]) {
     assert.ok(worker.includes('"'+task+'"'));
