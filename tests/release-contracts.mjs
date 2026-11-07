@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [worker, app, html, css, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, rateLimitMigration] = await Promise.all([
+const [worker, youtubeSkills, app, html, css, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, rateLimitMigration] = await Promise.all([
   readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8"),
+  readFile(new URL("../ai-gateway/youtube-agent-skills.js", import.meta.url), "utf8"),
   readFile(new URL("../app.js", import.meta.url), "utf8"),
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../styles.css", import.meta.url), "utf8"),
@@ -21,6 +22,17 @@ test("all creator studio tasks are allow-listed and have task-specific prompts",
   }
 });
 
+test("all 11 YouTube Agent skills are available to the Worker", () => {
+  for (const task of ["yt_plan","yt_viral","yt_edit","yt_retention","yt_shorts","yt_seo","yt_chapters","yt_audit"]) {
+    assert.ok(worker.includes('"'+task+'"'));
+    assert.ok(youtubeSkills.includes(task+":"));
+  }
+  for (const task of ["video_script","title_ideas","trend_strategy","comment_reply"]) assert.ok(youtubeSkills.includes(task+":"));
+  assert.ok(worker.includes("YOUTUBE_FULL_PIPELINE_PROMPT"));
+  assert.ok(youtubeSkills.includes("complete 11-skill YouTube production workflow"));
+  assert.ok(app.includes('aiCall("yt_full_pipeline"'));
+  assert.ok(app.includes("productionReport:youtubePipelineReport"));
+});
 test("Claude review uses Anthropic Messages API and server-side secret storage", () => {
   assert.match(worker, /api\.anthropic\.com\/v1\/messages/);
   assert.match(worker, /"x-api-key":claudeKey/);
@@ -280,12 +292,14 @@ test("YouTube tools live in a dedicated main navigation workspace", async () => 
   assert.ok(app.includes("youtube-upload-form"));
   assert.ok(app.includes("youtube-comments"));
 });
-test("YouTube workspace keeps a simplified three-action dashboard and inline preview", () => {
+test("YouTube workspace has one primary preparation action, inline preview, feedback repair, analytics and comments", () => {
   assert.ok(app.includes('data-action="video-auto"'));
-  assert.ok(app.includes('data-action="youtube-publish-now"'));
-  assert.ok(app.includes('data-action="youtube-schedule"'));
+  assert.ok(!app.includes('data-action="youtube-publish-now"'));
+  assert.ok(!app.includes('data-action="youtube-schedule"'));
   assert.ok(app.includes('id="youtube-inline-draft"'));
   assert.ok(app.includes('id="youtube-inline-video"'));
+  assert.ok(app.includes('data-action="video-fix"'));
+  assert.ok(app.includes('youtube-comments-list'));
   assert.ok(app.includes('yt-chart-grid'));
   assert.ok(app.includes('id="youtube-engine"'));
 });
@@ -523,7 +537,11 @@ test("Home dashboard replaces the mobile drawer with direct section cards", () =
   assert.ok(html.includes('class="home-brand"'));
   assert.ok(app.includes('let view="overview"'));
   assert.ok(app.includes('class="home-module-grid"'));
-  for (const section of ["youtube","tasks","research","content","calendar","approvals","ai","settings"]) assert.ok(app.includes('["'+section+'"'));
+  for (const section of ["youtube","instagram","website","settings"]) assert.ok(app.includes('["'+section+'"'));
+  const homeStart = app.indexOf("function overview()");
+  const homeEnd = app.indexOf("function stat(", homeStart);
+  const homeMarkup = app.slice(homeStart, homeEnd);
+  assert.ok(!homeMarkup.includes('["tasks"'));
   assert.ok(css.includes(".home-module-grid"));
 });
 
