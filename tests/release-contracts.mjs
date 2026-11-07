@@ -45,6 +45,10 @@ test("four home modules all have render handlers and explicit service status pag
   assert.ok(app.includes('data-action="check-connection" data-service="instagram"'));
   assert.ok(app.includes('data-action="check-connection" data-service="website"'));
 });
+test("expired or rejected cloud master tokens are removed from the browser session", () => {
+  assert.ok(app.includes("error.status=response.status;throw error"));
+  assert.ok(app.includes('if(error.status===401){cloudToken="";workerSessionCache.clear()'));
+});
 test("application master token uses session storage and offers explicit disconnect", () => {
   assert.ok(app.includes("sessionStorage.setItem(CLOUD_TOKEN_KEY,token)"));
   assert.ok(app.includes("localStorage.removeItem(CLOUD_TOKEN_KEY)"));
