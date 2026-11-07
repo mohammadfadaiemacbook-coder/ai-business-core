@@ -524,7 +524,7 @@ export default {
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Image prompt is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const prompt=String(body?.prompt||"").trim();if(!prompt||prompt.length>4000)return json({error:"Prompt must contain 1 to 4000 characters"},400,headers);
       try{
-        const response=await fetchWithTimeout(safeProviderUrl(imageUrl),{method:"POST",headers:{authorization:"Bearer "+imageApiKey,"content-type":"application/json"},body:JSON.stringify({model:imageModel||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
+        const response=await fetchWithTimeout(safeProviderUrl(imageUrl),{redirect:"error",method:"POST",headers:{authorization:"Bearer "+imageApiKey,"content-type":"application/json"},body:JSON.stringify({model:imageModel||"gpt-image-1",prompt,size:"1536x1024",output_format:"png"}),signal:AbortSignal.timeout(90000)});
         const data=await response.json().catch(()=>({}));
         if(!response.ok)return json({error:"Image provider failed",detail:String(data.error?.message||"provider error").slice(0,250)},502,headers);
         const encoded=data?.data?.[0]?.b64_json;if(typeof encoded!=="string"||!encoded)return json({error:"Image provider returned no base64 image"},502,headers);
@@ -571,7 +571,7 @@ export default {
     } catch { return json({ error: "ارتباط با سرویس اصلی هوش مصنوعی برقرار نشد؛ اتصال و وضعیت سرویس را بررسی کنید." }, 502, headers); }
     if(!upstream.ok&&(upstream.status===429||upstream.status>=500)&&secondaryUrl&&secondaryKey&&secondaryModel){
       try{
-        const fallback=await fetchWithTimeout(safeProviderUrl(secondaryUrl),{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.4,messages:primaryMessages}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
+        const fallback=await fetchWithTimeout(safeProviderUrl(secondaryUrl),{redirect:"error",method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.4,messages:primaryMessages}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
         if(fallback.ok){upstream=fallback;activeModel=secondaryModel;usedFallback=true;}
       }catch{}
     }
