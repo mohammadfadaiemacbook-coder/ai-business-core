@@ -649,5 +649,6 @@ test("web-first YouTube drafts are persisted in D1 and restored across PWA devic
   assert.match(workerSource, /FROM youtube_video_jobs WHERE workspace_id/);
   assert.match(appSource, /persistYoutubeDraftToCloud/);
   assert.match(appSource, /syncYoutubeDraftsFromCloud/);
+  assert.match(appSource, /!item\.cloudJobId&&\(item\.topic\|\|item\.title\)===job\.topic/);
   assert.match(appSource, /initializeCloudSync\(\)\.then\(\(\)=>syncYoutubeDraftsFromCloud\(\)\)/);
 });
