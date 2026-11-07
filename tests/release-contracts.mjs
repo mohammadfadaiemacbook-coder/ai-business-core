@@ -505,6 +505,7 @@ test("dashboard UI does not expose internal provider detail fields in API errors
 test("Android APK releases do not replace the latest macOS DMG release", async () => {
   const androidWorkflow = await readFile(new URL("../.github/workflows/build-android.yml", import.meta.url), "utf8");
   assert.match(androidWorkflow, /make_latest: false/);
+  assert.ok(androidWorkflow.includes("if: github.event_name == 'push' && github.ref == 'refs/heads/main'"));
   assert.doesNotMatch(androidWorkflow, /make_latest: true/);
 });
 test("PWA shell includes accessible skip navigation and home dashboard", async () => {
