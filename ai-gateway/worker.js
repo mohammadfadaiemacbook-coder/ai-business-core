@@ -552,11 +552,11 @@ export default {
     ];
     let upstream,activeModel=env.AI_MODEL,usedFallback=false;
     try {
-      upstream = await fetchWithTimeout(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({model:env.AI_MODEL,temperature:0.4,messages:primaryMessages}), signal: AbortSignal.timeout(45000) });
+      upstream = await fetchWithTimeout(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({model:env.AI_MODEL,temperature:0.4,messages:primaryMessages}), signal: AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000) });
     } catch { return json({ error: "ارتباط با سرویس اصلی هوش مصنوعی برقرار نشد؛ اتصال و وضعیت سرویس را بررسی کنید." }, 502, headers); }
     if(!upstream.ok&&(upstream.status===429||upstream.status>=500)&&secondaryUrl&&secondaryKey&&secondaryModel){
       try{
-        const fallback=await fetchWithTimeout(safeProviderUrl(secondaryUrl),{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.4,messages:primaryMessages}),signal:AbortSignal.timeout(45000)});
+        const fallback=await fetchWithTimeout(safeProviderUrl(secondaryUrl),{method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.4,messages:primaryMessages}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
         if(fallback.ok){upstream=fallback;activeModel=secondaryModel;usedFallback=true;}
       }catch{}
     }
