@@ -13,11 +13,15 @@ AI Business Core is a responsive, installable web application for operating a cr
 - Local JSON backup export/import.
 - Dark responsive UI, PWA manifest, install icons and service-worker shell caching.
 
+## Active development scope
+
+Current development is limited to the unified PWA and YouTube workflow. Instagram and website work are intentionally paused until YouTube production, storage, review and publishing are operational.
+
 ## AI Studio and media pipeline
 
 The AI Studio connects to the Cloudflare Worker and can prepare content drafts, video scripts, metadata, captions, comment replies and thumbnail briefs. Optional provider integrations include Claude review, ElevenLabs narration and image generation. These integrations require valid provider credentials and may incur third-party charges.
 
-The video workflow includes generated narration, video composition, SRT subtitles and PNG thumbnail output. Browser/device support and media-provider availability can affect the result; validate each output before publishing.
+The video workflow includes generated narration, video composition, SRT subtitles and PNG thumbnail output. The optional local Mac renderer stores source/output files in Cloudflare R2, uses a durable D1 job queue, converts browser-produced WebM to H.264/AAC MP4 with FFmpeg, and uses local Ollama for optional script QA. The Mac must remain awake while it processes jobs. This first renderer pass does not yet move scene generation out of the browser.
 
 ## YouTube operations
 
@@ -29,6 +33,8 @@ After OAuth scopes change, disconnect/reconnect or use the app's reconnect actio
 
 - Cloudflare Worker: `ai-business-core`.
 - D1 database: `ai-business-core-db`.
+- R2 bucket: `ai-business-core-media` (binding `MEDIA`).
+- Local renderer: `renderer/agent.mjs` (Node.js 20+, FFmpeg, optional Ollama).
 - Worker source: `ai-gateway/worker.js`.
 - D1 schema changes: `migrations/`.
 - Deployment and setup guidance: [AI gateway setup](docs/ai-gateway-setup.md).
