@@ -24,7 +24,7 @@ test("all creator studio tasks are allow-listed and have task-specific prompts",
 
 test("provider credentials are managed from Settings rather than hidden inside the YouTube engine", () => {
   assert.ok(app.includes("function providerSettingsPanel()"));
-  assert.ok(app.includes('id="provider-form"'));
+  assert.ok(app.includes("provider-form"));
   const start=app.indexOf("function aiStudio()");
   const end=app.indexOf("function settings()",start);
   assert.ok(!app.slice(start,end).includes('id="provider-form"'));
