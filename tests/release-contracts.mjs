@@ -373,7 +373,7 @@ test("YouTube publish-time estimate uses recent channel video statistics and lab
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v18/);
+  assert.match(sw, /ai-business-core-shell-v19/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
