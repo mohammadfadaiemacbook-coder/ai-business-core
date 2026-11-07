@@ -4,7 +4,7 @@ import { tmpdir, hostname } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 
-function loadEnvFile() {
+async function loadEnvFile() {
   try {
     const raw = requireText(await readFile(new URL("./.env", import.meta.url), "utf8"));
     for (const line of raw.split(/\r?\n/)) {
