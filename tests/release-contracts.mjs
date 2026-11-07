@@ -22,6 +22,19 @@ test("all creator studio tasks are allow-listed and have task-specific prompts",
   }
 });
 
+test("four home modules all have render handlers and explicit service status pages", () => {
+  assert.match(app, /instagram:instagramStudio/);
+  assert.match(app, /website:websiteStudio/);
+  assert.match(app, /function instagramStudio\\(/);
+  assert.match(app, /function websiteStudio\\(/);
+  assert.match(app, /data-action="check-connection" data-service="instagram"/);
+  assert.match(app, /data-action="check-connection" data-service="website"/);
+});
+test("application master token uses session storage and offers explicit disconnect", () => {
+  assert.match(app, /sessionStorage\\.setItem\\(CLOUD_TOKEN_KEY,token\\)/);
+  assert.match(app, /localStorage\\.removeItem\\(CLOUD_TOKEN_KEY\\)/);
+  assert.match(app, /data-action="cloud-disconnect"/);
+});
 test("settings expose only service connection checks and a copyable error preview", () => {
   assert.ok(app.includes("پیش‌نمایش خطاها"));
   assert.ok(app.includes('data-action="check-connection"'));
@@ -187,6 +200,9 @@ test("Cloud sync preserves local data and downloads a backup on version conflict
   assert.ok(app.includes("داده محلی دست‌نخورده ماند"));
 });
 
+test("provider endpoint IPv4 literal guard uses a literal dot matcher", () => {
+  assert.ok(worker.includes(String.raw`/^[0-9]{1,3}(?:\.[0-9]{1,3}){3}$/`));
+});
 test("Provider endpoints require public HTTPS and blank form fields preserve saved secrets", () => {
   assert.ok(worker.includes("function safeProviderUrl(value)"));
   assert.ok(worker.includes('url.protocol!=="https:"'));
