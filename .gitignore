@@ -1,6 +1,5 @@
 # Local credentials and renderer runtime
 .env
-.env.*
 renderer/.env
 renderer/.env.*
 .DS_Store
