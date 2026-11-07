@@ -9,8 +9,8 @@ The Progressive Web App (PWA) is the canonical client. It is installed from the 
 - Durable metadata: Cloudflare D1, scoped by workspace.
 - YouTube identity and OAuth tokens: encrypted server-side storage already used by the Worker.
 - Production records: `youtube_video_jobs` stores topics, scripts, metadata, production reports, workflow status, schedule metadata, and optimistic version numbers.
-- Video binaries: must move to object storage (Cloudflare R2 or an equivalent) before the browser-only renderer is retired. The current repository does not yet bind an R2 bucket, so no claim is made that binary media is already durable.
-- Rendering: move out of the browser into a separate renderer/worker. A local Mac renderer using FFmpeg and the existing local Ollama model is the low-cost first option; it can process jobs while the Mac is awake. Fully cloud-hosted rendering requires a separately provisioned compute service and budget.
+- Video binaries: the Worker now has a workspace-scoped R2 media API and the PWA can upload source WebM files to the `MEDIA` bucket. The bucket `ai-business-core-media` must be created in Cloudflare and bound before these endpoints become operational.
+- Rendering: a durable D1 queue with leases, heartbeats, three attempts, and failure reporting feeds `renderer/agent.mjs`. The local Mac agent uses FFmpeg to produce H.264/AAC MP4 and the installed Ollama model for optional local script QA. The Mac must be awake; fully cloud-hosted 24/7 rendering requires separately provisioned compute and budget.
 - Publishing: keep YouTube OAuth and upload server-side. YouTube's `publishAt` scheduling is used only after explicit approval and successful upload; the app must never equate a browser timer with a reliable scheduler.
 
 ## Safety and rollout
