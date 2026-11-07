@@ -222,7 +222,7 @@ export default {
         const rows=await env.DB.prepare("SELECT platform,status,display_name FROM social_accounts WHERE workspace_id=? ORDER BY connected_at DESC").bind(workspace).all();
         const accounts={};for(const row of rows.results||[]){const key=String(row.platform||"").toLowerCase();if(!accounts[key])accounts[key]={status:row.status,displayName:row.display_name||""};}
         let website={ok:false,error:""};
-        try{const response=await fetch("https://mohammadfadaiemacbook-coder.github.io/ai-business-core/",{method:"HEAD",signal:AbortSignal.timeout(8000)});website={ok:response.ok,status:response.status,error:response.ok?"":"HTTP "+response.status};}
+        try{const response=await fetchWithTimeout("https://mohammadfadaiemacbook-coder.github.io/ai-business-core/",{method:"HEAD"},8000);website={ok:response.ok,status:response.status,error:response.ok?"":"HTTP "+response.status};}
         catch(error){website={ok:false,error:"دریافت وب‌سایت ناموفق بود: "+String(error?.message||error).slice(0,180)};}
         return json({ok:true,accounts,website},200,headers);
       }catch(error){return json({error:"Connection status lookup failed"},500,headers);}
