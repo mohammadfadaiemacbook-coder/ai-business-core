@@ -49,7 +49,7 @@ async function pushCloudSnapshot(){
   cloudSaveInFlight=true;
   try{
     const endpoint="https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/workspace?workspace="+encodeURIComponent(cloudWorkspaceId());
-    const response=await workerFetch(endpoint,{method:"PUT",headers:{"authorization":"Bearer "+cloudToken,"content-type":"application/json"},body:JSON.stringify({data:state,expectedVersion:cloudVersion})});
+    const payload=JSON.stringify({data:state,expectedVersion:cloudVersion});if(new TextEncoder().encode(payload).byteLength>256*1024){toast("نسخه ابری از سقف ۲۵۶ کیلوبایت بیشتر است؛ اطلاعات محلی حفظ شده، اما برای جلوگیری از خطای تکراری همگام‌سازی انجام نشد. از خروجی پشتیبان استفاده کن.");return}const response=await workerFetch(endpoint,{method:"PUT",headers:{"authorization":"Bearer "+cloudToken,"content-type":"application/json"},body:payload});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){if(response.status===409){cloudConflict=true;toast("تعارض نسخه ابری شناسایی شد؛ ذخیره خودکار متوقف شد و داده محلی حفظ شد. ابتدا نسخه ابری را بررسی و آگاهانه دریافت یا ادغام کن.");return}throw Error(data.error||"همگام‌سازی ابری ناموفق بود")}
     cloudVersion=data.version||cloudVersion;
@@ -70,7 +70,7 @@ async function initializeCloudSync(){
     if(!response.ok)throw Error(data.error||"دریافت فضای ابری ناموفق بود");
     cloudVersion=data.version||0;
     const keys=["tasks","research","content","events","approvals"];
-    const hasLocal=keys.some(k=>Array.isArray(state[k])&&state[k].length);
+    const hasLocal=keys.some(k=>Array.isArray(state[k])&&state[k].length)||JSON.stringify(state.settings)!==JSON.stringify(empty().settings);
     if(data.exists&&data.data){
       if(!hasLocal){state={...empty(),...data.data};localStorage.setItem(KEY,JSON.stringify(state));toast("اطلاعات فضای ابری بازیابی شد.");render()}
       else if(JSON.stringify(state)!==JSON.stringify(data.data)){cloudConflict=true;toast("نسخه محلی و ابری هر دو داده دارند؛ برای جلوگیری از حذف اطلاعات، هیچ‌کدام خودکار جایگزین نشدند. از تنظیمات یکی را آگاهانه انتخاب کن.")}
