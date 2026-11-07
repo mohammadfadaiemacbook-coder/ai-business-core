@@ -96,11 +96,13 @@ async function syncYoutubeDraftsFromCloud(){
     for(const job of data.jobs||[]){
       const existing=state.content.find(item=>item.cloudJobId===job.id||(!item.cloudJobId&&(item.topic||item.title)===job.topic&&(item.title||job.topic)===(job.title||job.topic)));
       if(existing){
-        existing.cloudJobId=job.id;existing.cloudVersion=job.version||1;
-        if(!existing.description&&job.script_text)existing.description=job.script_text;
-        if((!existing.metadata||!Object.keys(existing.metadata).length)&&job.metadata)existing.metadata=job.metadata;
-        if((!existing.productionReport||!Object.keys(existing.productionReport).length)&&job.productionReport)existing.productionReport=job.productionReport;
-        changed=true;continue;
+        let touched=false;
+        if(existing.cloudJobId!==job.id){existing.cloudJobId=job.id;touched=true;}
+        if(existing.cloudVersion!==(job.version||1)){existing.cloudVersion=job.version||1;touched=true;}
+        if(!existing.description&&job.script_text){existing.description=job.script_text;touched=true;}
+        if((!existing.metadata||!Object.keys(existing.metadata).length)&&job.metadata){existing.metadata=job.metadata;touched=true;}
+        if((!existing.productionReport||!Object.keys(existing.productionReport).length)&&job.productionReport){existing.productionReport=job.productionReport;touched=true;}
+        if(touched)changed=true;continue;
       }
       state.content.unshift({id:job.id,cloudJobId:job.id,cloudVersion:job.version||1,topic:job.topic,title:job.title||job.topic,description:job.script_text||"",metadata:job.metadata||{},productionReport:job.productionReport||{},platform:"YouTube",status:job.status==="ready_for_review"?"Needs review":job.status==="approved"?"تأییدd":job.status==="published"?"Published":"Draft",createdAt:job.created_at||new Date().toISOString()});
       changed=true;
