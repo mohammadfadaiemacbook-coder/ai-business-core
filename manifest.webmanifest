@@ -1,7 +1,7 @@
 {
   "name": "هسته هوشمند کسب‌وکار",
   "short_name": "هسته کسب‌وکار",
-  "description": "فضای کاری فارسی برای مدیریت وظایف، پژوهش، محتوا و برنامه‌ریزی کسب‌وکار.",
+  "description": "یک فضای کاری واحد و قابل نصب برای مدیریت و تولید محتوای YouTube در همه دستگاه‌ها.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -20,5 +20,11 @@
       "type": "image/svg+xml",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "prefer_related_applications": false
 }

@@ -373,7 +373,7 @@ test("YouTube publish-time estimate uses recent channel video statistics and lab
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v18/);
+  assert.match(sw, /ai-business-core-shell-v19/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
@@ -398,7 +398,7 @@ test("D1 migration sequence is numbered, additive, and includes workspace-scoped
   const { readdir, readFile } = await import("node:fs/promises");
   const dir = new URL("../migrations/", import.meta.url);
   const files = (await readdir(dir)).filter(name => /^\d{4}_.+\.sql$/.test(name)).sort();
-  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql","0006_api_rate_limits.sql"]);
+  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql","0006_api_rate_limits.sql","0007_youtube_video_jobs.sql"]);
   const migration = await readFile(new URL("../migrations/0005_workspace_query_indexes.sql", import.meta.url), "utf8");
   for (const index of ["idx_campaigns_workspace_updated","idx_audit_workspace_event_time","idx_publish_workspace_due","idx_approvals_workspace_status_created","idx_media_workspace_created","idx_social_workspace_status"]) assert.ok(migration.includes(index));
   assert.doesNotMatch(migration, /\b(DROP TABLE|DROP COLUMN|DELETE FROM)\b/i);
@@ -529,7 +529,7 @@ test("PWA shell includes accessible skip navigation and home dashboard", async (
 test("service worker cache writes are tied to fetch event lifetime", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
-  assert.match(sw, /ai-business-core-shell-v18/);
+  assert.match(sw, /ai-business-core-shell-v19/);
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
@@ -635,4 +635,20 @@ test("AI generation falls back to the configured secondary provider on primary r
   assert.ok(worker.includes('retryAfterSeconds:limited?retryAfter:undefined'));
   assert.ok(worker.includes('fallbackConfigured:!!(secondaryUrl&&secondaryKey&&secondaryModel)'));
   assert.ok(worker.includes('providerFallback:usedFallback'));
+});
+
+test("web-first YouTube drafts are persisted in D1 and restored across PWA devices", async () => {
+  const migration = await readFile(new URL("../migrations/0007_youtube_video_jobs.sql", import.meta.url), "utf8");
+  const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
+  const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_video_jobs/);
+  assert.match(migration, /workspace_id TEXT NOT NULL REFERENCES workspaces/);
+  assert.match(migration, /version INTEGER NOT NULL DEFAULT 1/);
+  assert.match(workerSource, /url\.pathname === "\/api\/youtube\/jobs"/);
+  assert.match(workerSource, /expectedVersion/);
+  assert.match(workerSource, /FROM youtube_video_jobs WHERE workspace_id/);
+  assert.match(appSource, /persistYoutubeDraftToCloud/);
+  assert.match(appSource, /syncYoutubeDraftsFromCloud/);
+  assert.match(appSource, /!item\.cloudJobId&&\(item\.topic\|\|item\.title\)===job\.topic/);
+  assert.match(appSource, /initializeCloudSync\(\)\.then\(\(\)=>syncYoutubeDraftsFromCloud\(\)\)/);
 });

@@ -276,6 +276,63 @@ export default {
         return json({ error: "Workspace storage operation failed", detail: "Please retry or contact support." }, 500, headers);
       }
     }
+    // Durable YouTube drafts: shared across the web app on every device.
+    if (url.pathname === "/api/youtube/jobs") {
+      if (!["GET","POST","PATCH"].includes(request.method)) return json({error:"Method not allowed"},405,{...headers,allow:"GET, POST, PATCH, OPTIONS"});
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
+      if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
+      if (!env.DB) return json({error:"Database is not configured"},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if (!WORKSPACE_ID.test(workspace)) return json({error:"Invalid workspace id"},400,headers);
+      try {
+        await ensureWorkspace(env.DB,workspace);
+        if (request.method==="GET") {
+          const jobId=String(url.searchParams.get("id")||"").trim();
+          if (jobId) {
+            const row=await env.DB.prepare("SELECT * FROM youtube_video_jobs WHERE id=? AND workspace_id=?").bind(jobId,workspace).first();
+            if (!row) return json({error:"YouTube production draft not found"},404,headers);
+            return json({ok:true,job:{...row,metadata:JSON.parse(row.metadata_json||"{}"),productionReport:JSON.parse(row.production_json||"{}")}},200,headers);
+          }
+          const rows=await env.DB.prepare("SELECT * FROM youtube_video_jobs WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 50").bind(workspace).all();
+          return json({ok:true,jobs:(rows.results||[]).map(row=>({...row,metadata:JSON.parse(row.metadata_json||"{}"),productionReport:JSON.parse(row.production_json||"{}")}))},200,headers);
+        }
+        const raw=await request.text();
+        if(new TextEncoder().encode(raw).byteLength>180*1024)return json({error:"YouTube draft payload exceeds 180 KB"},413,headers);
+        let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected valid JSON"},400,headers)}
+        const topic=String(body?.topic||"").trim().slice(0,500);
+        const title=String(body?.title||"").trim().slice(0,100);
+        const script=String(body?.script||"");
+        const metadata=body?.metadata&&typeof body.metadata==="object"&&!Array.isArray(body.metadata)?body.metadata:{};
+        const production=body?.productionReport&&typeof body.productionReport==="object"&&!Array.isArray(body.productionReport)?body.productionReport:{};
+        const metadataJson=JSON.stringify(metadata),productionJson=JSON.stringify(production);
+        if(request.method==="POST"&&!topic)return json({error:"A YouTube topic is required"},400,headers);
+        if(script.length>80000||metadataJson.length>20000||productionJson.length>60000)return json({error:"YouTube draft fields exceed their size limits"},413,headers);
+        if(request.method==="POST"){
+          const id=crypto.randomUUID();
+          const saved=await env.DB.prepare("INSERT INTO youtube_video_jobs (id,workspace_id,topic,title,script_text,metadata_json,production_json,status,stage) VALUES (?,?,?,?,?,?,?,'draft','draft') RETURNING id,workspace_id,topic,title,status,stage,version,created_at,updated_at")
+            .bind(id,workspace,topic,title,script,metadataJson,productionJson).first();
+          return json({ok:true,job:saved},201,headers);
+        }
+        const id=String(body?.id||"").trim(),expectedVersion=body?.expectedVersion;
+        if(!id||!Number.isInteger(expectedVersion)||expectedVersion<1)return json({error:"A draft id and positive expectedVersion are required"},400,headers);
+        const existing=await env.DB.prepare("SELECT * FROM youtube_video_jobs WHERE id=? AND workspace_id=?").bind(id,workspace).first();
+        if(!existing)return json({error:"YouTube production draft not found"},404,headers);
+        if(existing.version!==expectedVersion)return json({error:"این پیش‌نویس روی دستگاه دیگری تغییر کرده است؛ ابتدا نسخه تازه را دریافت کن.",conflict:true,currentVersion:existing.version},409,headers);
+        const nextStatus=String(body?.status||existing.status);
+        if(!["draft","queued","ready_for_review","approved","cancelled"].includes(nextStatus))return json({error:"Invalid client-side draft status"},400,headers);
+        const nextTopic=body.topic===undefined?existing.topic:topic;
+        const nextTitle=body.title===undefined?existing.title:title;
+        const nextScript=body.script===undefined?existing.script_text:script;
+        const nextMetadata=body.metadata===undefined?existing.metadata_json:metadataJson;
+        const nextProduction=body.productionReport===undefined?existing.production_json:productionJson;
+        const saved=await env.DB.prepare("UPDATE youtube_video_jobs SET topic=?,title=?,script_text=?,metadata_json=?,production_json=?,status=?,stage=?,version=version+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=? AND version=? RETURNING id,workspace_id,topic,title,status,stage,version,created_at,updated_at")
+          .bind(nextTopic,nextTitle,nextScript,nextMetadata,nextProduction,nextStatus,nextStatus,id,workspace,expectedVersion).first();
+        if(!saved)return json({error:"Draft changed concurrently; reload before saving",conflict:true},409,headers);
+        return json({ok:true,job:saved},200,headers);
+      } catch(error) {
+        return json({error:"YouTube draft storage failed",detail:"Please retry or contact support."},500,headers);
+      }
+    }
     if (url.pathname === "/api/providers" && ["GET","PUT"].includes(request.method)) {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
