@@ -527,6 +527,14 @@ test("cloud autosave pauses after a version conflict instead of retrying stale w
   assert.ok(source.includes("if(!cloudToken||cloudSaveInFlight||cloudConflict)return"));
 });
 
+test("manual cloud push checks snapshot size before sending", () => {
+  assert.ok(app.includes('if(a==="cloud-push"){const snapshot=JSON.stringify({data:state,expectedVersion:cloudVersion})'));
+  assert.ok(app.includes("نسخه ابری از سقف ۲۵۶ کیلوبایت بیشتر است"));
+});
+test("disconnect and invalid-token responses clear all in-memory and session credentials", () => {
+  assert.ok(app.includes('cloudToken="";aiToken="";aiEndpoint="";workerSessionCache.clear()'));
+  assert.ok(app.includes('if(err.status===401){cloudToken="";workerSessionCache.clear()'));
+});
 test("manual cloud push also pauses autosave when the server reports a version conflict", () => {
   const start=app.indexOf('if(a==="cloud-connect"||a==="cloud-pull"||a==="cloud-push")');
   const end=app.indexOf('if(a==="export-data")',start);
