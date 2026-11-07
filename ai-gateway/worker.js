@@ -6,7 +6,7 @@ const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(b
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin");
   const allowed = String(env.ALLOWED_ORIGIN || "").split(",").map(x => x.trim()).filter(Boolean);
-  const headers = { vary: "Origin", "access-control-allow-methods": "GET, POST, PUT, OPTIONS", "access-control-allow-headers": "authorization, content-type" };
+  const headers = { vary: "Origin", "access-control-allow-methods": "GET, POST, PUT, PATCH, OPTIONS", "access-control-allow-headers": "authorization, content-type" };
   if (origin && allowed.includes(origin)) headers["access-control-allow-origin"] = origin;
   return headers;
 }
@@ -191,6 +191,12 @@ async function youtubeAccessToken(env, db, workspace) {
   return { accessToken: next.access_token, row, token: next, key };
 }
 
+function rendererAuthorized(request,env){
+  const expected=String(env.RENDERER_SHARED_SECRET||"");
+  if(expected.length<32)return false;
+  return constantTimeEqual(request.headers.get("Authorization")||"", "Bearer "+expected);
+}
+
 export default {
   async fetch(request, env) {
     const requestId = crypto.randomUUID();
@@ -332,6 +338,134 @@ export default {
       } catch(error) {
         return json({error:"YouTube draft storage failed",detail:"Please retry or contact support."},500,headers);
       }
+    }
+
+    // R2-backed YouTube media assets. The browser and renderer never receive direct bucket credentials.
+    if (url.pathname === "/api/media/assets" && request.method === "POST") {
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
+      if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
+      if (!env.DB || !env.MEDIA) return json({error:"Video storage is not configured. Bind the MEDIA R2 bucket to this Worker."},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if (!WORKSPACE_ID.test(workspace)) return json({error:"Invalid workspace id"},400,headers);
+      const declaredLength=Number(request.headers.get("content-length")||0);
+      if(declaredLength>66*1024*1024)return json({error:"Video upload limit is 64 MB per file"},413,headers);
+      const limited=await enforceRateLimit(env.DB,workspace,"youtube-media-upload",10,headers);if(limited)return limited;
+      let form;try{form=await request.formData()}catch{return json({error:"Expected multipart form data"},400,headers)}
+      const file=form.get("file"),assetType=String(form.get("assetType")||"source_video");
+      if(!file||typeof file.stream!=="function"||!file.size)return json({error:"Select a video file"},400,headers);
+      if(!["source_video","rendered_video"].includes(assetType))return json({error:"Invalid media asset type"},400,headers);
+      if(!["video/webm","video/mp4","video/quicktime"].includes(String(file.type||"").toLowerCase()))return json({error:"Only WebM, MP4 and QuickTime videos are accepted"},415,headers);
+      if(file.size>64*1024*1024)return json({error:"Video upload limit is 64 MB per file"},413,headers);
+      const assetId=crypto.randomUUID(),safeName=String(file.name||"video.bin").replace(/[^a-zA-Z0-9._-]/g,"_").slice(0,100)||"video.bin";
+      const objectKey=workspace+"/youtube/"+assetId+"/"+safeName;
+      try{
+        await env.MEDIA.put(objectKey,file.stream(),{httpMetadata:{contentType:file.type},customMetadata:{workspace,assetId,assetType}});
+        const saved=await env.DB.prepare("INSERT INTO youtube_media_assets (id,workspace_id,object_key,file_name,content_type,size_bytes,asset_type) VALUES (?,?,?,?,?,?,?) RETURNING id,workspace_id,file_name,content_type,size_bytes,asset_type,created_at")
+          .bind(assetId,workspace,objectKey,safeName,file.type,file.size,assetType).first();
+        await writeAuditEvent(env.DB,workspace,"youtube.media.stored","media_asset",assetId,{bytes:file.size,assetType});
+        return json({ok:true,asset:saved},201,headers);
+      }catch(error){
+        await env.MEDIA.delete(objectKey).catch(()=>{});
+        return json({error:"Could not store video in R2. Check the MEDIA binding and D1 migration 0008."},503,headers);
+      }
+    }
+    const mediaAssetMatch=url.pathname.match(/^\/api\/media\/assets\/([a-f0-9-]{36})$/i);
+    if(mediaAssetMatch&&request.method==="GET"){
+      if(!env.DB||!env.MEDIA)return json({error:"Video storage is not configured"},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+      if(!(await isAuthorized(request,env))&&!rendererAuthorized(request,env))return json({error:"Unauthorized"},401,headers);
+      try{
+        const row=await env.DB.prepare("SELECT * FROM youtube_media_assets WHERE id=? AND workspace_id=? AND status='ready'").bind(mediaAssetMatch[1],workspace).first();
+        if(!row)return json({error:"Media asset not found"},404,headers);
+        const object=await env.MEDIA.get(row.object_key);
+        if(!object)return json({error:"Media object is missing from R2"},404,headers);
+        return new Response(object.body,{status:200,headers:{...headers,"content-type":row.content_type,"content-length":String(row.size_bytes),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(row.file_name),"cache-control":"private, no-store"}});
+      }catch{return json({error:"Could not retrieve media asset"},503,headers)}
+    }
+    if(url.pathname==="/api/youtube/render-jobs"){
+      if(!["GET","POST"].includes(request.method))return json({error:"Method not allowed"},405,{...headers,allow:"GET, POST, OPTIONS"});
+      if(request.headers.get("Origin")&&!headers["access-control-allow-origin"])return json({error:"Origin not allowed"},403,headers);
+      if(!(await isAuthorized(request,env)))return json({error:"Unauthorized"},401,headers);
+      if(!env.DB||!env.MEDIA)return json({error:"Video storage is not configured"},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+      try{
+        if(request.method==="GET"){
+          const jobId=String(url.searchParams.get("id")||"").trim();
+          if(jobId){
+            const job=await env.DB.prepare("SELECT j.*,a.file_name AS source_file_name,o.file_name AS output_file_name FROM youtube_render_jobs j LEFT JOIN youtube_media_assets a ON a.id=j.source_asset_id AND a.workspace_id=j.workspace_id LEFT JOIN youtube_media_assets o ON o.id=j.output_asset_id AND o.workspace_id=j.workspace_id WHERE j.id=? AND j.workspace_id=?").bind(jobId,workspace).first();
+            if(!job)return json({error:"Render job not found"},404,headers);
+            return json({ok:true,job},200,headers);
+          }
+          const rows=await env.DB.prepare("SELECT j.*,a.file_name AS source_file_name,o.file_name AS output_file_name FROM youtube_render_jobs j LEFT JOIN youtube_media_assets a ON a.id=j.source_asset_id AND a.workspace_id=j.workspace_id LEFT JOIN youtube_media_assets o ON o.id=j.output_asset_id AND o.workspace_id=j.workspace_id WHERE j.workspace_id=? ORDER BY j.created_at DESC LIMIT 20").bind(workspace).all();
+          return json({ok:true,jobs:rows.results||[]},200,headers);
+        }
+        const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>12000)return json({error:"Render job payload too large"},413,headers);
+        let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected valid JSON"},400,headers)}
+        const sourceAssetId=String(body?.sourceAssetId||"").trim(),draftId=String(body?.draftId||"").trim()||null;
+        if(!/^[a-f0-9-]{36}$/i.test(sourceAssetId))return json({error:"A valid sourceAssetId is required"},400,headers);
+        const source=await env.DB.prepare("SELECT id FROM youtube_media_assets WHERE id=? AND workspace_id=? AND asset_type='source_video' AND status='ready'").bind(sourceAssetId,workspace).first();
+        if(!source)return json({error:"Source video asset not found in this workspace"},404,headers);
+        if(draftId){
+          const draft=await env.DB.prepare("SELECT id FROM youtube_video_jobs WHERE id=? AND workspace_id=?").bind(draftId,workspace).first();
+          if(!draft)return json({error:"YouTube draft not found in this workspace"},404,headers);
+        }
+        const id=crypto.randomUUID();
+        const job=await env.DB.prepare("INSERT INTO youtube_render_jobs (id,workspace_id,draft_id,source_asset_id,status,stage) VALUES (?,?,?,?,'queued','queued') RETURNING *").bind(id,workspace,draftId,sourceAssetId).first();
+        await writeAuditEvent(env.DB,workspace,"youtube.render.queued","render_job",id,{sourceAssetId});
+        return json({ok:true,job},201,headers);
+      }catch{return json({error:"Could not enqueue local render job"},500,headers)}
+    }
+    if(url.pathname==="/api/renderer/jobs/claim"&&request.method==="POST"){
+      if(!rendererAuthorized(request,env))return json({error:"Renderer is not authorized"},401,headers);
+      if(!env.DB)return json({error:"Database is not configured"},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+      let body;try{body=await request.json()}catch{return json({error:"Expected JSON body"},400,headers)}
+      const workerId=String(body?.workerId||"").trim();
+      if(!/^[a-zA-Z0-9._-]{3,80}$/.test(workerId))return json({error:"Invalid renderer id"},400,headers);
+      try{
+        const claimed=await env.DB.prepare("UPDATE youtube_render_jobs SET status='running',stage='ffmpeg',attempts=attempts+1,lease_owner=?,lease_expires_at=strftime('%Y-%m-%dT%H:%M:%fZ','now','+10 minutes'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=(SELECT id FROM youtube_render_jobs WHERE workspace_id=? AND attempts<max_attempts AND (status='queued' OR (status='running' AND lease_expires_at<strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ORDER BY created_at ASC LIMIT 1) RETURNING id").bind(workerId,workspace).first();
+        if(!claimed)return json({ok:true,job:null},200,headers);
+        const job=await env.DB.prepare("SELECT j.*,a.file_name AS source_file_name,d.title AS draft_title,d.script_text AS draft_script,d.metadata_json AS draft_metadata FROM youtube_render_jobs j JOIN youtube_media_assets a ON a.id=j.source_asset_id AND a.workspace_id=j.workspace_id LEFT JOIN youtube_video_jobs d ON d.id=j.draft_id AND d.workspace_id=j.workspace_id WHERE j.id=? AND j.workspace_id=?").bind(claimed.id,workspace).first();
+        return json({ok:true,job},200,headers);
+      }catch{return json({error:"Could not claim renderer job"},500,headers)}
+    }
+    const rendererJobMatch=url.pathname.match(/^\/api\/renderer\/jobs\/([a-f0-9-]{36})\/(heartbeat|complete|fail)$/i);
+    if(rendererJobMatch&&request.method==="POST"){
+      if(!rendererAuthorized(request,env))return json({error:"Renderer is not authorized"},401,headers);
+      if(!env.DB||!env.MEDIA)return json({error:"Renderer storage is not configured"},503,headers);
+      const jobId=rendererJobMatch[1],action=rendererJobMatch[2],workerId=String(request.headers.get("x-renderer-id")||"").trim();
+      if(!/^[a-zA-Z0-9._-]{3,80}$/.test(workerId))return json({error:"A valid x-renderer-id header is required"},400,headers);
+      try{
+        const job=await env.DB.prepare("SELECT * FROM youtube_render_jobs WHERE id=? AND lease_owner=? AND status='running'").bind(jobId,workerId).first();
+        if(!job)return json({error:"Render lease expired or belongs to another renderer"},409,headers);
+        if(action==="heartbeat"){
+          const renewed=await env.DB.prepare("UPDATE youtube_render_jobs SET lease_expires_at=strftime('%Y-%m-%dT%H:%M:%fZ','now','+10 minutes'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND lease_owner=? AND status='running' RETURNING id").bind(jobId,workerId).first();
+          return json({ok:!!renewed},renewed?200:409,headers);
+        }
+        if(action==="fail"){
+          let body;try{body=await request.json()}catch{return json({error:"Expected JSON body"},400,headers)}
+          const message=String(body?.error||"Renderer failed").slice(0,1000);
+          const failed=await env.DB.prepare("UPDATE youtube_render_jobs SET status=CASE WHEN attempts<max_attempts THEN 'queued' ELSE 'failed' END,stage=CASE WHEN attempts<max_attempts THEN 'retry_wait' ELSE 'failed' END,last_error=?,lease_owner=NULL,lease_expires_at=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND lease_owner=? RETURNING status,attempts").bind(message,jobId,workerId).first();
+          return json({ok:true,...failed},200,headers);
+        }
+        const form=await request.formData(),file=form.get("file");
+        if(!file||typeof file.stream!=="function"||!file.size)return json({error:"Rendered MP4 file is required"},400,headers);
+        if(file.type!=="video/mp4")return json({error:"Renderer output must be video/mp4"},415,headers);
+        if(file.size>64*1024*1024)return json({error:"Rendered video exceeds 64 MB"},413,headers);
+        const assetId=crypto.randomUUID(),fileName="nexora-rendered.mp4",objectKey=job.workspace_id+"/youtube/"+assetId+"/"+fileName;
+        let qa={};try{qa=JSON.parse(String(form.get("qaReport")||"{}"))}catch{}
+        await env.MEDIA.put(objectKey,file.stream(),{httpMetadata:{contentType:"video/mp4"},customMetadata:{workspace:job.workspace_id,assetId,assetType:"rendered_video"}});
+        try{
+          const saved=await env.DB.prepare("INSERT INTO youtube_media_assets (id,workspace_id,object_key,file_name,content_type,size_bytes,asset_type) VALUES (?,?,?,?,?,?,'rendered_video') RETURNING id").bind(assetId,job.workspace_id,objectKey,fileName,"video/mp4",file.size).first();
+          await env.DB.prepare("UPDATE youtube_render_jobs SET status='ready_for_review',stage='ready_for_review',output_asset_id=?,qa_report_json=?,last_error=NULL,lease_owner=NULL,lease_expires_at=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND lease_owner=?").bind(assetId,JSON.stringify(qa).slice(0,20000),jobId,workerId).run();
+          if(job.draft_id)await env.DB.prepare("UPDATE youtube_video_jobs SET status='ready_for_review',stage='ready_for_review',version=version+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(job.draft_id,job.workspace_id).run();
+          await writeAuditEvent(env.DB,job.workspace_id,"youtube.render.completed","render_job",jobId,{outputAssetId:assetId,bytes:file.size});
+          return json({ok:true,jobId,outputAssetId:assetId,status:"ready_for_review"},200,headers);
+        }catch(error){await env.MEDIA.delete(objectKey).catch(()=>{});throw error}
+      }catch{return json({error:"Renderer job could not be finalized"},500,headers)}
     }
     if (url.pathname === "/api/providers" && ["GET","PUT"].includes(request.method)) {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
