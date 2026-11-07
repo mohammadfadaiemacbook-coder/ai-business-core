@@ -47,6 +47,7 @@ jobs:
           retention-days: 14
 
       - name: Publish latest Android APK release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-v${{ github.run_number }}
