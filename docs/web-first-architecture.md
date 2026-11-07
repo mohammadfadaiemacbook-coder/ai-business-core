@@ -15,7 +15,7 @@ The Progressive Web App (PWA) is the canonical client. It is installed from the 
 
 ## Safety and rollout
 - No production Worker/Pages deployment is performed by this branch.
-- D1 migration `0007_youtube_video_jobs.sql` must be applied before enabling the new API on production.
+- D1 migrations `0007_youtube_video_jobs.sql` and `0008_youtube_media_renderer.sql` must be applied before enabling the new APIs on production. Create the `ai-business-core-media` R2 bucket before deploying the Worker binding.
 - Public publishing remains approval-gated.
 - Keep the existing web app origin and PWA update flow. Do not split product logic between Android and macOS clients.
 - Validate cross-device restore, D1 conflict handling, upload size limits, media retention, and YouTube scheduled publication on staging before release.
