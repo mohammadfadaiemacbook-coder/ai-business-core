@@ -217,7 +217,7 @@ export default {
     }
     if (url.pathname === "/api/health" && request.method === "GET") {
       if (!env.DB) return json({ ok: false, database: "unbound" }, 503, headers);
-      try { await env.DB.prepare("SELECT 1 AS ok").first(); return json({ ok: true, database: "connected" }, 200, headers); }
+      try { await env.DB.prepare("SELECT 1 AS ok").first(); return json({ ok: true, database: "connected", mediaStorage: !!env.MEDIA, rendererConfigured: String(env.RENDERER_SHARED_SECRET||"").length>=32 }, 200, headers); }
       catch { return json({ ok: false, database: "query_failed" }, 503, headers); }
     }
     if (url.pathname === "/api/connections/status" && request.method === "GET") {
