@@ -510,6 +510,8 @@ test("Android native wrapper checks the latest Android release without confusing
   assert.ok(source.includes('"app-debug.apk"'));
   assert.ok(source.includes('new AlertDialog.Builder(MainActivity.this)'));
   assert.ok(source.includes('uri.getPath().startsWith("/mohammadfadaiemacbook-coder/ai-business-core/releases/download/android-v")'));
+  assert.ok(source.includes('uri.getPath().endsWith("/app-debug.apk")'));
+  assert.ok(source.includes('"https".equalsIgnoreCase(uri.getScheme())'));
 });
 test("Android APK releases do not replace the latest macOS DMG release", async () => {
   const androidWorkflow = await readFile(new URL("../.github/workflows/build-android.yml", import.meta.url), "utf8");
