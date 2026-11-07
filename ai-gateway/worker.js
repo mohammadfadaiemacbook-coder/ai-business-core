@@ -305,7 +305,7 @@ export default {
         const metadata=body?.metadata&&typeof body.metadata==="object"&&!Array.isArray(body.metadata)?body.metadata:{};
         const production=body?.productionReport&&typeof body.productionReport==="object"&&!Array.isArray(body.productionReport)?body.productionReport:{};
         const metadataJson=JSON.stringify(metadata),productionJson=JSON.stringify(production);
-        if(!topic)return json({error:"A YouTube topic is required"},400,headers);
+        if(request.method==="POST"&&!topic)return json({error:"A YouTube topic is required"},400,headers);
         if(script.length>80000||metadataJson.length>20000||productionJson.length>60000)return json({error:"YouTube draft fields exceed their size limits"},413,headers);
         if(request.method==="POST"){
           const id=crypto.randomUUID();
