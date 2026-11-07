@@ -280,12 +280,14 @@ test("YouTube tools live in a dedicated main navigation workspace", async () => 
   assert.ok(app.includes("youtube-upload-form"));
   assert.ok(app.includes("youtube-comments"));
 });
-test("YouTube workspace keeps a simplified three-action dashboard and inline preview", () => {
+test("YouTube workspace has one primary preparation action, inline preview, feedback repair, analytics and comments", () => {
   assert.ok(app.includes('data-action="video-auto"'));
-  assert.ok(app.includes('data-action="youtube-publish-now"'));
-  assert.ok(app.includes('data-action="youtube-schedule"'));
+  assert.ok(!app.includes('data-action="youtube-publish-now"'));
+  assert.ok(!app.includes('data-action="youtube-schedule"'));
   assert.ok(app.includes('id="youtube-inline-draft"'));
   assert.ok(app.includes('id="youtube-inline-video"'));
+  assert.ok(app.includes('data-action="video-fix"'));
+  assert.ok(app.includes('youtube-comments-list'));
   assert.ok(app.includes('yt-chart-grid'));
   assert.ok(app.includes('id="youtube-engine"'));
 });
@@ -523,7 +525,8 @@ test("Home dashboard replaces the mobile drawer with direct section cards", () =
   assert.ok(html.includes('class="home-brand"'));
   assert.ok(app.includes('let view="overview"'));
   assert.ok(app.includes('class="home-module-grid"'));
-  for (const section of ["youtube","tasks","research","content","calendar","approvals","ai","settings"]) assert.ok(app.includes('["'+section+'"'));
+  for (const section of ["youtube","instagram","website","settings"]) assert.ok(app.includes('["'+section+'"'));
+  assert.ok(!app.includes('["tasks"'));
   assert.ok(css.includes(".home-module-grid"));
 });
 
