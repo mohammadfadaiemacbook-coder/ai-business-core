@@ -69,6 +69,20 @@ Supported tasks include `youtube_research`, `trend_strategy`, `video_outline`, `
 
 A successful response returns `output`, `task`, and `model`. The gateway does not browse the web, verify claims, publish content, or execute business actions. Treat output as a draft; verify factual claims and sources before approval.
 
+## 4. Durable video storage and local Mac renderer
+
+The YouTube production path now has an optional R2-backed renderer queue. These steps are required before the new buttons in the PWA can use it:
+
+1. In Cloudflare R2, create a bucket named `ai-business-core-media`. The Worker binding name is `MEDIA`; the root `wrangler.toml` and deploy template already reference this bucket.
+2. In Worker Settings → Variables and Secrets, add a secret named `RENDERER_SHARED_SECRET`. Generate a random value locally with `openssl rand -hex 32`. Use at least 32 characters. Do not send it to ChatGPT or commit it to GitHub.
+3. After the reviewed code is merged, run **Complete release - Worker and web app** from GitHub Actions with confirmation `RELEASE`. The workflow backs up D1 before applying pending migrations, then deploys the Worker and web app. Confirm the backup artifact exists before relying on the new renderer tables.
+4. On the Mac, open the repository's `renderer` folder and run `./install-mac.sh`. This checks Node.js 20+, installs FFmpeg with Homebrew if needed, and creates `.env` from `.env.example`.
+5. Edit `renderer/.env` and set `AIBC_RENDERER_TOKEN` to the exact same value as `RENDERER_SHARED_SECRET`. The `.env` file is ignored by Git and must remain only on the Mac.
+6. Make sure Ollama is running locally and `qwen3:4b` is installed. Start the renderer with `node renderer/agent.mjs` from the repository root (or `node agent.mjs` inside the renderer folder).
+7. Generate and preview a YouTube video in the PWA, then select **ارسال فایل به موتور مک‌بوک (FFmpeg)**. The source file is saved in R2 and a durable job is added to D1. Keep the Mac awake while the agent runs. On the phone or Mac, select **بررسی وضعیت پردازش** to retrieve the rendered MP4 from R2 when ready.
+
+The local renderer converts the browser-produced WebM into H.264/AAC MP4 and optionally asks Ollama for a local script-quality note. It does not yet replace the browser's scene-generation step, does not run while the Mac is asleep, and never uploads or publishes to YouTube. The separate YouTube upload action still requires the user's review and explicit confirmation.
+
 ## Security and limits
 
 - CORS restricts browser origins but is not authentication by itself; the bearer token is also required.
