@@ -510,7 +510,7 @@ test("Android APK releases do not replace the latest macOS DMG release", async (
   assert.ok(androidWorkflow.includes("if: github.event_name == 'push' && github.ref == 'refs/heads/main'"));
   assert.match(androidWorkflow, /needs: build/);
   assert.match(androidWorkflow, /contents: write/);
-  assert.match(androidWorkflow, /actions\\/download-artifact@v4/);
+  assert.ok(androidWorkflow.includes("actions/download-artifact@v4"));
   assert.doesNotMatch(androidWorkflow, /make_latest: true/);
 });
 test("PWA shell includes accessible skip navigation and home dashboard", async () => {
