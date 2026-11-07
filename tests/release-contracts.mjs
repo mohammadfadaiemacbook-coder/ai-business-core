@@ -506,7 +506,7 @@ test("Android native wrapper checks the latest Android release without confusing
   const source = await readFile(new URL("../android/app/src/main/java/com/aibusinesscore/app/MainActivity.java", import.meta.url), "utf8");
   assert.ok(source.includes('/releases?per_page=100'));
   assert.ok(source.includes('Pattern.compile("^android-v([0-9]+)$")'));
-  assert.ok(source.includes('candidateVersion > installedVersion'));
+  assert.ok(source.includes('latestVersion > installedVersion'));
   assert.ok(source.includes('"app-debug.apk"'));
   assert.ok(source.includes('new AlertDialog.Builder(MainActivity.this)'));
   assert.ok(source.includes('uri.getPath().startsWith("/mohammadfadaiemacbook-coder/ai-business-core/releases/download/android-v")'));
