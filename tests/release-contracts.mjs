@@ -672,8 +672,8 @@ test("R2-backed YouTube media and durable Mac renderer queue are wired end to en
   assert.match(appSource, /data-action="renderer-queue"/);
   assert.match(appSource, /data-action="renderer-status"/);
   assert.match(rendererSource, /spawn\(FFMPEG/);
-  assert.match(rendererSource, /\/api\/generate/);
-  assert.match(rendererSource, /api\/generate/);
+  assert.match(rendererSource, /\/api\/renderer\/jobs\/claim/);
+  assert.match(rendererSource, /\/api\/media\/assets/);
   assert.match(rendererSource, /OLLAMA_MODEL/);
   assert.match(wrangler, /binding = "MEDIA"/);
   assert.doesNotMatch(appSource, /تأییدd|ردed/);
