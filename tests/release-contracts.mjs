@@ -23,17 +23,17 @@ test("all creator studio tasks are allow-listed and have task-specific prompts",
 });
 
 test("four home modules all have render handlers and explicit service status pages", () => {
-  assert.match(app, /instagram:instagramStudio/);
-  assert.match(app, /website:websiteStudio/);
-  assert.match(app, /function instagramStudio\\(/);
-  assert.match(app, /function websiteStudio\\(/);
-  assert.match(app, /data-action="check-connection" data-service="instagram"/);
-  assert.match(app, /data-action="check-connection" data-service="website"/);
+  assert.ok(app.includes("instagram:instagramStudio"));
+  assert.ok(app.includes("website:websiteStudio"));
+  assert.ok(app.includes("function instagramStudio("));
+  assert.ok(app.includes("function websiteStudio("));
+  assert.ok(app.includes('data-action="check-connection" data-service="instagram"'));
+  assert.ok(app.includes('data-action="check-connection" data-service="website"'));
 });
 test("application master token uses session storage and offers explicit disconnect", () => {
-  assert.match(app, /sessionStorage\\.setItem\\(CLOUD_TOKEN_KEY,token\\)/);
-  assert.match(app, /localStorage\\.removeItem\\(CLOUD_TOKEN_KEY\\)/);
-  assert.match(app, /data-action="cloud-disconnect"/);
+  assert.ok(app.includes("sessionStorage.setItem(CLOUD_TOKEN_KEY,token)"));
+  assert.ok(app.includes("localStorage.removeItem(CLOUD_TOKEN_KEY)"));
+  assert.ok(app.includes('data-action="cloud-disconnect"'));
 });
 test("settings expose only service connection checks and a copyable error preview", () => {
   assert.ok(app.includes("پیش‌نمایش خطاها"));
