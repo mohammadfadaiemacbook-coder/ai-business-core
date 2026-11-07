@@ -1,4 +1,4 @@
-// Adapted from Jakeschincariol/youtube-agent-skill (MIT).
+// Adapted from Jakeschincariol/youtube-agent-skill (MIT); see licenses/youtube-agent-skill-MIT.txt.
 // These are model-agnostic workflow instructions; Python CLI tools from the
 // upstream Claude Code package are not executed inside the Cloudflare Worker.
 export const YOUTUBE_AGENT_PROMPTS = {
