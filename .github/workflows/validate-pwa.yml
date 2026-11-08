@@ -1,0 +1,56 @@
+name: Validate PWA and Oddling character pack
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Parse application JavaScript
+        run: node --check app.js
+      - name: Validate PWA metadata and cache
+        run: |
+          node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('manifest.webmanifest','utf8')); if(!m.name || !m.start_url || !m.icons?.length) throw Error('Invalid PWA manifest'); const sw=fs.readFileSync('sw.js','utf8'); if(!/CACHE_NAME/.test(sw)) throw Error('Missing service worker cache name');"
+      - name: Validate procedural character pack wiring
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const app = fs.readFileSync('app.js', 'utf8');
+          const css = fs.readFileSync('styles.css', 'utf8');
+          const checks = [
+            ['25 character trait entries', (app.match(/\["(?:مرد|زن|ویژه)"/g) || []).length === 25],
+            ['procedural portrait renderer', app.includes('function drawOddlingPortrait(')],
+            ['ZIP pack exporter', app.includes('async function downloadOddlingPack()') && app.includes('function zipStore(')],
+            ['character gallery renderer', app.includes('async function renderOddlingLibrary()')],
+            ['video renderer uses character portrait', app.includes('window.__oddlingPortraitCache') && app.includes('drawOddlingPortrait(portrait,character,true)')],
+            ['portrait styles', css.includes('.oddling-portrait')]
+          ];
+          for (const [name, ok] of checks) {
+            console.log((ok ? 'PASS ' : 'FAIL ') + name);
+            if (!ok) process.exitCode = 1;
+          }
+          NODE
+      - name: Stage Pages payload and validate deployment inputs
+        run: |
+          set -euo pipefail
+          mkdir -p site
+          cp index.html app.js styles.css sw.js manifest.webmanifest site/
+          cp -R icons site/icons
+          test -s site/index.html
+          test -s site/app.js
+          test -s site/styles.css
+          test -s site/sw.js
+          node --check site/app.js
