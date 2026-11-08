@@ -32,15 +32,14 @@ Optional Worker variables/secrets:
 ## 2. Complete release: Worker and web app
 
 1. In GitHub, open **Settings → Secrets and variables → Actions → New repository secret**.
-2. Add `CLOUDFLARE_API_TOKEN` with Cloudflare permissions **Workers Scripts: Edit**, **D1: Edit**, **R2 Storage: Edit**, and the account read permission Wrangler requires.
+2. Add `CLOUDFLARE_API_TOKEN` with Cloudflare permissions **Workers Scripts: Edit**, **D1: Edit**, and the account read permission Wrangler requires. R2 permissions are not needed for the free release.
 3. Add `CLOUDFLARE_ACCOUNT_ID`.
-4. Generate a random secret locally with `openssl rand -hex 32` and add it as repository Actions secret `RENDERER_SHARED_SECRET`. Keep the same value for the Mac renderer; do not share it in chat or commit it.
 5. Keep all existing Cloudflare Worker secrets/variables intact: `APP_ACCESS_TOKEN`, `TOKEN_ENCRYPTION_KEY`, Google OAuth credentials, primary AI provider credentials and optional media-provider credentials. Never replace `TOKEN_ENCRYPTION_KEY` for an existing database.
 6. In GitHub Actions, select **Complete release - Worker and web app**, choose the `main` branch (after merging the reviewed changes), and set confirmation to `RELEASE`. Do not select retired experimental branches.
-7. The guarded workflow creates the R2 bucket if needed, configures the renderer secret, exports a D1 backup, applies pending migrations, deploys the Worker, verifies Worker/D1/R2 readiness, and publishes only public app files to GitHub Pages.
+7. The guarded workflow exports a D1 backup, applies pending migrations, deploys the Worker, verifies Worker/D1 health with media storage disabled, and publishes only public app files to GitHub Pages.
 8. Download and retain the artifact named `ai-business-core-d1-predeploy-backup`.
 
-The default confirmation is `NO`; no production changes happen unless you explicitly choose `RELEASE`. The release health check requires D1, R2 and the renderer secret to be available. The standalone **Backup, migrate and deploy Cloudflare Worker** and **Deploy web app to GitHub Pages** workflows remain available for separate, gated operations.
+The default confirmation is `NO`; no production changes happen unless you explicitly choose `RELEASE`. The release health check requires D1 and explicitly verifies that R2 media storage and the optional renderer remain disabled. The standalone **Backup, migrate and deploy Cloudflare Worker** and **Deploy web app to GitHub Pages** workflows remain available for separate, gated operations.
 
 ## 3. Configure and test
 
@@ -70,17 +69,9 @@ Supported tasks include `youtube_research`, `trend_strategy`, `video_outline`, `
 
 A successful response returns `output`, `task`, and `model`. The gateway does not browse the web, verify claims, publish content, or execute business actions. Treat output as a draft; verify factual claims and sources before approval.
 
-## 4. Durable video storage and local Mac renderer
+## 4. Free video workflow
 
-After the reviewed code is merged and the guarded release workflow succeeds, the R2-backed renderer queue is ready for Mac setup:
-
-1. From the repository root on the Mac, run `./renderer/install-mac.sh`. It checks Node.js 20+, installs FFmpeg with Homebrew if needed, and creates `renderer/.env` from the example.
-2. Edit `renderer/.env` and set `AIBC_RENDERER_TOKEN` to the exact same value you saved as the GitHub Actions secret `RENDERER_SHARED_SECRET`. The `.env` file is ignored by Git and must remain only on the Mac.
-3. Make sure Ollama is running locally and `qwen3:4b` is installed.
-4. Start the renderer from the repository root with `node renderer/agent.mjs`. Keep the Mac awake while jobs are being processed.
-5. Generate and preview a YouTube video in the PWA, then select **ارسال فایل به موتور مک‌بوک (FFmpeg)**. The source file is saved in R2 and a durable job is added to D1. On the phone or Mac, select **بررسی وضعیت موتور مک‌بوک** to retrieve the rendered MP4 from R2 when ready.
-
-The local renderer converts the browser-produced WebM into H.264/AAC MP4 and optionally asks Ollama for a local script-quality note. It does not yet replace the browser's scene-generation step, does not run while the Mac is asleep, and never uploads or publishes to YouTube. The separate YouTube upload action still requires your review and explicit confirmation.
+The active free release path does not use R2 or the local Mac renderer. Video scenes and narration are composed in the browser, the resulting file is previewed/downloaded locally, and the user can upload it directly to YouTube after reviewing the metadata and confirming the upload. The R2-backed renderer source remains outside the active release path and must not be enabled without a separately approved storage design.
 
 ## Security and limits
 

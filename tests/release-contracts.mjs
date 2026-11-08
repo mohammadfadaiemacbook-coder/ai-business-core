@@ -672,10 +672,14 @@ test("free-tier Worker release does not require or configure Cloudflare R2", asy
   assert.ok(!wranglerTemplate.includes("r2_buckets") && !wranglerTemplate.includes('binding = "MEDIA"'));
   assert.ok(!releaseWorkflow.includes("wrangler r2") && !releaseWorkflow.includes("R2 media bucket"));
   assert.ok(releaseWorkflow.includes("d.mediaStorage!==false"));
+  assert.ok(releaseWorkflow.includes("d.rendererConfigured!==false"));
+  assert.ok(!releaseWorkflow.includes("RENDERER_SHARED_SECRET"));
   assert.ok(workerSource.includes("mediaStorage: !!env.MEDIA"));
   assert.ok(workerSource.includes("if(!env.DB||!env.MEDIA)"));
   assert.ok(workerSource.includes("rendererConfigured: String(env.RENDERER_SHARED_SECRET"));
-  assert.ok(appSource.includes("queueGeneratedVideoForRenderer"));
+  assert.ok(!appSource.includes("queueGeneratedVideoForRenderer"));
+  assert.ok(!appSource.includes("renderer-queue"));
+  assert.ok(!appSource.includes("renderer-status"));
   assert.ok(rendererSource.includes("spawn(FFMPEG"));
   assert.ok(rendererSource.includes("OLLAMA_MODEL"));
 });
