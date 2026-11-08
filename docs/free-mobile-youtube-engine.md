@@ -38,3 +38,11 @@ CI runs JavaScript syntax checks, all `tests/*.mjs` suites, and a Wrangler dry-r
 - Use **Import character ZIP** once in the YouTube studio and select the supplied `AI_Business_Core_25_3D_Characters.zip`. The app validates that all 25 GLB models are present and stores them in IndexedDB on that browser/device. The selected GLB can then be previewed in the built-in 3D viewer.
 - Imported models are local to that browser profile/device. They are not automatically synced to another phone or browser. Import the ZIP on each device where the 3D previews are needed.
 - The GLB models are static and unrigged. The current video renderer uses a stylized Canvas character illustration rather than GLB animation. Rigging, facial animation, and direct 3D video rendering remain a separate future production task.
+
+
+## Procedural character animation and publishing
+- The rendered video now animates the selected character with a looping idle bounce, body sway, alternating arm gestures, leg movement, eye blinks, talking mouth motion, and floating sparkles. The picker cards also have lightweight CSS idle motion with reduced-motion support.
+- The GLB source meshes remain static/unrigged. Their interactive preview can rotate, while the video uses a procedural animated Canvas character rather than skeletal GLB animation. This is a mobile-friendly renderer; it does not claim full 3D skeletal animation.
+- The generated-video publish button requests explicit confirmation, then sends `privacyStatus=public` and `confirmPublic=true`. The Worker enforces this explicit server-side confirmation before public upload. No upload occurs until the user presses the button and confirms.
+- YouTube API projects that have not completed YouTube's required audit may be restricted to private uploads even when the API request asks for public. This cannot be bypassed by the app; the channel/API project must meet YouTube's requirements.
+- Uploads are subject to YouTube Data API quota. Free video production does not mean unlimited API uploads.
