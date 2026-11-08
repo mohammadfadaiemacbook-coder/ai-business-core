@@ -33,6 +33,7 @@ test("browser renderer composes Canvas, audio, captions and thumbnail without pa
   assert.match(renderer, /audioContext\.createMediaStreamDestination\(\)/);
   assert.doesNotMatch(renderer, /api\/media\/image\?workspace/);
   assert.match(renderer, /generatedSubtitlesBlob=new Blob/);
+  assert.match(renderer, /const spokenScript=aiOutput\.split/);
   assert.match(renderer, /generatedThumbnailBlob=await new Promise/);
 });
 
