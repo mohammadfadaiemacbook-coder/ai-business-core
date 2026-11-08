@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir, hostname } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { openAsBlob } from "node:fs";
 
 async function loadEnvFile() {
   try {
@@ -119,9 +120,9 @@ async function processJob(job) {
     if (!outputInfo.size || outputInfo.size > 64 * 1024 * 1024) throw new Error("Rendered MP4 is empty or exceeds the 64 MB upload limit.");
     console.log("[job] Running local Ollama quality review");
     const qaReport = await localOllamaReview(job);
-    const output = await readFile(outputPath);
+    const output = await openAsBlob(outputPath, { type: "video/mp4" });
     const form = new FormData();
-    form.append("file", new Blob([output], { type: "video/mp4" }), "nexora-rendered.mp4");
+    form.append("file", output, "nexora-rendered.mp4");
     form.append("qaReport", JSON.stringify(qaReport));
     await api("/api/renderer/jobs/" + encodeURIComponent(job.id) + "/complete?workspace=" + encodeURIComponent(WORKSPACE), {
       method: "POST",
