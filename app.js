@@ -193,7 +193,7 @@ if(gender==="feminine"){ctx.beginPath();ctx.moveTo(-76,-326);ctx.quadraticCurveT
 else{ctx.beginPath();ctx.moveTo(-76,-329);ctx.quadraticCurveTo(-88,-405,-36,-378);ctx.quadraticCurveTo(0,-414,38,-380);ctx.quadraticCurveTo(89,-410,76,-326);ctx.closePath();ctx.fill();ctx.fillStyle=trim;for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*55,-354);ctx.quadraticCurveTo(side*115,-420,side*91,-326);ctx.quadraticCurveTo(side*72,-300,side*55,-354);ctx.fill()}}
 if(gender==="fantasy"){ctx.fillStyle=trim;for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*43,-365);ctx.quadraticCurveTo(side*100,-465,side*86,-380);ctx.closePath();ctx.fill()}}
 // eye sockets, eyeballs, iris, highlights
-for(const side of [-1,1]){ctx.fillStyle="rgba(0,0,0,.38)";ctx.beginPath();ctx.ellipse(side*34,-315,27,20,side*.08,0,Math.PI*2);ctx.fill();ctx.fillStyle="#eee8d9";ctx.beginPath();ctx.ellipse(side*34,-314,21,14,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=id%3===0?"#68c6b2":id%3===1?"#b28c55":"#526fba";ctx.beginPath();ctx.arc(side*31,-314,9,0,Math.PI*2);ctx.fill();ctx.fillStyle="#10121b";ctx.beginPath();ctx.arc(side*31,-314,4.5,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(side*34,-319,3.5,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#241d22";ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(side*58,-337);ctx.quadraticCurveTo(side*34,-350,side*12,-337);ctx.stroke()}
+for(const side of [-1,1]){ctx.fillStyle="rgba(0,0,0,.38)";ctx.beginPath();ctx.ellipse(side*34,-315,27,20,side*.08,0,Math.PI*2);ctx.fill();ctx.fillStyle="#eee8d9";ctx.beginPath();ctx.ellipse(side*34,-314,21,blink?3:14,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=id%3===0?"#68c6b2":id%3===1?"#b28c55":"#526fba";ctx.beginPath();ctx.arc(side*31,-314,9,0,Math.PI*2);ctx.fill();ctx.fillStyle="#10121b";ctx.beginPath();ctx.arc(side*31,-314,4.5,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(side*34,-319,3.5,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#241d22";ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(side*58,-337);ctx.quadraticCurveTo(side*34,-350,side*12,-337);ctx.stroke()}
 // nose
 ctx.fillStyle=skin;ctx.beginPath();ctx.moveTo(-13,-304);ctx.quadraticCurveTo(-20,-273,-37,-268);ctx.quadraticCurveTo(0,-248,37,-268);ctx.quadraticCurveTo(17,-278,13,-304);ctx.closePath();ctx.fill();ctx.fillStyle="rgba(20,15,22,.5)";for(const side of [-1,1]){ctx.beginPath();ctx.ellipse(side*20,-268,7,4,0,0,Math.PI*2);ctx.fill()}
 // smile / mouth with dark cavity, gum and individual teeth
@@ -215,13 +215,13 @@ box.innerHTML='<div class="panel-head"><div><span class="eyebrow">NEXORA ORIGINA
 for(const c of box.querySelectorAll("canvas[data-portrait-id]")){const character=ODDLINGS.find(x=>x.id===Number(c.dataset.portraitId));if(character)drawOddlingPortrait(c,character,false)}
 const big=$("#oddling-selected-portrait");if(big)drawOddlingPortrait(big,selected,false);
 }function drawOddling(ctx,character,progress=0,sceneIndex=0){
-const id=Number(character.id||1),t=performance.now()/1000+sceneIndex*.83+progress*6.28,bob=Math.sin(t*2.5+id)*7,walk=Math.sin(t*5.4),sway=Math.sin(t*1.6+id)*.025,blink=Math.sin(t*1.7+id)>.985,jaw=Math.abs(Math.sin(t*8+id));
+const id=Number(character.id||1),t=performance.now()/1000+sceneIndex*.83+progress*6.28,bob=Math.sin(t*2.5+id)*7,walk=Math.sin(t*5.4),sway=Math.sin(t*1.6+id)*.025,blink=Math.sin(t*1.7+id)>.985,jaw=Math.abs(Math.sin(t*8));
 if(!window.__oddlingPortraitCache)window.__oddlingPortraitCache=new Map();
 let portrait=window.__oddlingPortraitCache.get(id);
 if(!portrait){portrait=document.createElement("canvas");portrait.width=360;portrait.height=440;window.__oddlingPortraitCache.set(id,portrait)}
 drawOddlingPortrait(portrait,character,true);
 ctx.save();ctx.translate(1030,385+bob+walk*2);ctx.rotate(sway+Math.sin(t*2.1+id)*.018);ctx.shadowColor="rgba(0,0,0,.38)";ctx.shadowBlur=28;ctx.drawImage(portrait,-145,-225,290,355);ctx.shadowBlur=0;
-if(blink){ctx.fillStyle=oddlingPalette(character.palette.body);ctx.beginPath();ctx.ellipse(1030-27,385+bob-225+440*.91-314*.805,14,5,0,0,Math.PI*2);ctx.ellipse(1030+27,385+bob-225+440*.91-314*.805,14,5,0,0,Math.PI*2);ctx.fill()}
+
 ctx.fillStyle="rgba(255,255,255,.7)";for(let k=0;k<3;k++){const a=t*1.4+k*2.09;ctx.beginPath();ctx.arc(Math.cos(a)*165,-115+Math.sin(a)*100,2.5+(k%2),0,Math.PI*2);ctx.fill()}ctx.restore()
 }
 function isDuplicateVideo(candidate,history=[]){const words=normalizeVideoText(candidate).split(" ").filter(x=>x.length>2);if(words.length<3)return history.some(x=>normalizeVideoText(x.topic||x.title)===normalizeVideoText(candidate));const set=new Set(words);return history.some(item=>{const prior=normalizeVideoText([item.topic,item.title].filter(Boolean).join(" "));if(!prior)return false;if(prior===normalizeVideoText(candidate))return true;const other=new Set(prior.split(" ").filter(x=>x.length>2));if(!other.size)return false;let overlap=0;for(const word of set)if(other.has(word))overlap++;return overlap/Math.min(set.size,other.size)>=0.82&&overlap>=4})}
