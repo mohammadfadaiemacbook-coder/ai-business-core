@@ -1,0 +1,9 @@
+# Local credentials and renderer runtime
+.env
+renderer/.env
+renderer/.env.*
+.DS_Store
+renderer/tmp/
+renderer/output/
+*.mp4
+*.webm

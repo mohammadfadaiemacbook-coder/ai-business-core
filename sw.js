@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "ai-business-core-shell-v19";
+const CACHE_NAME = "ai-business-core-shell-v20";
 const APP_SHELL = ["./","./index.html","./styles.css","./app.js","./manifest.webmanifest","./icons/icon.svg","./icons/icon-maskable.svg"];
 
 self.addEventListener("install", event => {
