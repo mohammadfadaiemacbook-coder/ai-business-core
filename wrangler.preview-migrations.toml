@@ -1,0 +1,7 @@
+# Migration-only config for the isolated Cloudflare Preview D1 database.
+# Keep this ID in sync with previews.d1_databases in wrangler.toml.
+[[d1_databases]]
+binding = "PREVIEW_DB"
+database_name = "ai-business-core-preview"
+database_id = "e709fe6a-6fc3-40c7-b623-3bda290503c9"
+migrations_dir = "migrations"
