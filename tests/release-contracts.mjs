@@ -716,7 +716,8 @@ test("local media storage rejects symlink escapes and constrains response conten
 test("Mac media uploads stream file bodies without allocating duplicate full-size buffers", async () => {
   const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
   assert.equal((worker.match(/body:file\.stream\(\)/g) || []).length, 2);
-  assert.match(rendererSource, /import \{ openAsBlob \} from "node:fs"/);
+  assert.match(rendererSource, /import \{ openAsBlob, createWriteStream \} from "node:fs"/);
+  assert.match(rendererSource, /pipeline\(source\.body, createWriteStream\(sourcePath, \{ flags: "wx" \}\)\)/);
   assert.match(rendererSource, /openAsBlob\(outputPath, \{ type: "video\/mp4" \}\)/);
   assert.match(rendererSource, /form\.append\("file", output, "nexora-rendered\.mp4"\)/);
 });
