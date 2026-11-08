@@ -60,14 +60,10 @@ jobs:
       - name: Install Wrangler
         run: npm install --global wrangler@4
 
-      - name: Ensure the R2 media bucket exists and configure renderer secret
+      - name: Configure renderer secret (no paid media bucket)
         shell: bash
         run: |
           set -euo pipefail
-          if ! wrangler r2 bucket list | grep -Fq "ai-business-core-media"; then
-            wrangler r2 bucket create ai-business-core-media
-          fi
-          wrangler r2 bucket list | grep -F "ai-business-core-media"
           printf '%s' "$RENDERER_SHARED_SECRET" | wrangler secret put RENDERER_SHARED_SECRET --config ai-gateway/wrangler.toml
 
       - name: Export D1 backup before migration
@@ -90,7 +86,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --retry 8 --retry-delay 5 --retry-all-errors -fsS "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s);if(d.ok!==true||d.database!=="connected"||d.mediaStorage!==true||d.rendererConfigured!==true)throw Error("Worker/D1/R2/renderer health check failed: "+s);console.log("Worker, D1, R2 and renderer secret are healthy.")})'
+          curl --retry 8 --retry-delay 5 --retry-all-errors -fsS "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s);if(d.ok!==true||d.database!=="connected"||d.mediaStorage!==false||d.rendererConfigured!==true)throw Error("Worker/D1/renderer health check failed or unexpected external media binding detected: "+s);console.log("Worker, D1 and renderer are healthy; external media bucket is intentionally disabled.")})'
           status=$(curl -sS -o /tmp/session-check.json -w '%{http_code}' -X POST "https://ai-business-core.mohammadfadaiemacbook.workers.dev/api/auth/session" -H "Authorization: Bearer intentionally-invalid-smoke-test-token")
           test "$status" = "401" || { cat /tmp/session-check.json; echo "Session endpoint expected 401, got $status"; exit 1; }
 

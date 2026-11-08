@@ -658,33 +658,21 @@ test("web-first YouTube drafts are persisted in D1 and restored across PWA devic
 });
 
  
-test("R2-backed YouTube media and durable Mac renderer queue are wired end to end", async () => {
-  const migration = await readFile(new URL("../migrations/0008_youtube_media_renderer.sql", import.meta.url), "utf8");
+test("free-tier Worker release does not require or configure Cloudflare R2", async () => {
   const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
   const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
   const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
   const wrangler = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  const wranglerTemplate = await readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8");
   const releaseWorkflow = await readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8");
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_media_assets/);
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_render_jobs/);
-  assert.match(migration, /max_attempts INTEGER NOT NULL DEFAULT 3/);
-  assert.match(workerSource, /env\.MEDIA\.put/);
-  assert.match(workerSource, /\/api\/renderer\/jobs\/claim/);
-  assert.match(workerSource, /lease_expires_at/);
-  assert.match(workerSource, /rendererAuthorized/);
-  assert.match(workerSource, /access-control-allow-methods.*PATCH/);
-  assert.match(appSource, /queueGeneratedVideoForRenderer/);
-  assert.match(appSource, /data-action="renderer-queue"/);
-  assert.match(appSource, /data-action="renderer-status"/);
-  assert.match(rendererSource, /spawn\(FFMPEG/);
-  assert.match(rendererSource, /\/api\/renderer\/jobs\/claim/);
-  assert.match(rendererSource, /\/api\/media\/assets/);
-  assert.match(rendererSource, /OLLAMA_MODEL/);
-  assert.match(wrangler, /binding = "MEDIA"/);
-  assert.match(workerSource, /mediaStorage: !!env\.MEDIA/);
-  assert.match(workerSource, /rendererConfigured: String\(env\.RENDERER_SHARED_SECRET/);
-  assert.match(releaseWorkflow, /wrangler r2 bucket create ai-business-core-media/);
-  assert.match(releaseWorkflow, /wrangler secret put RENDERER_SHARED_SECRET/);
-  assert.match(appSource, /ai-business-core-long-video\.mp4/);
-  assert.doesNotMatch(appSource, /تأییدd|ردed/);
+  assert.ok(!wrangler.includes("r2_buckets") && !wrangler.includes('binding = "MEDIA"'));
+  assert.ok(!wranglerTemplate.includes("r2_buckets") && !wranglerTemplate.includes('binding = "MEDIA"'));
+  assert.ok(!releaseWorkflow.includes("wrangler r2") && !releaseWorkflow.includes("R2 media bucket"));
+  assert.ok(releaseWorkflow.includes("d.mediaStorage!==false"));
+  assert.ok(workerSource.includes("mediaStorage: !!env.MEDIA"));
+  assert.ok(workerSource.includes("if(!env.DB||!env.MEDIA)"));
+  assert.ok(workerSource.includes("rendererConfigured: String(env.RENDERER_SHARED_SECRET"));
+  assert.ok(appSource.includes("queueGeneratedVideoForRenderer"));
+  assert.ok(rendererSource.includes("spawn(FFMPEG"));
+  assert.ok(rendererSource.includes("OLLAMA_MODEL"));
 });
