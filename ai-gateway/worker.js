@@ -220,7 +220,7 @@ export default {
       const source=redact(body?.source).slice(0,80),message=redact(body?.message).slice(0,1200),details=redact(body?.details).slice(0,2000),clientId=String(body?.id||"").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80);
       if(!message)return json({error:"Diagnostic message is required"},400,headers);
       const occurredAt=typeof body?.time==="string"&&Number.isFinite(Date.parse(body.time))?new Date(body.time).toISOString():new Date().toISOString();
-      try{await env.DB.prepare("INSERT OR IGNORE INTO app_runtime_errors (id,workspace_id,source,message,details,occurred_at,request_id) VALUES (?,?,?,?,?,?,?)").bind(clientId||crypto.randomUUID(),workspace,source||"app",message,details,occurredAt,requestId).run();return json({ok:true,stored:true},202,headers)}catch{return json({error:"Could not store runtime diagnostic"},503,headers)}
+      try{await env.DB.prepare("INSERT OR IGNORE INTO app_runtime_errors (id,workspace_id,source,message,details,occurred_at,request_id) VALUES (?,?,?,?,?,?,?)").bind(clientId||crypto.randomUUID(),workspace,source||"app",message,details,occurredAt,requestId).run();await env.DB.prepare("DELETE FROM app_runtime_errors WHERE workspace_id=? AND occurred_at<?").bind(workspace,new Date(Date.now()-30*24*60*60*1000).toISOString()).run();return json({ok:true,stored:true},202,headers)}catch{return json({error:"Could not store runtime diagnostic"},503,headers)}
     }
     if (url.pathname === "/api/auth/session") {
       if (request.method !== "POST") return json({error:"Method not allowed"},405,{...headers,allow:"POST, OPTIONS"});
