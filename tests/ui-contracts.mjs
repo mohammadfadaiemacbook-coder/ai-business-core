@@ -10,9 +10,10 @@ test("application shell exposes the primary navigation and mobile controls", () 
   for (const id of ["app-sidebar", "sidebar-backdrop", "breadcrumb-current", "view-root"]) {
     assert.ok(html.includes(`id="${id}"`), `missing #${id}`);
   }
-  for (const view of ["overview", "ai", "youtube", "instagram", "website", "tasks", "research", "content", "calendar", "approvals", "settings"]) {
+  for (const view of ["overview", "ai", "youtube", "tasks", "research", "content", "calendar", "approvals", "settings"]) {
     assert.ok(html.includes(`data-view="${view}"`), `missing navigation for ${view}`);
   }
+  for (const unfinished of ["instagram", "website"]) assert.ok(!html.includes(`data-view="${unfinished}"`), `unfinished ${unfinished} module should be hidden`);
   assert.ok(html.includes('data-action="toggle-menu"'));
   assert.ok(html.includes('data-action="close-menu"'));
 });
