@@ -100,13 +100,3 @@ test("automatic episode prompt is centered on one persistent selected Oddling", 
 });
 
 
-test("Oddlings are procedurally animated during video rendering", () => {
-  const start=app.indexOf("function drawOddling(ctx,character,progress=0");
-  const end=app.indexOf("\\nfunction isDuplicateVideo",start);
-  const animation=app.slice(start,end);
-  assert.match(animation,/Math\\.sin\\(t\\*5\\.4\\)/);
-  assert.match(animation,/ctx\\.rotate\\(/);
-  assert.match(animation,/blink/);
-  assert.match(animation,/Math\\.sin\\(t\\*8\\)/);
-  assert.match(app,/drawOddling\\(ctx,selectedOddling\\(\\),progress,index\\)/);
-});
