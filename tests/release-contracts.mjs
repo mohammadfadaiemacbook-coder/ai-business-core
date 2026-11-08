@@ -720,3 +720,12 @@ test("Mac media uploads stream file bodies without allocating duplicate full-siz
   assert.match(rendererSource, /openAsBlob\(outputPath, \{ type: "video\/mp4" \}\)/);
   assert.match(rendererSource, /form\.append\("file", output, "nexora-rendered\.mp4"\)/);
 });
+
+
+test("Worker static assets exclude source, renderer, migrations, tests and operational files", async () => {
+  const ignore = await readFile(new URL("../.assetsignore", import.meta.url), "utf8");
+  for (const path of [".git", ".github", "ai-gateway", "android", "desktop", "docs", "licenses", "migrations", "renderer", "tests", "wrangler.toml", "smoke-test.sh"]) {
+    assert.ok(ignore.split(/\r?\n/).includes(path), "Missing static asset exclusion: " + path);
+  }
+  assert.match(wranglerTemplate, /\[assets\][\s\S]*directory\s*=\s*"\.\/"[\s\S]*run_worker_first/);
+});
