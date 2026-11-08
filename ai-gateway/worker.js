@@ -77,7 +77,7 @@ async function loadProviderSecrets(env,db,workspace="default") {
   return out;
 }
 async function saveProviderSecrets(env,db,workspace,values) {
-  const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsEnglishVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
+  const allowed=new Set(["geminiKey","geminiTtsModel","secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsEnglishVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
   if(!values||typeof values!=="object"||Array.isArray(values))throw new Error("Provider settings must be an object");
   const key=await providerCryptoKey(env),statements=[];
   for(const [name,value] of Object.entries(values)){
@@ -130,7 +130,7 @@ function buildPrompt(task, inputs) {
   const taskText = {
     youtube_research: "Create a research plan for a YouTube video in the language requested by the user; default to English for the international channel. Separate verified facts, hypotheses, and questions. Do not invent search results, metrics, sources, or citations. Return suggested search queries and a source-evaluation checklist.",
     video_outline: "Create a clear, original YouTube video outline for the target audience. Label assumptions and indicate where factual claims need source verification.",
-    video_script: "Draft a genuinely original LONG-FORM YouTube video script designed for an 8–12 minute finished video. Aim for approximately 1,200–1,600 spoken English words, with a compelling opening, 6–8 clearly marked chapters, natural transitions, detailed explanations, concrete examples, visual directions separated from spoken narration, on-screen caption suggestions, a useful recap, and a natural closing call to action. Treat supplied previous titles and scripts as exclusions: do not reuse their hooks, structure, examples, analogies, title wording, or sequence. Do not invent citations, test results, quotations, or personal experiences. Mark factual claims that need verification and include a source-check list.",
+    video_script: "Draft an original SHORT-FORM YouTube video script designed for a 1–3 minute finished video. Aim for approximately 220–380 spoken English words, with a compelling truthful hook, 3–5 concise beats, natural transitions, one concrete example, practical takeaways, visual directions clearly separated from spoken narration, short on-screen caption suggestions, a concise conclusion and a natural call to action. Keep narration suitable for a 60–180 second video. Treat supplied previous titles and scripts as exclusions: do not reuse their hooks, structure, examples, analogies, title wording, or sequence. Do not invent citations, test results, quotations, or personal experiences. Mark factual claims that need verification and include a short source-check list.",
     trend_strategy: "Analyze the supplied recent YouTube trend observations. Rank topics by recency, views and estimated view velocity; distinguish observable data from inference. Propose 10 original English video ideas that fit the channel audience. Avoid duplicating prior channel topics and titles. Return ONLY valid JSON with this exact shape: {\"ideas\":[{\"topic\":\"...\",\"title\":\"...\",\"whyNow\":\"...\",\"evidence\":\"...\",\"uniqueAngle\":\"...\",\"format\":\"...\"}]}. Do not claim global trend status from this limited sample.",
     title_ideas: "Suggest YouTube titles and thumbnail concepts. Avoid misleading promises and clearly distinguish creative hypotheses from proven performance.",
     youtube_metadata: "Create YouTube upload metadata in English. Return ONLY valid JSON with exactly these keys: title (max 100 characters), description (clear, useful, no fabricated claims), tags (array of up to 15 short tags). Do not use markdown fences. Use only facts present in the input; label uncertainty in description when needed.",
@@ -493,7 +493,7 @@ export default {
         await ensureWorkspace(env.DB,workspace);
         if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
         const secrets=await loadProviderSecrets(env,env.DB,workspace);
-        return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&(secrets.elevenlabsVoiceId||secrets.elevenlabsEnglishVoiceId)),ttsPersian:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),ttsEnglish:!!(secrets.elevenlabsKey&&secrets.elevenlabsEnglishVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
+        const freeEnglishTts=!!(secrets.geminiKey||((String(secrets.secondaryUrl||"").startsWith("https://generativelanguage.googleapis.com/"))&&secrets.secondaryKey)||env.GEMINI_API_KEY);return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(freeEnglishTts||secrets.elevenlabsKey&&(secrets.elevenlabsVoiceId||secrets.elevenlabsEnglishVoiceId)),ttsPersian:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),ttsEnglish:!!(freeEnglishTts||secrets.elevenlabsKey&&secrets.elevenlabsEnglishVoiceId),ttsFreeEnglish:freeEnglishTts,image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
       }catch(error){return json({error:"Provider settings operation failed",detail:"Please retry or contact support."},500,headers)}
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
@@ -749,15 +749,35 @@ export default {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
       const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
-     const limited = await enforceRateLimit(env.DB, workspace, "media-tts", 20, headers); if (limited) return limited;
-      const mediaSecrets=await loadProviderSecrets(env,env.DB,workspace),ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID;let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}const language=String(body?.language||"fa").toLowerCase();if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);const voiceId=language==="en"?(mediaSecrets.elevenlabsEnglishVoiceId||env.ELEVENLABS_ENGLISH_VOICE_ID):(mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID);if(!ttsKey||!voiceId)return json({error:language==="en"?"English TTS is not configured. Add an English Voice ID in secure provider settings.":"Persian TTS is not configured in app provider settings."},503,headers);
+      const limited=await enforceRateLimit(env.DB, workspace, "media-tts", 20, headers);if(limited)return limited;
+      let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
+      const language=String(body?.language||"en").toLowerCase();if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
-      try{
-        const voice=encodeURIComponent(voiceId);
-        const response=await fetchWithTimeout("https://api.elevenlabs.io/v1/text-to-speech/"+voice,{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2",voice_settings:{stability:0.48,similarity_boost:0.78,style:0.25,use_speaker_boost:true}}),signal:AbortSignal.timeout(90000)});
-        if(!response.ok){const detail=(await response.text().catch(()=>"")).slice(0,300);return json({error:"TTS provider failed",detail},502,headers)}
-        return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store",...headers}});
-      }catch(error){return json({error:"TTS request failed",detail:"Please retry or contact support."},502,headers)}
+      const mediaSecrets=await loadProviderSecrets(env,env.DB,workspace);
+      if(language==="en"){
+        // English narration is Gemini-only: quota errors stop production and never fall back to paid TTS.
+        const googleSecondary=String(mediaSecrets.secondaryUrl||"").startsWith("https://generativelanguage.googleapis.com/");
+        const apiKey=mediaSecrets.geminiKey||(googleSecondary?mediaSecrets.secondaryKey:"")||env.GEMINI_API_KEY;
+        if(!apiKey)return json({error:"برای گویندگی رایگان انگلیسی، کلید Google AI Studio را در تنظیمات امن وارد کن."},503,headers);
+        const model=String(mediaSecrets.geminiTtsModel||"gemini-2.5-flash-preview-tts");
+        if(!/^gemini-[a-zA-Z0-9.-]+-tts(?:-preview)?$/.test(model))return json({error:"Gemini TTS model is not allowed"},400,headers);
+        const voice=String(body?.voice||"Kore");
+        if(!["Kore","Puck","Aoede","Charon","Fenrir","Leda","Orus","Zephyr"].includes(voice))return json({error:"Unsupported Gemini voice"},400,headers);
+        try{
+          const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:"Read aloud in clear, natural English with an engaging educational presenter style. Speak only the following transcript, verbatim:\n"+text}]}],generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}}),signal:AbortSignal.timeout(90000)});
+          if(!response.ok){const detail=(await response.text().catch(()=> "")).replace(/AIza[0-9A-Za-z_-]{20,}/g,"[redacted]").slice(0,500);return json({error:response.status===429?"سهمیه رایگان Gemini TTS تمام شده است؛ بعداً دوباره تلاش کن. هیچ سرویس پولی جایگزین نمی‌شود.":"Gemini TTS request failed",detail},response.status===429?429:502,headers)}
+          const result=await response.json(),part=(result.candidates||[]).flatMap(x=>x.content?.parts||[]).find(x=>x.inlineData?.data);
+          if(!part)return json({error:"Gemini TTS returned no audio data"},502,headers);
+          const raw=Uint8Array.from(atob(part.inlineData.data),c=>c.charCodeAt(0)),mime=String(part.inlineData.mimeType||"audio/pcm").toLowerCase();
+          if(mime.includes("wav"))return new Response(raw,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
+          const wav=new Uint8Array(44+raw.length),view=new DataView(wav.buffer),write=(offset,value)=>{for(let i=0;i<value.length;i++)wav[offset+i]=value.charCodeAt(0)};
+          write(0,"RIFF");view.setUint32(4,36+raw.length,true);write(8,"WAVE");write(12,"fmt ");view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,24000,true);view.setUint32(28,48000,true);view.setUint16(32,2,true);view.setUint16(34,16,true);write(36,"data");view.setUint32(40,raw.length,true);wav.set(raw,44);
+          return new Response(wav,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
+        }catch{return json({error:"Gemini TTS request failed",detail:"Please retry later; no paid fallback is enabled."},502,headers)}
+      }
+      const ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID,voiceId=mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID;
+      if(!ttsKey||!voiceId)return json({error:"Persian TTS is not configured in app provider settings."},503,headers);
+      try{const response=await fetchWithTimeout("https://api.elevenlabs.io/v1/text-to-speech/"+encodeURIComponent(voiceId),{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2"}),signal:AbortSignal.timeout(90000)});if(!response.ok)return json({error:"TTS provider failed"},502,headers);return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store",...headers}})}catch{return json({error:"TTS request failed"},502,headers)}
     }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
@@ -770,8 +790,22 @@ export default {
     catch { return json({ error: "Expected a valid JSON body" }, 400, headers); }
     if (!body || typeof body.task !== "string" || !ALLOWED_TASKS.has(body.task)) return json({ error: "Unsupported task" }, 400, headers);
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
-    if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
     const aiProviderSecrets=await loadProviderSecrets(env,env.DB,workspace);
+    if(body.freeOnly===true){
+      // Short-video text generation is pinned to the Gemini Developer API free tier.
+      // No primary provider, paid secondary provider, or paid review model is called here.
+      const googleSecondary=String(aiProviderSecrets.secondaryUrl||"").startsWith("https://generativelanguage.googleapis.com/");
+      const apiKey=aiProviderSecrets.geminiKey||(googleSecondary?aiProviderSecrets.secondaryKey:"")||env.GEMINI_API_KEY;
+      if(!apiKey)return json({error:"برای تولید رایگان متن ویدئو، کلید Google AI Studio را در تنظیمات امن وارد کن."},503,headers);
+      try{
+        const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:buildPrompt(body.task,body.inputs)}]}],generationConfig:{temperature:0.4}}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
+        if(!response.ok){const detail=(await response.text().catch(()=> "")).replace(/AIza[0-9A-Za-z_-]{20,}/g,"[redacted]").slice(0,400);return json({error:response.status===429?"سهمیه رایگان Gemini برای تولید متن تمام شده است؛ بعداً دوباره تلاش کن. هیچ مدل پولی جایگزین نمی‌شود.":"Gemini free-tier text generation failed",detail,providerStatus:response.status},response.status===429?429:502,headers)}
+        const data=await response.json(),output=(data.candidates||[]).flatMap(x=>x.content?.parts||[]).filter(x=>typeof x.text==="string").map(x=>x.text).join("\\n").trim();
+        if(!output)return json({error:"Gemini returned no text output"},502,headers);
+        return json({output,model:"gemini-2.5-flash · free-only",usedFallback:false,consultation:{status:"not_configured",message:"Free-only mode skips all paid secondary review providers."}},200,headers);
+      }catch{return json({error:"Gemini free-tier text request failed",detail:"No paid provider fallback is enabled."},502,headers)}
+    }
+    if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
     const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;
     const primaryMessages=[
       { role: "system", content: "You are a careful business content assistant. Be transparent about uncertainty. Never fabricate sources, browsing, analytics, experiments, or completed actions. Return useful structured output." },

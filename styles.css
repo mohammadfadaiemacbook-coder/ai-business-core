@@ -133,3 +133,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .yt-chart-stat strong{font-size:17px}
  .yt-chart-stat small{font-size:10px}
 }
+
+/* The 25 Oddlings character library */
+.oddling-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-top:16px}.oddling-card{border:1px solid var(--border,#29384f);border-radius:14px;padding:12px;background:var(--panel,#111d31);color:inherit;text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px;min-height:145px}.oddling-card.active{outline:2px solid var(--accent,#78aaff);background:rgba(80,130,220,.12)}.oddling-card small{font-size:11px;opacity:.72;line-height:1.4}.oddling-avatar{width:64px;height:64px;border-radius:50%;background:var(--oddling-body);position:relative;display:block;box-shadow:inset -7px -8px 0 #0002}.oddling-avatar:before,.oddling-avatar:after{content:"";position:absolute;top:-8px;width:18px;height:28px;background:var(--oddling-accent);border-radius:90% 10% 70% 20%;z-index:0}.oddling-avatar:before{left:7px;transform:rotate(-28deg)}.oddling-avatar:after{right:7px;transform:scaleX(-1) rotate(-28deg)}.oddling-avatar i,.oddling-avatar b{position:absolute;top:25px;width:10px;height:13px;border-radius:50%;background:#fff;z-index:1}.oddling-avatar i{left:17px}.oddling-avatar b{right:17px}.oddling-selected{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:18px}.oddling-selected>div:first-child{padding:12px;border-radius:12px;background:rgba(120,160,220,.08)}@media(min-width:720px){.oddling-selected{grid-template-columns:1fr 1.2fr}}
+
+/* Animated idle motion for the Oddlings picker */
+@keyframes oddling-float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-7px) rotate(2deg)}}
+@keyframes oddling-ear{0%,100%{transform:rotate(-28deg)}50%{transform:rotate(-18deg)}}
+.oddling-avatar{animation:oddling-float 2.8s ease-in-out infinite;transform-origin:50% 80%}
+.oddling-card:nth-child(3n) .oddling-avatar{animation-delay:-.9s}
+.oddling-card:nth-child(3n + 1) .oddling-avatar{animation-delay:-1.7s}
+.oddling-avatar:before,.oddling-avatar:after{transform-origin:50% 100%;animation:oddling-ear 2.2s ease-in-out infinite alternate}
+.oddling-card:nth-child(2n) .oddling-avatar:after{animation-delay:-.6s}
+@media(prefers-reduced-motion:reduce){.oddling-avatar,.oddling-avatar:before,.oddling-avatar:after{animation:none}}
