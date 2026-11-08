@@ -295,7 +295,8 @@ test("short-form YouTube video builds a 1–3 minute preview and uploads private
   assert.ok(app.includes("totalNarrationSeconds<60||totalNarrationSeconds>180"));
   assert.ok(app.includes("requestAnimationFrame(animate)"));
   assert.ok(app.includes("async function uploadGeneratedVideo(privacyStatus="));
-  assert.ok(app.includes('body.append("privacyStatus","private")'));
+  assert.ok(app.includes('body.append("privacyStatus",privacyStatus)'));
+  assert.ok(app.includes('body.append("confirmPublic","true")'));
 });
 
 
