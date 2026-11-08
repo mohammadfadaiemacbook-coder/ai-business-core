@@ -207,6 +207,9 @@ async function localMediaFetch(env,workspace,assetId,fileName,init={}){
   const target=localMediaUrl(env,workspace,assetId,fileName);
   return fetchWithTimeout(target,{...init,headers:{authorization:"Bearer "+String(env.RENDERER_SHARED_SECRET||""),...(init.headers||{})}},180000);
 }
+async function localMediaHealth(env){
+  try{const base=safeProviderUrl(env.RENDERER_PUBLIC_URL),url=new URL(base);url.pathname=url.pathname.replace(/\\/$/,"")+"/health";const response=await fetchWithTimeout(url.toString(),{headers:{authorization:"Bearer "+String(env.RENDERER_SHARED_SECRET||"")}},5000);return response.ok}catch{return false}
+}
 
 export default {
   async fetch(request, env) {
@@ -228,7 +231,7 @@ export default {
     }
     if (url.pathname === "/api/health" && request.method === "GET") {
       if (!env.DB) return json({ ok: false, database: "unbound" }, 503, headers);
-      try { await env.DB.prepare("SELECT 1 AS ok").first(); return json({ ok: true, database: "connected", mediaStorage: String(env.RENDERER_PUBLIC_URL||"").length>=12, rendererConfigured: String(env.RENDERER_SHARED_SECRET||"").length>=32 }, 200, headers); }
+      try { await env.DB.prepare("SELECT 1 AS ok").first(); const mediaStorage=await localMediaHealth(env); return json({ ok: true, database: "connected", mediaStorage, rendererConfigured: String(env.RENDERER_SHARED_SECRET||"").length>=32 }, 200, headers); }
       catch { return json({ ok: false, database: "query_failed" }, 503, headers); }
     }
     if (url.pathname === "/api/connections/status" && request.method === "GET") {
