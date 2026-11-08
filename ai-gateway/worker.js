@@ -379,7 +379,7 @@ export default {
       const assetId=crypto.randomUUID(),safeName=String(file.name||"video.bin").replace(/[^a-zA-Z0-9._-]/g,"_").slice(0,100)||"video.bin";
       const objectKey=workspace+"/youtube/"+assetId+"/"+safeName;
       try{
-        const stored=await localMediaFetch(env,workspace,assetId,safeName,{method:"PUT",headers:{"content-type":file.type,"content-length":String(file.size)},body:await file.arrayBuffer()});
+        const stored=await localMediaFetch(env,workspace,assetId,safeName,{method:"PUT",headers:{"content-type":file.type,"content-length":String(file.size)},body:file.stream()});
         if(!stored.ok)throw new Error("Mac media service returned HTTP "+stored.status);
         const saved=await env.DB.prepare("INSERT INTO youtube_media_assets (id,workspace_id,object_key,file_name,content_type,size_bytes,asset_type) VALUES (?,?,?,?,?,?,?) RETURNING id,workspace_id,file_name,content_type,size_bytes,asset_type,created_at")
           .bind(assetId,workspace,objectKey,safeName,file.type,file.size,assetType).first();
@@ -478,7 +478,7 @@ export default {
         if(file.size>64*1024*1024)return json({error:"Rendered video exceeds 64 MB"},413,headers);
         const assetId=crypto.randomUUID(),fileName="nexora-rendered.mp4",objectKey=job.workspace_id+"/youtube/"+assetId+"/"+fileName;
         let qa={};try{qa=JSON.parse(String(form.get("qaReport")||"{}"))}catch{}
-        const stored=await localMediaFetch(env,job.workspace_id,assetId,fileName,{method:"PUT",headers:{"content-type":"video/mp4","content-length":String(file.size)},body:await file.arrayBuffer()});
+        const stored=await localMediaFetch(env,job.workspace_id,assetId,fileName,{method:"PUT",headers:{"content-type":"video/mp4","content-length":String(file.size)},body:file.stream()});
         if(!stored.ok)throw new Error("Mac media service returned HTTP "+stored.status);
         try{
           await env.DB.prepare("INSERT INTO youtube_media_assets (id,workspace_id,object_key,file_name,content_type,size_bytes,asset_type) VALUES (?,?,?,?,?,?,'rendered_video')").bind(assetId,job.workspace_id,objectKey,fileName,"video/mp4",file.size).run();
