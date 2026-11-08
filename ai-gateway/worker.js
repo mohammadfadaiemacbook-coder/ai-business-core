@@ -689,7 +689,10 @@ export default {
         }
         return json({ error: "Method not allowed or endpoint not found" }, 405, headers);
       } catch (error) {
-        return json({ error: "YouTube operation failed", detail: "Please retry or contact support." }, 500, headers);
+        const diagnosticId = crypto.randomUUID();
+        const safeDetail = String(error?.message || "Unknown YouTube integration error").replace(/[\\r\\n\\t]+/g, " ").slice(0, 300);
+        console.error("YouTube operation failed", { diagnosticId, workspace, path: url.pathname, detail: safeDetail });
+        return json({ error: "YouTube operation failed", detail: safeDetail, diagnosticId }, 500, headers);
       }
     }
     if (url.pathname === "/api/media/capabilities") {
