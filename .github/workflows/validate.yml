@@ -24,6 +24,8 @@ jobs:
           if [ -f renderer/agent.mjs ]; then node --check renderer/agent.mjs; bash -n renderer/install-mac.sh; fi
           node --input-type=module --check < ai-gateway/worker.js
           node --test tests/*.mjs
+      - name: Validate Cloudflare Worker bundle and static assets
+        run: npx --yes wrangler@4 deploy --dry-run --outdir /tmp/aibc-wrangler-dry-run
       - name: Verify app shell and AI gateway files
         run: |
           test -s index.html
@@ -34,6 +36,9 @@ jobs:
           test -s icons/icon.svg
           test -s icons/icon-maskable.svg
           test -s ai-gateway/worker.js
+          test -s ai-gateway/mcp-readonly.js
+          test -s migrations/0009_app_runtime_errors.sql
+          test -s docs/runtime-diagnostics.md
           if [ -f renderer/agent.mjs ]; then test -s renderer/agent.mjs; test -s renderer/.env.example; test -s migrations/0008_youtube_media_renderer.sql; fi
           test -s ai-gateway/wrangler.toml.example
           test -s docs/ai-gateway-setup.md
