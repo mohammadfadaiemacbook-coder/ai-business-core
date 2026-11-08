@@ -37,13 +37,19 @@ test("Instagram is never reported connected until an Instagram OAuth/API flow ex
   assert.ok(worker.includes('if(key==="youtube"&&!accounts[key])'));
   assert.ok(worker.includes("social_accounts WHERE workspace_id=?"));
 });
-test("four home modules all have render handlers and explicit service status pages", () => {
-  assert.ok(app.includes("instagram:instagramStudio"));
-  assert.ok(app.includes("website:websiteStudio"));
+test("unfinished Instagram and website integrations are hidden from active navigation", () => {
+  assert.ok(!app.includes("instagram:instagramStudio"));
+  assert.ok(!app.includes("website:websiteStudio"));
   assert.ok(app.includes("function instagramStudio("));
   assert.ok(app.includes("function websiteStudio("));
-  assert.ok(app.includes('data-action="check-connection" data-service="instagram"'));
-  assert.ok(app.includes('data-action="check-connection" data-service="website"'));
+  assert.ok(!app.includes('data-action="check-connection" data-service="instagram"'));
+  assert.ok(!app.includes('data-action="check-connection" data-service="website"'));
+});
+test("YouTube settings expose Google OAuth and a missing account is not an internal server error", () => {
+  assert.ok(app.includes('data-action="youtube-connect">اتصال حساب Google / YouTube'));
+  assert.ok(app.includes('base+"/oauth/google/start?workspace="'));
+  assert.ok(app.includes('oauthResult==="youtube_connected"'));
+  assert.ok(worker.includes('code: "YOUTUBE_NOT_CONNECTED"'));
 });
 test("expired or rejected cloud master tokens are removed from the browser session", () => {
   assert.ok(app.includes("error.status=response.status;throw error"));
