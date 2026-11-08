@@ -1,4 +1,5 @@
 import { YOUTUBE_AGENT_PROMPTS, YOUTUBE_FULL_PIPELINE_PROMPT } from "./youtube-agent-skills.js";
+import { handleReadonlyMcp } from "./mcp-readonly.js";
 const ALLOWED_TASKS = new Set(["youtube_research", "video_outline", "video_script", "title_ideas", "youtube_metadata", "instagram_repurpose", "trend_strategy", "social_caption", "comment_reply", "thumbnail_brief", "yt_plan", "yt_viral", "yt_edit", "yt_retention", "yt_shorts", "yt_seo", "yt_chapters", "yt_audit", "yt_full_pipeline"]);
 const MAX_BODY_BYTES = 256 * 1024;
 const WORKSPACE_ID = /^[a-zA-Z0-9_-]{3,64}$/;
@@ -205,6 +206,7 @@ export default {
     const url = new URL(request.url);
     headers = { ...corsHeaders(request, env), "x-request-id": requestId };
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+    if (url.pathname === "/mcp") return handleReadonlyMcp(request, env);
     if (url.pathname === "/api/auth/session") {
       if (request.method !== "POST") return json({error:"Method not allowed"},405,{...headers,allow:"POST, OPTIONS"});
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
