@@ -72,9 +72,10 @@ async function initializeCloudSync(){
     const keys=["tasks","research","content","events","approvals"];
     const hasLocal=keys.some(k=>Array.isArray(state[k])&&state[k].length)||JSON.stringify(state.settings)!==JSON.stringify(empty().settings);
     if(data.exists&&data.data){
-      if(!hasLocal){state={...empty(),...data.data};localStorage.setItem(KEY,JSON.stringify(state));toast("اطلاعات فضای ابری بازیابی شد.");render()}
+      if(!hasLocal){state={...empty(),...data.data};localStorage.setItem(KEY,JSON.stringify(state));toast("اطلاعات فضای ابری بازیابی شد.")}
       else if(JSON.stringify(state)!==JSON.stringify(data.data)){cloudConflict=true;toast("نسخه محلی و ابری هر دو داده دارند؛ برای جلوگیری از حذف اطلاعات، هیچ‌کدام خودکار جایگزین نشدند. از تنظیمات یکی را آگاهانه انتخاب کن.")}
     }else if(hasLocal){await pushCloudSnapshot();toast("نسخه محلی در فضای ابری پشتیبان‌گیری شد.")}
+    render();
   }catch(error){if(error.status===401){cloudToken="";workerSessionCache.clear();try{sessionStorage.removeItem(CLOUD_TOKEN_KEY);localStorage.removeItem(CLOUD_TOKEN_KEY)}catch{}}console.warn("Cloud restore failed",error);toast("بازیابی ابری انجام نشد؛ اطلاعات محلی دست‌نخورده باقی ماند. اتصال را بررسی کن.")}
 }
 async function persistYoutubeDraftToCloud(item){
