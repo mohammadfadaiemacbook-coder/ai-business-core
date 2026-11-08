@@ -654,21 +654,24 @@ test("web-first YouTube drafts are persisted in D1 and restored across PWA devic
 });
 
  
-test("R2-backed YouTube media and durable Mac renderer queue are wired end to end", async () => {
+test("Mac-local YouTube media and durable renderer queue are wired without R2", async () => {
   const migration = await readFile(new URL("../migrations/0008_youtube_media_renderer.sql", import.meta.url), "utf8");
   const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
   const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
   const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
+  const mediaServer = await readFile(new URL("../renderer/media-server.mjs", import.meta.url), "utf8");
   const wrangler = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  const workerTemplate = await readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8");
   const releaseWorkflow = await readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8");
   assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_media_assets/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_render_jobs/);
   assert.match(migration, /max_attempts INTEGER NOT NULL DEFAULT 3/);
-  assert.match(workerSource, /env\.MEDIA\.put/);
+  assert.doesNotMatch(workerSource, /env\.MEDIA/);
+  assert.match(workerSource, /localMediaFetch/);
+  assert.match(workerSource, /RENDERER_PUBLIC_URL/);
   assert.match(workerSource, /\/api\/renderer\/jobs\/claim/);
   assert.match(workerSource, /lease_expires_at/);
   assert.match(workerSource, /rendererAuthorized/);
-  assert.match(workerSource, /access-control-allow-methods.*PATCH/);
   assert.match(appSource, /queueGeneratedVideoForRenderer/);
   assert.match(appSource, /data-action="renderer-queue"/);
   assert.match(appSource, /data-action="renderer-status"/);
@@ -676,11 +679,16 @@ test("R2-backed YouTube media and durable Mac renderer queue are wired end to en
   assert.match(rendererSource, /\/api\/renderer\/jobs\/claim/);
   assert.match(rendererSource, /\/api\/media\/assets/);
   assert.match(rendererSource, /OLLAMA_MODEL/);
-  assert.match(wrangler, /binding = "MEDIA"/);
-  assert.match(workerSource, /mediaStorage: !!env\.MEDIA/);
+  assert.match(mediaServer, /timingSafeEqual/);
+  assert.match(mediaServer, /createWriteStream/);
+  assert.match(mediaServer, /Application Support/);
+  assert.doesNotMatch(wrangler, /r2_buckets|binding = "MEDIA"/);
+  assert.doesNotMatch(workerTemplate, /r2_buckets|binding = "MEDIA"/);
+  assert.match(workerSource, /mediaStorage: String\(env\.RENDERER_PUBLIC_URL/);
   assert.match(workerSource, /rendererConfigured: String\(env\.RENDERER_SHARED_SECRET/);
-  assert.match(releaseWorkflow, /wrangler r2 bucket create ai-business-core-media/);
-  assert.match(releaseWorkflow, /wrangler secret put RENDERER_SHARED_SECRET/);
+  assert.doesNotMatch(releaseWorkflow, /wrangler r2/);
+  assert.match(releaseWorkflow, /wrangler secret put RENDERER_PUBLIC_URL/);
+  assert.match(releaseWorkflow, /node --check renderer\/media-server.mjs/);
   assert.match(appSource, /ai-business-core-long-video\.mp4/);
   assert.doesNotMatch(appSource, /تأییدd|ردed/);
 });
