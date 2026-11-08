@@ -697,6 +697,7 @@ test("Mac-local YouTube media and durable renderer queue are wired without R2", 
 test("Mac installer prints each local media setup instruction on its own line", async () => {
   const installer = await readFile(new URL("../renderer/install-mac.sh", import.meta.url), "utf8");
   assert.ok(!installer.includes("\\necho \""));
+  assert.match(installer, /brew install cloudflared/);
   assert.match(installer, /^echo "3\\) Start the local media service/m);
   assert.match(installer, /^echo "6\\) Start the renderer/m);
 });
