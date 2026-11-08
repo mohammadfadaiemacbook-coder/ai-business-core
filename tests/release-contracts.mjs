@@ -684,7 +684,7 @@ test("Mac-local YouTube media and durable renderer queue are wired without R2", 
   assert.match(mediaServer, /Application Support/);
   assert.doesNotMatch(wrangler, /r2_buckets|binding = "MEDIA"/);
   assert.doesNotMatch(workerTemplate, /r2_buckets|binding = "MEDIA"/);
-  assert.match(workerSource, /mediaStorage: String\(env\.RENDERER_PUBLIC_URL/);
+  assert.match(workerSource, /const mediaStorage=await localMediaHealth\(env\)/);
   assert.match(workerSource, /rendererConfigured: String\(env\.RENDERER_SHARED_SECRET/);
   assert.doesNotMatch(releaseWorkflow, /wrangler r2/);
   assert.match(releaseWorkflow, /wrangler secret put RENDERER_PUBLIC_URL/);
