@@ -62,3 +62,24 @@ test("single PWA entry remains in place; no renderer or R2 service is introduced
   assert.match(index, /src="app\.js"/);
   assert.doesNotMatch(app, /queueGeneratedVideoForRenderer|renderer-queue|renderer-status/);
 });
+
+
+test("25 original Oddlings are available as a persistent selectable character cast", async () => {
+  const manifest = JSON.parse(await readFile(new URL("../public/characters/manifest.json", import.meta.url), "utf8"));
+  assert.equal(manifest.characters.length, 25);
+  assert.equal(new Set(manifest.characters.map(x => x.name)).size, 25);
+  assert.match(app, /const ODDLINGS=/);
+  assert.match(app, /indexedDB\.open\(CHARACTER_DB,1\)/);
+  assert.match(app, /async function importOddlingZip\(file\)/);
+  assert.match(app, /rows\.length!==25/);
+  assert.match(app, /data-action=\\\"oddling-import\\\"/);
+  assert.match(app, /data-action=\\\"oddling-select\\\"/);
+  assert.match(app, /model-viewer/);
+});
+
+test("automatic episode prompt is centered on one persistent selected Oddling", () => {
+  assert.match(app, /const character=selectedOddling\(\)/);
+  assert.match(app, /Main recurring character:/);
+  assert.match(app, /drawOddling\(ctx,selectedOddling\(\),progress\)/);
+  assert.match(app, /state\.settings\.selectedCharacterId=id/);
+});
