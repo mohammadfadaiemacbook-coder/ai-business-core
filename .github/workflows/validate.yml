@@ -23,7 +23,7 @@ jobs:
           node --check sw.js
           if [ -f renderer/agent.mjs ]; then node --check renderer/agent.mjs; bash -n renderer/install-mac.sh; fi
           node --input-type=module --check < ai-gateway/worker.js
-          node --test tests/release-contracts.mjs
+          node --test tests/*.mjs
       - name: Verify app shell and AI gateway files
         run: |
           test -s index.html
