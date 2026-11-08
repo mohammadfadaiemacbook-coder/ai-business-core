@@ -128,7 +128,7 @@ async function processJob(job) {
       headers: { "x-renderer-id": WORKER_ID },
       body: form
     });
-    console.log("[job] Completed and stored MP4 in R2. Ollama review: " + qaReport.status);
+    console.log("[job] Completed and stored MP4 in Mac-local media storage. Ollama review: " + qaReport.status);
   } finally {
     clearInterval(heartbeat);
     await rm(directory, { recursive: true, force: true }).catch(() => {});
