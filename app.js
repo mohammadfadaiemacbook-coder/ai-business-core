@@ -189,7 +189,7 @@ ctx.shadowColor="#0009";ctx.shadowBlur=22;ctx.fillStyle=skin;ctx.beginPath();ctx
 ctx.strokeStyle="rgba(255,255,255,.28)";ctx.lineWidth=5;for(let k=0;k<3;k++){ctx.beginPath();ctx.quadraticCurveTo(-45,-360-k*12,0,-351-k*12);ctx.quadraticCurveTo(45,-360-k*12,56,-354-k*12);ctx.stroke()}
 // horns / hair silhouette
 ctx.fillStyle=gender==="feminine"?(id%2?accent:trim):"#20202b";
-if(gender==="feminine"){ctx.beginPath();ctx.moveTo(-76,-326);ctx.quadraticCurveTo(-118,-420,-36,-393);ctx.quadraticCurveTo(0,-430,43,-388);ctx.quadraticCurveTo(118,-420,76,-318);ctx.lineTo(58,-280);ctx.quadraticCurveTo(0,-325,-58,-280);ctx.closePath();ctx.fill();ctx.strokeStyle=trim;ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-72,-310);ctx.quadraticCurveTo(-110,-215,-92,-190);ctx.moveTo(72,-310);ctx.quadraticCurveTo(110,-215,92,-190);ctx.stroke()}
+if(gender==="feminine"){ctx.beginPath();ctx.moveTo(-76,-326);ctx.quadraticCurveTo(-118,-420,-36,-393);ctx.quadraticCurveTo(0,-430,43,-388);ctx.quadraticCurveTo(118,-420,76,-318);ctx.lineTo(58,-354);ctx.quadraticCurveTo(0,-370,-58,-354);ctx.closePath();ctx.fill();ctx.strokeStyle=trim;ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-72,-310);ctx.quadraticCurveTo(-110,-215,-92,-190);ctx.moveTo(72,-310);ctx.quadraticCurveTo(110,-215,92,-190);ctx.stroke()}
 else{ctx.beginPath();ctx.moveTo(-76,-329);ctx.quadraticCurveTo(-88,-405,-36,-378);ctx.quadraticCurveTo(0,-414,38,-380);ctx.quadraticCurveTo(89,-410,76,-326);ctx.closePath();ctx.fill();ctx.fillStyle=trim;for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*55,-354);ctx.quadraticCurveTo(side*115,-420,side*91,-326);ctx.quadraticCurveTo(side*72,-300,side*55,-354);ctx.fill()}}
 if(gender==="fantasy"){ctx.fillStyle=trim;for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*43,-365);ctx.quadraticCurveTo(side*100,-465,side*86,-380);ctx.closePath();ctx.fill()}}
 // eye sockets, eyeballs, iris, highlights
@@ -215,35 +215,12 @@ box.innerHTML='<div class="panel-head"><div><span class="eyebrow">NEXORA ORIGINA
 for(const c of box.querySelectorAll("canvas[data-portrait-id]")){const character=ODDLINGS.find(x=>x.id===Number(c.dataset.portraitId));if(character)drawOddlingPortrait(c,character,false)}
 const big=$("#oddling-selected-portrait");if(big)drawOddlingPortrait(big,selected,false);
 }function drawOddling(ctx,character,progress=0,sceneIndex=0){
-const id=Number(character.id||1),body=oddlingPalette(character.palette.body),accent=oddlingPalette(character.palette.accent),trim=oddlingPalette(character.palette.trim),t=performance.now()/1000+sceneIndex*.83+progress*6.28,bob=Math.sin(t*3.1)*9,walk=Math.sin(t*5.4),wave=Math.sin(t*4.2),blink=Math.sin(t*1.7)>.985;
-const headScale=[.9,1.02,1.12,.96,1.06][id%5],torsoWidth=[72,84,96,78,90][id%5],headWidth=88*headScale,headHeight=96*headScale,legGap=38+(id%4)*5;
-ctx.save();ctx.translate(1030,385+bob);ctx.scale(1.08,1.08);
-ctx.fillStyle="rgba(0,0,0,.24)";ctx.beginPath();ctx.ellipse(0,190,122,22,0,0,Math.PI*2);ctx.fill();
-ctx.save();ctx.rotate(Math.sin(t*2.1)*.045);
-for(const side of [-1,1]){ctx.save();ctx.translate(side*legGap,92);ctx.rotate(side*walk*.22);ctx.fillStyle=body;ctx.beginPath();ctx.roundRect(-17,0,34,78,14);ctx.fill();ctx.fillStyle=trim;ctx.beginPath();ctx.ellipse(side*7,80,31,15,side*.08,0,Math.PI*2);ctx.fill();ctx.restore()}
-ctx.fillStyle=body;ctx.beginPath();ctx.moveTo(-torsoWidth,-62);ctx.quadraticCurveTo(-torsoWidth-12,12,-70,104);ctx.quadraticCurveTo(0,125,70,104);ctx.quadraticCurveTo(torsoWidth+12,12,torsoWidth,-62);ctx.quadraticCurveTo(0,-100,-torsoWidth,-62);ctx.fill();
-ctx.fillStyle=accent;ctx.beginPath();ctx.moveTo(-42,-55);ctx.lineTo(0,-28);ctx.lineTo(42,-55);ctx.lineTo(30,77);ctx.lineTo(-30,77);ctx.closePath();ctx.fill();
-ctx.fillStyle=trim;ctx.fillRect(-31,68,62,9);ctx.beginPath();ctx.arc(0,73,8,0,Math.PI*2);ctx.fill();
-for(const side of [-1,1]){ctx.save();ctx.translate(side*76,-35);ctx.rotate(side===1?-.62+wave*.58:.62-wave*.3);ctx.strokeStyle=body;ctx.lineWidth=25;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(side*19,58);ctx.stroke();ctx.fillStyle=trim;ctx.beginPath();ctx.arc(side*19,61,15,0,Math.PI*2);ctx.fill();ctx.restore()}
-ctx.fillStyle=body;ctx.beginPath();ctx.ellipse(0,-139,headWidth,headHeight,0,0,Math.PI*2);ctx.fill();
-ctx.fillStyle=accent;ctx.beginPath();ctx.ellipse(-headWidth+4,-135,25+(id%3)*4,36+(id%4)*3,-.25,0,Math.PI*2);ctx.ellipse(headWidth-4,-135,25+(id%3)*4,36+(id%4)*3,.25,0,Math.PI*2);ctx.fill();
-ctx.fillStyle=trim;ctx.beginPath();const style=id%6;
-if(style===0){ctx.moveTo(-55,-215);ctx.quadraticCurveTo(-92,-295,-25,-252);ctx.quadraticCurveTo(0,-310,25,-252);ctx.quadraticCurveTo(92,-295,55,-215)}
-else if(style===1){ctx.moveTo(-65,-210);ctx.lineTo(-82,-280);ctx.lineTo(-28,-246);ctx.lineTo(0,-305);ctx.lineTo(26,-246);ctx.lineTo(80,-282);ctx.lineTo(58,-210)}
-else if(style===2){ctx.moveTo(-45,-215);ctx.quadraticCurveTo(-100,-330,-8,-270);ctx.quadraticCurveTo(60,-325,58,-215)}
-else if(style===3){ctx.moveTo(-68,-210);ctx.quadraticCurveTo(-115,-265,-50,-270);ctx.quadraticCurveTo(0,-310,45,-260);ctx.quadraticCurveTo(105,-285,66,-210)}
-else if(style===4){ctx.moveTo(-48,-215);ctx.quadraticCurveTo(-25,-315,5,-265);ctx.quadraticCurveTo(35,-340,56,-215)}
-else{for(let k=0;k<5;k++){ctx.moveTo(-65+k*32,-214);ctx.quadraticCurveTo(-82+k*32,-288,-38+k*32,-254)}}
-ctx.closePath();ctx.fill();
-ctx.strokeStyle=trim;ctx.lineWidth=7;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-62,-174-(id%3)*2);ctx.lineTo(-27,-180+(id%4)*3);ctx.moveTo(27,-180+(id%4)*3);ctx.lineTo(62,-174-(id%3)*2);ctx.stroke();
-for(const x of [-43,43]){ctx.fillStyle="#fff";ctx.beginPath();ctx.ellipse(x,-147,24,blink?3:29,0,0,Math.PI*2);ctx.fill();if(!blink){ctx.fillStyle="#182034";ctx.beginPath();ctx.arc(x+5+Math.sin(t)*2,-145,11,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(x+8+Math.sin(t)*2,-151,4,0,Math.PI*2);ctx.fill()}}
-ctx.fillStyle=accent;ctx.beginPath();ctx.ellipse(0,-112,15,11,0,0,Math.PI*2);ctx.fill();
-ctx.fillStyle="rgba(255,115,135,.42)";for(const x of [-66,66]){ctx.beginPath();ctx.ellipse(x,-112,15,8,0,0,Math.PI*2);ctx.fill()}
-ctx.fillStyle="#3b1824";ctx.beginPath();ctx.ellipse(0,-82,22,6+Math.abs(Math.sin(t*8))*15,0,0,Math.PI*2);ctx.fill();
-ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect(-13,-91,26,5,2);ctx.fill();
-ctx.strokeStyle="#512b39";ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-78,25,.15,Math.PI-.15);ctx.stroke();
-ctx.restore();
-ctx.fillStyle="rgba(255,255,255,.78)";for(let k=0;k<3;k++){const a=t*1.6+k*2.09;ctx.beginPath();ctx.arc(Math.cos(a)*(135+(id%4)*5),-130+Math.sin(a)*90,3+((k+id)%3),0,Math.PI*2);ctx.fill()}ctx.restore()
+const id=Number(character.id||1),t=performance.now()/1000+sceneIndex*.83+progress*6.28,bob=Math.sin(t*2.5+id)*7,sway=Math.sin(t*1.6+id)*.025;
+if(!window.__oddlingPortraitCache)window.__oddlingPortraitCache=new Map();
+let portrait=window.__oddlingPortraitCache.get(id);
+if(!portrait){portrait=document.createElement("canvas");portrait.width=360;portrait.height=440;drawOddlingPortrait(portrait,character,false);window.__oddlingPortraitCache.set(id,portrait)}
+ctx.save();ctx.translate(1030,385+bob);ctx.rotate(sway);ctx.shadowColor="rgba(0,0,0,.38)";ctx.shadowBlur=28;ctx.drawImage(portrait,-145,-225,290,355);ctx.shadowBlur=0;
+ctx.fillStyle="rgba(255,255,255,.7)";for(let k=0;k<3;k++){const a=t*1.4+k*2.09;ctx.beginPath();ctx.arc(Math.cos(a)*165,-115+Math.sin(a)*100,2.5+(k%2),0,Math.PI*2);ctx.fill()}ctx.restore()
 }
 function isDuplicateVideo(candidate,history=[]){const words=normalizeVideoText(candidate).split(" ").filter(x=>x.length>2);if(words.length<3)return history.some(x=>normalizeVideoText(x.topic||x.title)===normalizeVideoText(candidate));const set=new Set(words);return history.some(item=>{const prior=normalizeVideoText([item.topic,item.title].filter(Boolean).join(" "));if(!prior)return false;if(prior===normalizeVideoText(candidate))return true;const other=new Set(prior.split(" ").filter(x=>x.length>2));if(!other.size)return false;let overlap=0;for(const word of set)if(other.has(word))overlap++;return overlap/Math.min(set.size,other.size)>=0.82&&overlap>=4})}
 function renderYoutubeComments(){const box=$("#youtube-comments-list");if(!box)return;if(!youtubeComments.length){box.innerHTML="<p class=muted>کامنتی برای نمایش دریافت نشد.</p>";return}box.innerHTML=youtubeComments.map((item,i)=>"<article class=list-card><div><h3>"+esc(item.author)+"</h3><p>"+esc(item.text)+"</p><small class=muted>"+(item.publishedAt?new Date(item.publishedAt).toLocaleString("fa-IR"):"")+" · "+Number(item.replyCount||0).toLocaleString("fa-IR")+" پاسخ</small><p><a href="+esc(item.videoUrl)+" target=_blank rel=noopener>مشاهده ویدئو</a></p></div>"+(item.replied?"<p class=muted>پاسخ ارسال شد</p>":item.canReply===false?"<p class=muted>امکان پاسخ به این گفتگو در یوتیوب غیرفعال است.</p>":"<div class=field><textarea id=\"comment-reply-"+i+"\" rows=3 maxlength=10000 placeholder=\"پاسخ خودت را بنویس یا پاسخ پیشنهادی بساز\">"+esc(item.draft||"")+"</textarea><div class=actions><button class=\"button secondary\" data-action=comment-draft data-index=\""+i+"\">ساخت پاسخ هوشمند</button><button class=\"button primary\" data-action=comment-reply data-index=\""+i+"\">بازبینی و ارسال پاسخ</button></div></div>")+"</article>").join("")}
