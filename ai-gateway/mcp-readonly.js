@@ -124,14 +124,15 @@ async function callTool(name, args, env) {
   if (name === "run_readonly_checks") {
     const dbCheck = await db.prepare("SELECT 1 AS ok").first();
     const schema = await db.prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('workspace_snapshots','youtube_video_jobs','social_accounts') ORDER BY name"
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('workspace_snapshots','youtube_video_jobs','social_accounts','app_runtime_errors') ORDER BY name"
     ).all();
     const present = new Set((schema.results || []).map(row => row.name));
     const checks = [
       { name: "database_query", ok: dbCheck?.ok === 1 },
       { name: "workspace_snapshots_table", ok: present.has("workspace_snapshots") },
       { name: "youtube_video_jobs_table", ok: present.has("youtube_video_jobs") },
-      { name: "social_accounts_table", ok: present.has("social_accounts") }
+      { name: "social_accounts_table", ok: present.has("social_accounts") },
+      { name: "app_runtime_errors_table", ok: present.has("app_runtime_errors") }
     ];
     return {
       workspace,
