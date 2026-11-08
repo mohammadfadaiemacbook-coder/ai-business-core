@@ -158,7 +158,7 @@ const ODDLING_TRAITS=[
 ];
 function oddlingTraits(character){return ODDLING_TRAITS[(Number(character.id||1)-1)%25]}
 function drawOddlingPortrait(canvas,character,animated=false){
-const ctx=canvas.getContext("2d"),id=Number(character.id||1),traits=oddlingTraits(character),gender=traits[2],type=traits[3],body=oddlingPalette(character.palette.body),accent=oddlingPalette(character.palette.accent),trim=oddlingPalette(character.palette.trim),w=canvas.width,h=canvas.height,t=animated?performance.now()/1000:0;
+const ctx=canvas.getContext("2d"),id=Number(character.id||1),traits=oddlingTraits(character),gender=traits[2],type=traits[3],body=oddlingPalette(character.palette.body),accent=oddlingPalette(character.palette.accent),trim=oddlingPalette(character.palette.trim),w=canvas.width,h=canvas.height,t=animated?performance.now()/1000:0;const blink=animated&&Math.sin(t*1.7+id)>.985,jaw=animated?Math.abs(Math.sin(t*8+id))*8:0;
 ctx.clearRect(0,0,w,h);const bg=ctx.createLinearGradient(0,0,w,h);bg.addColorStop(0,"#17243a");bg.addColorStop(1,"#080d18");ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
 ctx.save();ctx.translate(w/2,h*.91);const scale=Math.min(w/360,h/440);ctx.scale(scale,scale);
 const bob=animated?Math.sin(t*2.4+id)*3:0;ctx.translate(0,bob);
@@ -197,9 +197,9 @@ for(const side of [-1,1]){ctx.fillStyle="rgba(0,0,0,.38)";ctx.beginPath();ctx.el
 // nose
 ctx.fillStyle=skin;ctx.beginPath();ctx.moveTo(-13,-304);ctx.quadraticCurveTo(-20,-273,-37,-268);ctx.quadraticCurveTo(0,-248,37,-268);ctx.quadraticCurveTo(17,-278,13,-304);ctx.closePath();ctx.fill();ctx.fillStyle="rgba(20,15,22,.5)";for(const side of [-1,1]){ctx.beginPath();ctx.ellipse(side*20,-268,7,4,0,0,Math.PI*2);ctx.fill()}
 // smile / mouth with dark cavity, gum and individual teeth
-ctx.fillStyle="#25121b";ctx.beginPath();ctx.moveTo(-52,-248);ctx.quadraticCurveTo(0,-218,54,-250);ctx.quadraticCurveTo(45,-204,0,-205);ctx.quadraticCurveTo(-43,-207,-52,-248);ctx.fill();
+ctx.fillStyle="#25121b";ctx.beginPath();ctx.moveTo(-52,-248);ctx.quadraticCurveTo(0,-218,54,-250);ctx.quadraticCurveTo(45,-204+jaw,0,-205+jaw);ctx.quadraticCurveTo(-43,-207+jaw,-52,-248);ctx.fill();
 ctx.fillStyle="#a94e59";ctx.beginPath();ctx.moveTo(-45,-243);ctx.quadraticCurveTo(0,-222,46,-244);ctx.lineTo(40,-232);ctx.quadraticCurveTo(0,-216,-40,-232);ctx.fill();
-ctx.fillStyle="#fff3dc";for(let k=0;k<8;k++){const x=-39+k*11;ctx.beginPath();ctx.moveTo(x,-239+Math.abs(k-3.5)*1.2);ctx.lineTo(x+9,-237+Math.abs(k-3.5)*1.2);ctx.lineTo(x+8,-222);ctx.lineTo(x+2,-220);ctx.closePath();ctx.fill()}
+ctx.fillStyle="#fff3dc";for(let k=0;k<8;k++){const x=-39+k*11;ctx.beginPath();ctx.moveTo(x,-239+Math.abs(k-3.5)*1.2);ctx.lineTo(x+9,-237+Math.abs(k-3.5)*1.2);ctx.lineTo(x+8,-222+jaw*.35);ctx.lineTo(x+2,-220+jaw*.35);ctx.closePath();ctx.fill()}
 ctx.strokeStyle="#3b2025";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-53,-248);ctx.quadraticCurveTo(0,-211,55,-249);ctx.stroke();
 // cheek highlights, pores and freckles
 for(let k=0;k<95;k++){const x=Math.sin(k*91.7+id)*68,y=-300+Math.cos(k*47.3+id)*70;if(Math.abs(x)>17&&y>-365&&y<-238){ctx.fillStyle=k%4===0?"rgba(255,255,255,.16)":"rgba(20,15,20,.13)";ctx.beginPath();ctx.arc(x,y,k%7===0?2:1,0,Math.PI*2);ctx.fill()}}
