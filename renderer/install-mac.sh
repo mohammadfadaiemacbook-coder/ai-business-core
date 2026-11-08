@@ -18,6 +18,10 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "Installing FFmpeg..."
   brew install ffmpeg
 fi
+if ! command -v cloudflared >/dev/null 2>&1; then
+  echo "Installing Cloudflare Tunnel..."
+  brew install cloudflared
+fi
 if [ ! -f .env ]; then
   cp .env.example .env
   echo "Created renderer/.env from .env.example."
