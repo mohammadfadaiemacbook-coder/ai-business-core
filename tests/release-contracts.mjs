@@ -617,19 +617,22 @@ test("YouTube view survives older or incomplete local settings and exposes a ren
   assert.ok(app.includes('data-action="retry-render"'));
 });
 
-test("Home dashboard and restored navigation expose every implemented section", () => {
+test("Home dashboard exposes implemented modules and hides unfinished integrations", () => {
   assert.ok(!html.includes('id="sidebar"'));
   assert.ok(!html.includes('id="mobile-menu"'));
   assert.ok(html.includes('class="home-brand"'));
   assert.ok(app.includes('let view="overview"'));
   assert.ok(app.includes('class="home-module-grid"'));
-  for (const section of ["youtube","instagram","website","settings"]) assert.ok(app.includes('["'+section+'"'));
+  for (const section of ["youtube","settings"]) assert.ok(app.includes('["'+section+'"'));
+  for (const section of ["instagram","website"]) assert.ok(!html.includes('data-view="'+section+'"'));
   const homeStart = app.indexOf("function overview()");
   const homeEnd = app.indexOf("function stat(", homeStart);
   const homeMarkup = app.slice(homeStart, homeEnd);
   assert.ok(homeMarkup.includes('["tasks"'));
   assert.ok(homeMarkup.includes('["research"'));
   assert.ok(homeMarkup.includes('["content"'));
+  assert.ok(!homeMarkup.includes('["instagram"'));
+  assert.ok(!homeMarkup.includes('["website"'));
   assert.ok(html.includes('id="app-sidebar"'));
   assert.ok(html.includes('data-action="toggle-menu"'));
   assert.ok(css.includes(".home-module-grid"));
