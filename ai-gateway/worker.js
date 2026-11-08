@@ -749,7 +749,7 @@ export default {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
       const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
-      const limited=await enforceRateLimit(env.DB,workspace,"media-tts",20,headers);if(limited)return limited;
+      const limited=await enforceRateLimit(env.DB, workspace, "media-tts", 20, headers);if(limited)return limited;
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const language=String(body?.language||"en").toLowerCase();if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
