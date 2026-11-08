@@ -773,7 +773,8 @@ export default {
     if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
     const aiProviderSecrets=await loadProviderSecrets(env,env.DB,workspace);
     const geminiUrl=aiProviderSecrets.geminiUrl||"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",geminiKey=aiProviderSecrets.geminiKey,geminiModel=aiProviderSecrets.geminiModel||"gemini-3.8-flash";
-    const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;\n    const fallbackUrl=geminiKey?geminiUrl:secondaryUrl,fallbackKey=geminiKey||secondaryKey,fallbackModel=geminiKey?geminiModel:secondaryModel;
+    const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;
+    const fallbackUrl=geminiKey?geminiUrl:secondaryUrl,fallbackKey=geminiKey||secondaryKey,fallbackModel=geminiKey?geminiModel:secondaryModel;
     const primaryMessages=[
       { role: "system", content: "You are a careful business content assistant. Be transparent about uncertainty. Never fabricate sources, browsing, analytics, experiments, or completed actions. Return useful structured output." },
       { role: "user", content: buildPrompt(body.task, body.inputs) }
