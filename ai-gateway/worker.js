@@ -217,10 +217,10 @@ export default {
       const limited=await enforceRateLimit(env.DB,workspace,"runtime-diagnostics",20,headers);if(limited)return limited;
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>8192)return json({error:"Diagnostic report too large"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const redact=value=>String(value||"").replace(/Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi,"Bearer [REDACTED]").replace(/(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|secret)(\s*[:=]\s*)[^\s,;&]+/gi,"$1$2[REDACTED]");
-      const source=redact(body?.source).slice(0,80),message=redact(body?.message).slice(0,1200),details=redact(body?.details).slice(0,2000);
+      const source=redact(body?.source).slice(0,80),message=redact(body?.message).slice(0,1200),details=redact(body?.details).slice(0,2000),clientId=String(body?.id||"").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80);
       if(!message)return json({error:"Diagnostic message is required"},400,headers);
       const occurredAt=typeof body?.time==="string"&&Number.isFinite(Date.parse(body.time))?new Date(body.time).toISOString():new Date().toISOString();
-      try{await env.DB.prepare("INSERT INTO app_runtime_errors (id,workspace_id,source,message,details,occurred_at,request_id) VALUES (?,?,?,?,?,?,?)").bind(crypto.randomUUID(),workspace,source||"app",message,details,occurredAt,requestId).run();return json({ok:true,stored:true},202,headers)}catch{return json({error:"Could not store runtime diagnostic"},503,headers)}
+      try{await env.DB.prepare("undefined").bind(clientId||crypto.randomUUID(),workspace,source||"app",message,details,occurredAt,requestId).run();return json({ok:true,stored:true},202,headers)}catch{return json({error:"Could not store runtime diagnostic"},503,headers)}
     }
     if (url.pathname === "/api/auth/session") {
       if (request.method !== "POST") return json({error:"Method not allowed"},405,{...headers,allow:"POST, OPTIONS"});
