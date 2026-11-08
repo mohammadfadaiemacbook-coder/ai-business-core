@@ -701,3 +701,13 @@ test("Mac installer prints each local media setup instruction on its own line", 
   assert.ok(installer.includes('echo "3) Start the local media service'));
   assert.ok(installer.includes('echo "6) Start the renderer'));
 });
+
+
+test("local media storage rejects symlink escapes and constrains response content types", async () => {
+  const source = await readFile(new URL("../renderer/media-server.mjs", import.meta.url), "utf8");
+  assert.match(source, /const STORAGE_ROOT=await realpath\(ROOT\)/);
+  assert.match(source, /await realpath\(dirname\(finalPath\)\)/);
+  assert.match(source, /entry\.isSymbolicLink\(\)\|\|!entry\.isFile\(\)/);
+  assert.match(source, /MIME\.has\(requestedType\)\|\|requestedType==="application\\/octet-stream"/);
+  assert.match(source, /await pipeline\(createReadStream\(safePath\),res\)/);
+});
