@@ -25,7 +25,7 @@ self.addEventListener("fetch", event => {
     event.respondWith(fetch(request).then(response => {
       if (response && response.ok) {
         const copy = response.clone();
-        event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy)));
+        return caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy)).then(() => response);
       }
       return response;
     }).catch(() => caches.match("./index.html")));
@@ -37,7 +37,7 @@ self.addEventListener("fetch", event => {
     event.respondWith(fetch(request).then(response => {
       if (response && response.ok) {
         const copy = response.clone();
-        event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(request, copy)));
+        return caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).then(() => response);
       }
       return response;
     }).catch(() => caches.match(request)));
