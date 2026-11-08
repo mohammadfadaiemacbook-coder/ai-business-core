@@ -709,6 +709,7 @@ export default {
         const diagnosticId = crypto.randomUUID();
         const safeDetail = String(error?.message || "Unknown YouTube integration error").replace(/[\\r\\n\\t]+/g, " ").slice(0, 300);
         console.error("YouTube operation failed", { diagnosticId, workspace, path: url.pathname, detail: safeDetail });
+        if (safeDetail === "No connected YouTube account found.") return json({ error: "حساب YouTube هنوز به این فضای کاری متصل نشده است. ابتدا اتصال Google / YouTube را انجام بده.", code: "YOUTUBE_NOT_CONNECTED", diagnosticId }, 404, headers);
         return json({ error: "YouTube operation failed", detail: safeDetail, diagnosticId }, 500, headers);
       }
     }
