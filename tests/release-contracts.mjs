@@ -287,19 +287,16 @@ test("production release requires explicit manual confirmation and deploys Worke
   assert.ok(!releaseWorkflow.includes("build-android"));
 });
 
-test("long-form YouTube video builds a preview and requires explicit publishing", () => {
-  assert.match(worker, /LONG-FORM YouTube video script designed for an 8–12 minute/);
-  assert.match(app, /سناریوی ویدئوی بلند ۸ تا ۱۲ دقیقه‌ای/);
-  assert.match(app, /slides\.length>48/);
-  assert.match(app, /decodeAudioData\(audioParts\[i\]\.slice\(0\)\)/);
-  assert.match(app, /requestAnimationFrame\(animate\)/);
-  assert.match(app, /async function uploadGeneratedVideo\(\)/);
-  assert.match(app, /video-publish/);
-  assert.match(app, /پیش‌نمایش را کامل بررسی کن/);
-  assert.doesNotMatch(app, /autopilot-auto-upload/);
-  assert.match(app, /autopilot-public/);
-  assert.match(app, /autopilot-publish-at/);
-});
+test("short-form YouTube video builds a 1–3 minute preview and uploads privately", () => {
+  assert.match(worker, /SHORT-FORM YouTube video script designed for a 1–3 minute/);
+  assert.match(app, /سناریوی ویدئوی کوتاه انگلیسی ۱ تا ۳ دقیقه‌ای/);
+  assert.match(app, /slides\\.length>48/);
+  assert.match(app, /decodeAudioData\\(audioParts\\[i\\]\\.slice\\(0\\)\\)/);
+  assert.match(app, /totalNarrationSeconds<60\\|\\|totalNarrationSeconds>180/);
+  assert.match(app, /requestAnimationFrame\\(animate\\)/);
+  assert.match(app, /async function uploadGeneratedVideo\\(\\)/);
+  assert.match(app, /body\\.append\\("privacyStatus","private"\\)/);
+});;
 
 
 test("AI generation loads provider secrets only from the authenticated URL workspace", () => {
