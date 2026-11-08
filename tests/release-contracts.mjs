@@ -174,7 +174,7 @@ test("OAuth state is atomically consumed and refresh failures require reauthoriz
 
 test("YouTube uploads are sent to authenticated Mac-local media storage and quota failures map to Persian 429 responses", () => {
   assert.ok(worker.includes("localMediaFetch(env,workspace,assetId,safeName"));
-  assert.ok(worker.includes("body:await file.arrayBuffer()"));
+  assert.ok(worker.includes("body:file.stream()"));
   assert.ok(worker.includes("RENDERER_SHARED_SECRET"));
   assert.ok(worker.includes("سهمیه روزانه YouTube API تمام شده است"));
   assert.ok(worker.includes("quotaExceeded"));
@@ -710,4 +710,13 @@ test("local media storage rejects symlink escapes and constrains response conten
   assert.match(source, /entry\.isSymbolicLink\(\)\|\|!entry\.isFile\(\)/);
   assert.ok(source.includes('MIME.has(requestedType)||requestedType==="application/octet-stream"'));
   assert.match(source, /await pipeline\(createReadStream\(safePath\),res\)/);
+});
+
+
+test("Mac media uploads stream file bodies without allocating duplicate full-size buffers", async () => {
+  const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
+  assert.equal((worker.match(/body:file\.stream\(\)/g) || []).length, 2);
+  assert.match(rendererSource, /import \{ openAsBlob \} from "node:fs"/);
+  assert.match(rendererSource, /openAsBlob\(outputPath, \{ type: "video\/mp4" \}\)/);
+  assert.match(rendererSource, /form\.append\("file", output, "nexora-rendered\.mp4"\)/);
 });
