@@ -95,7 +95,7 @@ test("25 original Oddlings are available as a persistent selectable character ca
 test("automatic episode prompt is centered on one persistent selected Oddling", () => {
   assert.match(app, /const character=selectedOddling\(\)/);
   assert.match(app, /Main recurring character:/);
-  assert.match(app, /drawOddling\(ctx,selectedOddling\(\),progress\)/);
+  assert.ok(app.includes("drawOddling(ctx,selectedOddling(),progress,index)"));
   assert.match(app, /state\.settings\.selectedCharacterId=id/);
 });
 
