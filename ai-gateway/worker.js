@@ -1,4 +1,5 @@
 import { YOUTUBE_AGENT_PROMPTS, YOUTUBE_FULL_PIPELINE_PROMPT } from "./youtube-agent-skills.js";
+import { handleReadonlyMcp } from "./mcp-readonly.js";
 const ALLOWED_TASKS = new Set(["youtube_research", "video_outline", "video_script", "title_ideas", "youtube_metadata", "instagram_repurpose", "trend_strategy", "social_caption", "comment_reply", "thumbnail_brief", "yt_plan", "yt_viral", "yt_edit", "yt_retention", "yt_shorts", "yt_seo", "yt_chapters", "yt_audit", "yt_full_pipeline"]);
 const MAX_BODY_BYTES = 256 * 1024;
 const WORKSPACE_ID = /^[a-zA-Z0-9_-]{3,64}$/;
@@ -205,6 +206,22 @@ export default {
     const url = new URL(request.url);
     headers = { ...corsHeaders(request, env), "x-request-id": requestId };
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+    if (url.pathname === "/mcp") return handleReadonlyMcp(request, env);
+    if (url.pathname === "/api/diagnostics/report") {
+      if (request.method !== "POST") return json({error:"Method not allowed"},405,{...headers,allow:"POST, OPTIONS"});
+      if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
+      if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
+      if (!env.DB) return json({error:"Database is not configured"},503,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if (!WORKSPACE_ID.test(workspace)) return json({error:"Invalid workspace id"},400,headers);
+      const limited=await enforceRateLimit(env.DB,workspace,"runtime-diagnostics",20,headers);if(limited)return limited;
+      let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>8192)return json({error:"Diagnostic report too large"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
+      const redact=value=>String(value||"").replace(/Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi,"Bearer [REDACTED]").replace(/(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|secret)(\s*[:=]\s*)[^\s,;&]+/gi,"$1$2[REDACTED]");
+      const source=redact(body?.source).slice(0,80),message=redact(body?.message).slice(0,1200),details=redact(body?.details).slice(0,2000),clientId=String(body?.id||"").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80);
+      if(!message)return json({error:"Diagnostic message is required"},400,headers);
+      const occurredAt=typeof body?.time==="string"&&Number.isFinite(Date.parse(body.time))?new Date(body.time).toISOString():new Date().toISOString();
+      try{await env.DB.prepare("INSERT OR IGNORE INTO app_runtime_errors (id,workspace_id,source,message,details,occurred_at,request_id) VALUES (?,?,?,?,?,?,?)").bind(clientId||crypto.randomUUID(),workspace,source||"app",message,details,occurredAt,requestId).run();await env.DB.prepare("DELETE FROM app_runtime_errors WHERE workspace_id=? AND occurred_at<?").bind(workspace,new Date(Date.now()-30*24*60*60*1000).toISOString()).run();return json({ok:true,stored:true},202,headers)}catch{return json({error:"Could not store runtime diagnostic"},503,headers)}
+    }
     if (url.pathname === "/api/auth/session") {
       if (request.method !== "POST") return json({error:"Method not allowed"},405,{...headers,allow:"POST, OPTIONS"});
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
