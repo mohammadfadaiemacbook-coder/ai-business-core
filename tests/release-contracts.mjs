@@ -706,6 +706,8 @@ test("Mac installer prints each local media setup instruction on its own line", 
 test("local media storage rejects symlink escapes and constrains response content types", async () => {
   const source = await readFile(new URL("../renderer/media-server.mjs", import.meta.url), "utf8");
   assert.match(source, /const STORAGE_ROOT=await realpath\(ROOT\)/);
+  assert.match(source, /async function ensureSafeParent\(finalPath\)/);
+  assert.match(source, /await ensureSafeParent\(finalPath\)/);
   assert.match(source, /await realpath\(dirname\(finalPath\)\)/);
   assert.match(source, /entry\.isSymbolicLink\(\)\|\|!entry\.isFile\(\)/);
   assert.ok(source.includes('MIME.has(requestedType)||requestedType==="application/octet-stream"'));
