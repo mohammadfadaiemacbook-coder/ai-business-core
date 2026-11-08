@@ -624,7 +624,11 @@ test("Home dashboard and restored navigation expose every implemented section", 
   const homeStart = app.indexOf("function overview()");
   const homeEnd = app.indexOf("function stat(", homeStart);
   const homeMarkup = app.slice(homeStart, homeEnd);
-  assert.ok(homeMarkup.includes('["tasks"'));\n  assert.ok(homeMarkup.includes('["research"'));\n  assert.ok(homeMarkup.includes('["content"'));\n  assert.ok(html.includes('id="app-sidebar"'));\n  assert.ok(html.includes('data-action="toggle-menu"'));
+  assert.ok(homeMarkup.includes('["tasks"'));
+  assert.ok(homeMarkup.includes('["research"'));
+  assert.ok(homeMarkup.includes('["content"'));
+  assert.ok(html.includes('id="app-sidebar"'));
+  assert.ok(html.includes('data-action="toggle-menu"'));
   assert.ok(css.includes(".home-module-grid"));
 });
 
