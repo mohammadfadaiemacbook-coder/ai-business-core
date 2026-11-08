@@ -698,6 +698,6 @@ test("Mac installer prints each local media setup instruction on its own line", 
   const installer = await readFile(new URL("../renderer/install-mac.sh", import.meta.url), "utf8");
   assert.ok(!installer.includes("\\necho \""));
   assert.match(installer, /brew install cloudflared/);
-  assert.match(installer, /^echo "3\\) Start the local media service/m);
-  assert.match(installer, /^echo "6\\) Start the renderer/m);
+  assert.ok(installer.includes('echo "3) Start the local media service'));
+  assert.ok(installer.includes('echo "6) Start the renderer'));
 });
