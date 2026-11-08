@@ -77,7 +77,7 @@ async function loadProviderSecrets(env,db,workspace="default") {
   return out;
 }
 async function saveProviderSecrets(env,db,workspace,values) {
-  const allowed=new Set(["secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsEnglishVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
+  const allowed=new Set(["geminiUrl","geminiKey","geminiModel","secondaryUrl","secondaryKey","secondaryModel","elevenlabsKey","elevenlabsVoiceId","elevenlabsEnglishVoiceId","elevenlabsModel","imageUrl","imageKey","imageModel","claudeKey","claudeModel"]);
   if(!values||typeof values!=="object"||Array.isArray(values))throw new Error("Provider settings must be an object");
   const key=await providerCryptoKey(env),statements=[];
   for(const [name,value] of Object.entries(values)){
@@ -493,7 +493,7 @@ export default {
         await ensureWorkspace(env.DB,workspace);
         if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
         const secrets=await loadProviderSecrets(env,env.DB,workspace);
-        return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&(secrets.elevenlabsVoiceId||secrets.elevenlabsEnglishVoiceId)),ttsPersian:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),ttsEnglish:!!(secrets.elevenlabsKey&&secrets.elevenlabsEnglishVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
+        return json({ok:true,configured:{geminiAI:!!(secrets.geminiUrl&&secrets.geminiKey&&secrets.geminiModel),secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(secrets.elevenlabsKey&&(secrets.elevenlabsVoiceId||secrets.elevenlabsEnglishVoiceId)),ttsPersian:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),ttsEnglish:!!(secrets.elevenlabsKey&&secrets.elevenlabsEnglishVoiceId),image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
       }catch(error){return json({error:"Provider settings operation failed",detail:"Please retry or contact support."},500,headers)}
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
@@ -772,7 +772,9 @@ export default {
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
     if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
     const aiProviderSecrets=await loadProviderSecrets(env,env.DB,workspace);
+    const geminiUrl=aiProviderSecrets.geminiUrl||"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",geminiKey=aiProviderSecrets.geminiKey,geminiModel=aiProviderSecrets.geminiModel||"gemini-3.8-flash";
     const secondaryUrl=aiProviderSecrets.secondaryUrl||env.AI_SECONDARY_API_URL,secondaryKey=aiProviderSecrets.secondaryKey||env.AI_SECONDARY_API_KEY,secondaryModel=aiProviderSecrets.secondaryModel||env.AI_SECONDARY_MODEL;
+    const fallbackUrl=geminiKey?geminiUrl:secondaryUrl,fallbackKey=geminiKey||secondaryKey,fallbackModel=geminiKey?geminiModel:secondaryModel;
     const primaryMessages=[
       { role: "system", content: "You are a careful business content assistant. Be transparent about uncertainty. Never fabricate sources, browsing, analytics, experiments, or completed actions. Return useful structured output." },
       { role: "user", content: buildPrompt(body.task, body.inputs) }
@@ -781,15 +783,15 @@ export default {
     try {
       upstream = await fetchWithTimeout(safeProviderUrl(env.AI_API_URL), { method: "POST", headers: { authorization: `Bearer ${env.AI_API_KEY}`, "content-type": "application/json" }, body: JSON.stringify({model:env.AI_MODEL,temperature:0.4,messages:primaryMessages}), signal: AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000) });
     } catch { return json({ error: "ارتباط با سرویس اصلی هوش مصنوعی برقرار نشد؛ اتصال و وضعیت سرویس را بررسی کنید." }, 502, headers); }
-    if(!upstream.ok&&(upstream.status===429||upstream.status>=500)&&secondaryUrl&&secondaryKey&&secondaryModel){
+    if(!upstream.ok&&(upstream.status===429||upstream.status>=500)&&fallbackUrl&&fallbackKey&&fallbackModel){
       try{
-        const fallback=await fetchWithTimeout(safeProviderUrl(secondaryUrl),{redirect:"error",method:"POST",headers:{authorization:"Bearer "+secondaryKey,"content-type":"application/json"},body:JSON.stringify({model:secondaryModel,temperature:0.4,messages:primaryMessages}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
-        if(fallback.ok){upstream=fallback;activeModel=secondaryModel;usedFallback=true;}
+        const fallback=await fetchWithTimeout(safeProviderUrl(fallbackUrl),{redirect:"error",method:"POST",headers:{authorization:"Bearer "+fallbackKey,"content-type":"application/json"},body:JSON.stringify({model:fallbackModel,temperature:0.4,messages:primaryMessages}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
+        if(fallback.ok){upstream=fallback;activeModel=fallbackModel;usedFallback=true;}
       }catch{}
     }
     if (!upstream.ok) {
       const limited=upstream.status===429,retryAfter=Math.max(1,Math.min(3600,Number(upstream.headers.get("retry-after"))||60));
-      return json({error:limited?"سهمیه یا محدودیت درخواست سرویس هوش مصنوعی پر شده است. کمی بعد دوباره تلاش کنید یا اعتبار/سقف مصرف سرویس‌دهنده را بررسی کنید.":"سرویس هوش مصنوعی موقتاً پاسخ‌گو نیست؛ کمی بعد دوباره تلاش کنید.",providerStatus:upstream.status,retryAfterSeconds:limited?retryAfter:undefined,fallbackConfigured:!!(secondaryUrl&&secondaryKey&&secondaryModel)},limited?429:502,{...headers,...(limited?{"retry-after":String(retryAfter)}:{})});
+      return json({error:limited?"سهمیه یا محدودیت درخواست سرویس هوش مصنوعی پر شده است. کمی بعد دوباره تلاش کنید یا اعتبار/سقف مصرف سرویس‌دهنده را بررسی کنید.":"سرویس هوش مصنوعی موقتاً پاسخ‌گو نیست؛ کمی بعد دوباره تلاش کنید.",providerStatus:upstream.status,retryAfterSeconds:limited?retryAfter:undefined,fallbackConfigured:!!(fallbackUrl&&fallbackKey&&fallbackModel)},limited?429:502,{...headers,...(limited?{"retry-after":String(retryAfter)}:{})});
     }
     let result;
     try { result = await upstream.json(); } catch { return json({ error: "AI provider returned invalid JSON" }, 502, headers); }
