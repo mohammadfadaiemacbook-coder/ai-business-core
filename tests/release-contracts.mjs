@@ -40,8 +40,8 @@ test("Instagram is never reported connected until an Instagram OAuth/API flow ex
 test("unfinished Instagram and website integrations are hidden from active navigation", () => {
   assert.ok(!app.includes("instagram:instagramStudio"));
   assert.ok(!app.includes("website:websiteStudio"));
-  assert.ok(app.includes("function instagramStudio("));
-  assert.ok(app.includes("function websiteStudio("));
+  assert.ok(!app.includes("function instagramStudio("));
+  assert.ok(!app.includes("function websiteStudio("));
   assert.ok(!app.includes('data-action="check-connection" data-service="instagram"'));
   assert.ok(!app.includes('data-action="check-connection" data-service="website"'));
 });
