@@ -14,8 +14,4 @@ database_name = "ai-business-core-db"
 database_id = "a2efe780-1b52-4a56-9bfe-aa0ec531842e"
 migrations_dir = "migrations"
 
-[[r2_buckets]]
-binding = "MEDIA"
-bucket_name = "ai-business-core-media"
-
 # Preview deployments intentionally have no production D1 binding.
