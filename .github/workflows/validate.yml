@@ -1,10 +1,10 @@
 name: Validate dashboard
 on:
   push:
-    branches: [main, "build/**", "feature/**"]
+    branches: [main, "build/**", "feature/**", "feat/**"]
   # Also validate stacked operational PRs targeting audit/** or build/**.
   pull_request:
-    branches: [main, "feature/**", "audit/**", "build/**"]
+    branches: [main, "feature/**", "feat/**", "audit/**", "build/**"]
 permissions:
   contents: read
 jobs:
