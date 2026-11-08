@@ -708,6 +708,6 @@ test("local media storage rejects symlink escapes and constrains response conten
   assert.match(source, /const STORAGE_ROOT=await realpath\(ROOT\)/);
   assert.match(source, /await realpath\(dirname\(finalPath\)\)/);
   assert.match(source, /entry\.isSymbolicLink\(\)\|\|!entry\.isFile\(\)/);
-  assert.match(source, /MIME\.has\(requestedType\)\|\|requestedType==="application\\/octet-stream"/);
+  assert.ok(source.includes('MIME.has(requestedType)||requestedType==="application/octet-stream"'));
   assert.match(source, /await pipeline\(createReadStream\(safePath\),res\)/);
 });
