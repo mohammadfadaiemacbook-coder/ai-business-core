@@ -2,8 +2,9 @@ name: Validate dashboard
 on:
   push:
     branches: [main, "build/**", "feature/**"]
+  # Also validate stacked operational PRs targeting audit/** or build/**.
   pull_request:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "audit/**", "build/**"]
 permissions:
   contents: read
 jobs:
@@ -20,6 +21,7 @@ jobs:
         run: |
           node --check app.js
           node --check sw.js
+          if [ -f renderer/agent.mjs ]; then node --check renderer/agent.mjs; bash -n renderer/install-mac.sh; fi
           node --input-type=module --check < ai-gateway/worker.js
           node --test tests/release-contracts.mjs
       - name: Verify app shell and AI gateway files
@@ -32,6 +34,7 @@ jobs:
           test -s icons/icon.svg
           test -s icons/icon-maskable.svg
           test -s ai-gateway/worker.js
+          if [ -f renderer/agent.mjs ]; then test -s renderer/agent.mjs; test -s renderer/.env.example; test -s migrations/0008_youtube_media_renderer.sql; fi
           test -s ai-gateway/wrangler.toml.example
           test -s docs/ai-gateway-setup.md
           node -e "const m=JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); if(!Array.isArray(m.icons)||m.icons.length<2) process.exit(1); for(const i of m.icons) if(!i.src||!i.type||!i.purpose) process.exit(1)"

@@ -20,22 +20,6 @@ public class MainActivity extends Activity {
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
 
-    public class AppBridge {
-        @JavascriptInterface public int getVersionCode() {
-            try {
-                return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
-            } catch (Exception e) {
-                return 0;
-            }
-        }
-        @JavascriptInterface public void openUpdate(String url) {
-            Uri uri = Uri.parse(url);
-            if (!"github.com".equalsIgnoreCase(uri.getHost())) return;
-            try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
-            catch (ActivityNotFoundException e) { runOnUiThread(() -> Toast.makeText(MainActivity.this, "امکان باز کردن دانلود بروزرسانی وجود ندارد", Toast.LENGTH_LONG).show()); }
-        }
-    }
-
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         webView = new WebView(this);
@@ -51,14 +35,13 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String host = uri.getHost() == null ? "" : uri.getHost();
-                if ("mohammadfadaiemacbook-coder.github.io".equalsIgnoreCase(host)
-                        || "ai-business-core.mohammadfadaiemacbook.workers.dev".equalsIgnoreCase(host)) return false;
+                if ("https".equalsIgnoreCase(uri.getScheme()) && ("mohammadfadaiemacbook-coder.github.io".equalsIgnoreCase(host)
+                        || "ai-business-core.mohammadfadaiemacbook.workers.dev".equalsIgnoreCase(host))) return false;
                 try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
                 catch (ActivityNotFoundException ignored) { Toast.makeText(MainActivity.this, "امکان باز کردن پیوند وجود ندارد", Toast.LENGTH_SHORT).show(); }
                 return true;
             }
         });
-        webView.addJavascriptInterface(new AppBridge(), "AndroidApp");
         webView.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);

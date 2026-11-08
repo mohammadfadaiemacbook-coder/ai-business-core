@@ -22,6 +22,42 @@ test("all creator studio tasks are allow-listed and have task-specific prompts",
   }
 });
 
+test("provider credentials are managed from Settings rather than hidden inside the YouTube engine", () => {
+  assert.ok(app.includes("function providerSettingsPanel()"));
+  assert.ok(app.includes("provider-form"));
+  const start=app.indexOf("function aiStudio()");
+  const end=app.indexOf("function settings()",start);
+  assert.ok(!app.slice(start,end).includes('id="provider-form"'));
+  assert.ok(app.includes('data-action="media-check"'));
+});
+test("connection checks use the active workspace rather than a hard-coded default", () => {
+  assert.ok(app.includes('wid=cloudWorkspaceId(),token=(sessionStorage.getItem(CLOUD_TOKEN_KEY)'));
+});
+test("Instagram is never reported connected until an Instagram OAuth/API flow exists", () => {
+  assert.ok(worker.includes('if(key==="youtube"&&!accounts[key])'));
+  assert.ok(worker.includes("social_accounts WHERE workspace_id=?"));
+});
+test("four home modules all have render handlers and explicit service status pages", () => {
+  assert.ok(app.includes("instagram:instagramStudio"));
+  assert.ok(app.includes("website:websiteStudio"));
+  assert.ok(app.includes("function instagramStudio("));
+  assert.ok(app.includes("function websiteStudio("));
+  assert.ok(app.includes('data-action="check-connection" data-service="instagram"'));
+  assert.ok(app.includes('data-action="check-connection" data-service="website"'));
+});
+test("expired or rejected cloud master tokens are removed from the browser session", () => {
+  assert.ok(app.includes("error.status=response.status;throw error"));
+  assert.ok(app.includes('if(error.status===401){cloudToken="";workerSessionCache.clear()'));
+});
+test("YouTube hidden engine does not duplicate the master token into a hidden DOM field", () => {
+  assert.ok(app.includes('<input id="cloud-token" type="password" autocomplete="off">'));
+  assert.ok(!app.includes('id="cloud-token" value="\'+esc(cloudToken'));
+});
+test("application master token uses session storage and offers explicit disconnect", () => {
+  assert.ok(app.includes("sessionStorage.setItem(CLOUD_TOKEN_KEY,token)"));
+  assert.ok(app.includes("localStorage.removeItem(CLOUD_TOKEN_KEY)"));
+  assert.ok(app.includes('data-action="cloud-disconnect"'));
+});
 test("settings expose only service connection checks and a copyable error preview", () => {
   assert.ok(app.includes("پیش‌نمایش خطاها"));
   assert.ok(app.includes('data-action="check-connection"'));
@@ -187,12 +223,20 @@ test("Cloud sync preserves local data and downloads a backup on version conflict
   assert.ok(app.includes("داده محلی دست‌نخورده ماند"));
 });
 
+test("provider URL validation normalizes trailing dots and blocks reserved local suffixes", () => {
+  assert.ok(worker.includes('url.hostname.toLowerCase().replace(/\\.+$/,"")'));
+  assert.ok(worker.includes('".home.arpa"'));
+  assert.ok(worker.includes('reservedSuffixes.some(suffix=>host.endsWith(suffix))'));
+});
+test("provider endpoint IPv4 literal guard uses a literal dot matcher", () => {
+  assert.ok(worker.includes(String.raw`/^[0-9]{1,3}(?:\.[0-9]{1,3}){3}$/`));
+});
 test("Provider endpoints require public HTTPS and blank form fields preserve saved secrets", () => {
   assert.ok(worker.includes("function safeProviderUrl(value)"));
   assert.ok(worker.includes('url.protocol!=="https:"'));
   assert.ok(worker.includes('host==="localhost"'));
-  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl)'));
-  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl)'));
+  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl),{redirect:"error"'));
+  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl),{redirect:"error"'));
   assert.ok(worker.includes("// Empty password fields are omitted by the UI after saving; preserve existing secrets."));
   assert.ok(worker.includes("if(!value.trim()){"));
   assert.ok(!worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
@@ -205,6 +249,11 @@ test("Cloudflare deployment preserves existing vars and does not replace the con
   assert.ok(!/^AI_MODEL\\s*=/m.test(wranglerTemplate));
 });
 
+test("Cloudflare preview deployments cannot bind to the production D1 database", async () => {
+  const config = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  assert.doesNotMatch(config, /\[\[previews\.d1_databases\]\]/);
+  assert.match(config, /database_name = "ai-business-core-db"/);
+});
 test("production release runs syntax and contract tests before any Cloudflare operation", () => {
   const validation = releaseWorkflow.indexOf("Validate app, Worker and release contracts");
   const cloudflare = releaseWorkflow.indexOf("Validate Cloudflare credentials and existing D1 binding");
@@ -220,8 +269,9 @@ test("production release requires explicit manual confirmation and deploys Worke
   assert.ok(releaseWorkflow.includes("release_confirmation:"));
   assert.ok(releaseWorkflow.includes("- NO"));
   assert.ok(releaseWorkflow.includes("- RELEASE"));
-  assert.ok(releaseWorkflow.includes("github.event_name == 'push' || inputs.release_confirmation == 'RELEASE'"));
-  assert.ok(releaseWorkflow.includes("  push:"));
+  assert.ok(releaseWorkflow.includes("if: inputs.release_confirmation == 'RELEASE'"));
+  assert.ok(!releaseWorkflow.includes("  push:"));
+  assert.ok(!releaseWorkflow.includes("github.event_name == 'push'"));
   assert.ok(releaseWorkflow.includes("needs: deploy-worker"));
   assert.ok(releaseWorkflow.includes("deploy-web:"));
   assert.ok(releaseWorkflow.indexOf("Export D1 backup before migration") < releaseWorkflow.indexOf("Apply pending D1 migrations"));
@@ -323,7 +373,7 @@ test("YouTube publish-time estimate uses recent channel video statistics and lab
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v17/);
+  assert.match(sw, /ai-business-core-shell-v20/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
@@ -348,7 +398,7 @@ test("D1 migration sequence is numbered, additive, and includes workspace-scoped
   const { readdir, readFile } = await import("node:fs/promises");
   const dir = new URL("../migrations/", import.meta.url);
   const files = (await readdir(dir)).filter(name => /^\d{4}_.+\.sql$/.test(name)).sort();
-  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql","0006_api_rate_limits.sql"]);
+  assert.deepEqual(files, ["0001_v2_social_foundation.sql","0002_workspace_snapshots.sql","0003_provider_secrets.sql","0004_legacy_schema_compat.sql","0005_workspace_query_indexes.sql","0006_api_rate_limits.sql","0007_youtube_video_jobs.sql","0008_youtube_media_renderer.sql"]);
   const migration = await readFile(new URL("../migrations/0005_workspace_query_indexes.sql", import.meta.url), "utf8");
   for (const index of ["idx_campaigns_workspace_updated","idx_audit_workspace_event_time","idx_publish_workspace_due","idx_approvals_workspace_status_created","idx_media_workspace_created","idx_social_workspace_status"]) assert.ok(migration.includes(index));
   assert.doesNotMatch(migration, /\b(DROP TABLE|DROP COLUMN|DELETE FROM)\b/i);
@@ -452,6 +502,22 @@ test("dashboard UI does not expose internal provider detail fields in API errors
 });
 
 
+test("Android WebView does not expose an unused JavaScript native bridge", async () => {
+  const source = await readFile(new URL("../android/app/src/main/java/com/aibusinesscore/app/MainActivity.java", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /addJavascriptInterface/);
+  assert.doesNotMatch(source, /class AppBridge/);
+});
+test("Android APK releases do not replace the latest macOS DMG release", async () => {
+  const androidWorkflow = await readFile(new URL("../.github/workflows/build-android.yml", import.meta.url), "utf8");
+  assert.match(androidWorkflow, /make_latest: false/);
+  assert.match(androidWorkflow, /contents: read/);
+  assert.match(androidWorkflow, /publish-release:/);
+  assert.ok(androidWorkflow.includes("if: github.event_name == 'push' && github.ref == 'refs/heads/main'"));
+  assert.match(androidWorkflow, /needs: build/);
+  assert.match(androidWorkflow, /contents: write/);
+  assert.ok(androidWorkflow.includes("actions/download-artifact@v4"));
+  assert.doesNotMatch(androidWorkflow, /make_latest: true/);
+});
 test("PWA shell includes accessible skip navigation and home dashboard", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
@@ -463,7 +529,7 @@ test("PWA shell includes accessible skip navigation and home dashboard", async (
 test("service worker cache writes are tied to fetch event lifetime", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /event\.waitUntil\(caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\)/);
-  assert.match(sw, /ai-business-core-shell-v17/);
+  assert.match(sw, /ai-business-core-shell-v20/);
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
@@ -505,6 +571,14 @@ test("cloud autosave pauses after a version conflict instead of retrying stale w
   assert.ok(source.includes("if(!cloudToken||cloudSaveInFlight||cloudConflict)return"));
 });
 
+test("manual cloud push checks snapshot size before sending", () => {
+  assert.ok(app.includes('if(a==="cloud-push"){const snapshot=JSON.stringify({data:state,expectedVersion:cloudVersion})'));
+  assert.ok(app.includes("نسخه ابری از سقف ۲۵۶ کیلوبایت بیشتر است"));
+});
+test("disconnect and invalid-token responses clear all in-memory and session credentials", () => {
+  assert.ok(app.includes('cloudToken="";aiToken="";aiEndpoint="";workerSessionCache.clear()'));
+  assert.ok(app.includes('if(err.status===401){cloudToken="";workerSessionCache.clear()'));
+});
 test("manual cloud push also pauses autosave when the server reports a version conflict", () => {
   const start=app.indexOf('if(a==="cloud-connect"||a==="cloud-pull"||a==="cloud-push")');
   const end=app.indexOf('if(a==="export-data")',start);
@@ -561,4 +635,52 @@ test("AI generation falls back to the configured secondary provider on primary r
   assert.ok(worker.includes('retryAfterSeconds:limited?retryAfter:undefined'));
   assert.ok(worker.includes('fallbackConfigured:!!(secondaryUrl&&secondaryKey&&secondaryModel)'));
   assert.ok(worker.includes('providerFallback:usedFallback'));
+});
+
+test("web-first YouTube drafts are persisted in D1 and restored across PWA devices", async () => {
+  const migration = await readFile(new URL("../migrations/0007_youtube_video_jobs.sql", import.meta.url), "utf8");
+  const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
+  const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_video_jobs/);
+  assert.match(migration, /workspace_id TEXT NOT NULL REFERENCES workspaces/);
+  assert.match(migration, /version INTEGER NOT NULL DEFAULT 1/);
+  assert.match(workerSource, /url\.pathname === "\/api\/youtube\/jobs"/);
+  assert.match(workerSource, /expectedVersion/);
+  assert.match(workerSource, /FROM youtube_video_jobs WHERE workspace_id/);
+  assert.match(appSource, /persistYoutubeDraftToCloud/);
+  assert.match(appSource, /syncYoutubeDraftsFromCloud/);
+  assert.match(appSource, /!item\.cloudJobId&&\(item\.topic\|\|item\.title\)===job\.topic/);
+  assert.match(appSource, /initializeCloudSync\(\)\.then\(\(\)=>syncYoutubeDraftsFromCloud\(\)\)/);
+});
+
+ 
+test("R2-backed YouTube media and durable Mac renderer queue are wired end to end", async () => {
+  const migration = await readFile(new URL("../migrations/0008_youtube_media_renderer.sql", import.meta.url), "utf8");
+  const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
+  const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
+  const wrangler = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  const releaseWorkflow = await readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8");
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_media_assets/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_render_jobs/);
+  assert.match(migration, /max_attempts INTEGER NOT NULL DEFAULT 3/);
+  assert.match(workerSource, /env\.MEDIA\.put/);
+  assert.match(workerSource, /\/api\/renderer\/jobs\/claim/);
+  assert.match(workerSource, /lease_expires_at/);
+  assert.match(workerSource, /rendererAuthorized/);
+  assert.match(workerSource, /access-control-allow-methods.*PATCH/);
+  assert.match(appSource, /queueGeneratedVideoForRenderer/);
+  assert.match(appSource, /data-action="renderer-queue"/);
+  assert.match(appSource, /data-action="renderer-status"/);
+  assert.match(rendererSource, /spawn\(FFMPEG/);
+  assert.match(rendererSource, /\/api\/renderer\/jobs\/claim/);
+  assert.match(rendererSource, /\/api\/media\/assets/);
+  assert.match(rendererSource, /OLLAMA_MODEL/);
+  assert.match(wrangler, /binding = "MEDIA"/);
+  assert.match(workerSource, /mediaStorage: !!env\.MEDIA/);
+  assert.match(workerSource, /rendererConfigured: String\(env\.RENDERER_SHARED_SECRET/);
+  assert.match(releaseWorkflow, /wrangler r2 bucket create ai-business-core-media/);
+  assert.match(releaseWorkflow, /wrangler secret put RENDERER_SHARED_SECRET/);
+  assert.match(appSource, /ai-business-core-long-video\.mp4/);
+  assert.doesNotMatch(appSource, /تأییدd|ردed/);
 });
