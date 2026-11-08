@@ -14,4 +14,6 @@ database_name = "ai-business-core-db"
 database_id = "a2efe780-1b52-4a56-9bfe-aa0ec531842e"
 migrations_dir = "migrations"
 
-# Preview deployments intentionally have no production D1 binding.
+# Preview builds must declare a previews block. Keep it empty until a
+# dedicated staging D1 database is provisioned; never bind Preview to production.
+previews = {}
