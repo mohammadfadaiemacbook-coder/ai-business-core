@@ -288,15 +288,15 @@ test("production release requires explicit manual confirmation and deploys Worke
 });
 
 test("short-form YouTube video builds a 1–3 minute preview and uploads privately", () => {
-  assert.match(worker, /SHORT-FORM YouTube video script designed for a 1–3 minute/);
-  assert.match(app, /سناریوی ویدئوی کوتاه انگلیسی ۱ تا ۳ دقیقه‌ای/);
-  assert.match(app, /slides\\.length>48/);
-  assert.match(app, /decodeAudioData\\(audioParts\\[i\\]\\.slice\\(0\\)\\)/);
-  assert.match(app, /totalNarrationSeconds<60\\|\\|totalNarrationSeconds>180/);
-  assert.match(app, /requestAnimationFrame\\(animate\\)/);
-  assert.match(app, /async function uploadGeneratedVideo\\(\\)/);
-  assert.match(app, /body\\.append\\("privacyStatus","private"\\)/);
-});;
+  assert.ok(worker.includes("SHORT-FORM YouTube video script designed for a 1–3 minute"));
+  assert.ok(app.includes("سناریوی ویدئوی کوتاه انگلیسی ۱ تا ۳ دقیقه‌ای"));
+  assert.ok(app.includes("slides.length>48"));
+  assert.ok(app.includes("decodeAudioData(audioParts[i].slice(0))"));
+  assert.ok(app.includes("totalNarrationSeconds<60||totalNarrationSeconds>180"));
+  assert.ok(app.includes("requestAnimationFrame(animate)"));
+  assert.ok(app.includes("async function uploadGeneratedVideo()"));
+  assert.ok(app.includes('body.append("privacyStatus","private")'));
+});
 
 
 test("AI generation loads provider secrets only from the authenticated URL workspace", () => {
