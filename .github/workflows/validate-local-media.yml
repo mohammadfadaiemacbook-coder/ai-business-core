@@ -1,0 +1,27 @@
+name: Validate Mac-local media pipeline
+on:
+  push:
+    branches:
+      - feature/local-media-no-r2
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+      - name: Syntax and contract tests
+        run: |
+          set -euo pipefail
+          node --check app.js
+          node --check ai-gateway/worker.js
+          node --check renderer/agent.mjs
+          node --check renderer/media-server.mjs
+          bash -n renderer/install-mac.sh
+          node --test tests/release-contracts.mjs
