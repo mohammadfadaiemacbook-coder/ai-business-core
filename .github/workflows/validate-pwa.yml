@@ -35,7 +35,7 @@ jobs:
             ['procedural portrait renderer', app.includes('function drawOddlingPortrait(')],
             ['ZIP pack exporter', app.includes('async function downloadOddlingPack()') && app.includes('function zipStore(')],
             ['character gallery renderer', app.includes('async function renderOddlingLibrary()')],
-            ['video renderer uses character portrait', app.includes('window.__oddlingPortraitCache') && app.includes('drawOddlingPortrait(portrait,character,false)')],
+            ['video renderer uses character portrait', app.includes('window.__oddlingPortraitCache') && app.includes('drawOddlingPortrait(portrait,character,true)')],
             ['portrait styles', css.includes('.oddling-portrait')]
           ];
           for (const [name, ok] of checks) {
