@@ -172,9 +172,10 @@ test("OAuth state is atomically consumed and refresh failures require reauthoriz
   assert.ok(worker.includes("status='needs_reauth'"));
 });
 
-test("YouTube upload streams the file and quota failures are mapped to Persian 429 responses", () => {
-  assert.ok(worker.includes("body: file.stream()"));
-  assert.ok(!worker.includes("file.arrayBuffer()"));
+test("YouTube uploads are sent to authenticated Mac-local media storage and quota failures map to Persian 429 responses", () => {
+  assert.ok(worker.includes("localMediaFetch(env,workspace,assetId,safeName"));
+  assert.ok(worker.includes("body:file.stream()"));
+  assert.ok(worker.includes("RENDERER_SHARED_SECRET"));
   assert.ok(worker.includes("سهمیه روزانه YouTube API تمام شده است"));
   assert.ok(worker.includes("quotaExceeded"));
 });
@@ -654,21 +655,24 @@ test("web-first YouTube drafts are persisted in D1 and restored across PWA devic
 });
 
  
-test("R2-backed YouTube media and durable Mac renderer queue are wired end to end", async () => {
+test("Mac-local YouTube media and durable renderer queue are wired without R2", async () => {
   const migration = await readFile(new URL("../migrations/0008_youtube_media_renderer.sql", import.meta.url), "utf8");
   const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
   const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
   const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
+  const mediaServer = await readFile(new URL("../renderer/media-server.mjs", import.meta.url), "utf8");
   const wrangler = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  const workerTemplate = await readFile(new URL("../ai-gateway/wrangler.toml.example", import.meta.url), "utf8");
   const releaseWorkflow = await readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8");
   assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_media_assets/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS youtube_render_jobs/);
   assert.match(migration, /max_attempts INTEGER NOT NULL DEFAULT 3/);
-  assert.match(workerSource, /env\.MEDIA\.put/);
+  assert.doesNotMatch(workerSource, /env\.MEDIA/);
+  assert.match(workerSource, /localMediaFetch/);
+  assert.match(workerSource, /RENDERER_PUBLIC_URL/);
   assert.match(workerSource, /\/api\/renderer\/jobs\/claim/);
   assert.match(workerSource, /lease_expires_at/);
   assert.match(workerSource, /rendererAuthorized/);
-  assert.match(workerSource, /access-control-allow-methods.*PATCH/);
   assert.match(appSource, /queueGeneratedVideoForRenderer/);
   assert.match(appSource, /data-action="renderer-queue"/);
   assert.match(appSource, /data-action="renderer-status"/);
@@ -676,11 +680,62 @@ test("R2-backed YouTube media and durable Mac renderer queue are wired end to en
   assert.match(rendererSource, /\/api\/renderer\/jobs\/claim/);
   assert.match(rendererSource, /\/api\/media\/assets/);
   assert.match(rendererSource, /OLLAMA_MODEL/);
-  assert.match(wrangler, /binding = "MEDIA"/);
-  assert.match(workerSource, /mediaStorage: !!env\.MEDIA/);
+  assert.match(mediaServer, /timingSafeEqual/);
+  assert.match(mediaServer, /createWriteStream/);
+  assert.match(mediaServer, /Application Support/);
+  assert.doesNotMatch(wrangler, /r2_buckets|binding = "MEDIA"/);
+  assert.doesNotMatch(workerTemplate, /r2_buckets|binding = "MEDIA"/);
+  assert.match(workerSource, /const mediaStorage=await localMediaHealth\(env\)/);
   assert.match(workerSource, /rendererConfigured: String\(env\.RENDERER_SHARED_SECRET/);
-  assert.match(releaseWorkflow, /wrangler r2 bucket create ai-business-core-media/);
-  assert.match(releaseWorkflow, /wrangler secret put RENDERER_SHARED_SECRET/);
+  assert.doesNotMatch(releaseWorkflow, /wrangler r2/);
+  assert.match(releaseWorkflow, /wrangler secret put RENDERER_PUBLIC_URL/);
+  assert.match(releaseWorkflow, /node --check renderer\/media-server.mjs/);
   assert.match(appSource, /ai-business-core-long-video\.mp4/);
   assert.doesNotMatch(appSource, /تأییدd|ردed/);
+});
+
+test("Mac installer prints each local media setup instruction on its own line", async () => {
+  const installer = await readFile(new URL("../renderer/install-mac.sh", import.meta.url), "utf8");
+  assert.ok(!installer.includes("\\necho \""));
+  assert.match(installer, /brew install cloudflared/);
+  assert.ok(installer.includes('echo "3) Start the local media service'));
+  assert.ok(installer.includes('echo "6) Start the renderer'));
+});
+
+
+test("local media storage rejects symlink escapes and constrains response content types", async () => {
+  const source = await readFile(new URL("../renderer/media-server.mjs", import.meta.url), "utf8");
+  assert.match(source, /const STORAGE_ROOT=await realpath\(ROOT\)/);
+  assert.match(source, /async function ensureSafeParent\(finalPath\)/);
+  assert.match(source, /await ensureSafeParent\(finalPath\)/);
+  assert.match(source, /await realpath\(dirname\(finalPath\)\)/);
+  assert.match(source, /entry\.isSymbolicLink\(\)\|\|!entry\.isFile\(\)/);
+  assert.ok(source.includes('MIME.has(requestedType)||requestedType==="application/octet-stream"'));
+  assert.match(source, /await pipeline\(createReadStream\(safePath\),res\)/);
+});
+
+
+test("Mac media uploads stream file bodies without allocating duplicate full-size buffers", async () => {
+  const rendererSource = await readFile(new URL("../renderer/agent.mjs", import.meta.url), "utf8");
+  assert.equal((worker.match(/body:file\.stream\(\)/g) || []).length, 2);
+  assert.match(rendererSource, /import \{ openAsBlob, createWriteStream \} from "node:fs"/);
+  assert.match(rendererSource, /pipeline\(source\.body, createWriteStream\(sourcePath, \{ flags: "wx" \}\)\)/);
+  assert.match(rendererSource, /openAsBlob\(outputPath, \{ type: "video\/mp4" \}\)/);
+  assert.match(rendererSource, /form\.append\("file", output, "nexora-rendered\.mp4"\)/);
+});
+
+
+test("Worker static assets exclude source, renderer, migrations, tests and operational files", async () => {
+  const ignore = await readFile(new URL("../.assetsignore", import.meta.url), "utf8");
+  const wrangler = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
+  for (const path of [".git", ".github", "ai-gateway", "android", "desktop", "docs", "licenses", "migrations", "renderer", "tests", "wrangler.toml", "smoke-test.sh"]) {
+    assert.ok(ignore.split(/\r?\n/).includes(path), "Missing static asset exclusion: " + path);
+  }
+  assert.match(wrangler, /\[assets\][\s\S]*directory\s*=\s*"\.\/"[\s\S]*run_worker_first/);
+});
+
+
+test("CI performs an unauthenticated Wrangler dry run before release", async () => {
+  const workflow = await readFile(new URL("../.github/workflows/validate.yml", import.meta.url), "utf8");
+  assert.match(workflow, /wrangler@4 deploy --dry-run/);
 });

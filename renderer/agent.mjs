@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-import { readFile, writeFile, mkdtemp, rm, stat } from "node:fs/promises";
+import { readFile, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir, hostname } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { openAsBlob, createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
 
 async function loadEnvFile() {
   try {
@@ -103,9 +105,10 @@ async function processJob(job) {
   try {
     console.log("[job] Downloading source asset " + job.source_asset_id);
     const source = await api("/api/media/assets/" + encodeURIComponent(job.source_asset_id) + "?workspace=" + encodeURIComponent(WORKSPACE));
-    const bytes = Buffer.from(await source.arrayBuffer());
-    if (!bytes.length || bytes.length > 64 * 1024 * 1024) throw new Error("Source video is empty or exceeds 64 MB.");
-    await writeFile(sourcePath, bytes);
+    if (!source.body) throw new Error("Source video response has no readable body.");
+    await pipeline(source.body, createWriteStream(sourcePath, { flags: "wx" }));
+    const sourceInfo = await stat(sourcePath);
+    if (!sourceInfo.size || sourceInfo.size > 64 * 1024 * 1024) throw new Error("Source video is empty or exceeds 64 MB.");
     console.log("[job] Rendering with FFmpeg");
     await runFfmpeg([
       "-y", "-i", sourcePath,
@@ -119,16 +122,16 @@ async function processJob(job) {
     if (!outputInfo.size || outputInfo.size > 64 * 1024 * 1024) throw new Error("Rendered MP4 is empty or exceeds the 64 MB upload limit.");
     console.log("[job] Running local Ollama quality review");
     const qaReport = await localOllamaReview(job);
-    const output = await readFile(outputPath);
+    const output = await openAsBlob(outputPath, { type: "video/mp4" });
     const form = new FormData();
-    form.append("file", new Blob([output], { type: "video/mp4" }), "nexora-rendered.mp4");
+    form.append("file", output, "nexora-rendered.mp4");
     form.append("qaReport", JSON.stringify(qaReport));
     await api("/api/renderer/jobs/" + encodeURIComponent(job.id) + "/complete?workspace=" + encodeURIComponent(WORKSPACE), {
       method: "POST",
       headers: { "x-renderer-id": WORKER_ID },
       body: form
     });
-    console.log("[job] Completed and stored MP4 in R2. Ollama review: " + qaReport.status);
+    console.log("[job] Completed and stored MP4 in Mac-local media storage. Ollama review: " + qaReport.status);
   } finally {
     clearInterval(heartbeat);
     await rm(directory, { recursive: true, force: true }).catch(() => {});

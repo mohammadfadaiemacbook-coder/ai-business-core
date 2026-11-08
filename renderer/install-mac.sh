@@ -18,6 +18,10 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "Installing FFmpeg..."
   brew install ffmpeg
 fi
+if ! command -v cloudflared >/dev/null 2>&1; then
+  echo "Installing Cloudflare Tunnel..."
+  brew install cloudflared
+fi
 if [ ! -f .env ]; then
   cp .env.example .env
   echo "Created renderer/.env from .env.example."
@@ -26,5 +30,8 @@ echo
 echo "Setup checks passed."
 echo "1) Edit renderer/.env and set AIBC_RENDERER_TOKEN to the Worker RENDERER_SHARED_SECRET."
 echo "2) Make sure Ollama is running locally and qwen3:4b is installed."
-echo "3) Start the renderer with: node agent.mjs"
+echo "3) Start the local media service: node media-server.mjs"
+echo "4) Start a Cloudflare Quick Tunnel: cloudflared tunnel --url http://127.0.0.1:8788"
+echo "5) Save the HTTPS tunnel URL as Worker secret RENDERER_PUBLIC_URL."
+echo "6) Start the renderer: node agent.mjs"
 echo "Keep this Mac awake while queued videos are being processed."

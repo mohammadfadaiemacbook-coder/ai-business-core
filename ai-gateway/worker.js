@@ -1,4 +1,5 @@
 import { YOUTUBE_AGENT_PROMPTS, YOUTUBE_FULL_PIPELINE_PROMPT } from "./youtube-agent-skills.js";
+import { handleReadonlyMcp } from "./mcp-readonly.js";
 const ALLOWED_TASKS = new Set(["youtube_research", "video_outline", "video_script", "title_ideas", "youtube_metadata", "instagram_repurpose", "trend_strategy", "social_caption", "comment_reply", "thumbnail_brief", "yt_plan", "yt_viral", "yt_edit", "yt_retention", "yt_shorts", "yt_seo", "yt_chapters", "yt_audit", "yt_full_pipeline"]);
 const MAX_BODY_BYTES = 256 * 1024;
 const WORKSPACE_ID = /^[a-zA-Z0-9_-]{3,64}$/;
@@ -196,6 +197,26 @@ function rendererAuthorized(request,env){
   if(expected.length<32)return false;
   return constantTimeEqual(request.headers.get("Authorization")||"", "Bearer "+expected);
 }
+function localMediaUrl(env,workspace,assetId,fileName){
+  const base=safeProviderUrl(env.RENDERER_PUBLIC_URL);
+  const url=new URL(base);
+  url.pathname=url.pathname.replace(/\/$/,"")+"/assets/"+[workspace,assetId,fileName].map(encodeURIComponent).join("/");
+  url.searchParams.set("type","application/octet-stream");
+  return url.toString();
+}
+async function localMediaFetch(env,workspace,assetId,fileName,init={}){
+  const target=localMediaUrl(env,workspace,assetId,fileName);
+  return fetchWithTimeout(target,{...init,headers:{authorization:"Bearer "+String(env.RENDERER_SHARED_SECRET||""),...(init.headers||{})}},180000);
+}
+async function localMediaHealth(env){
+  try{
+    const base=safeProviderUrl(env.RENDERER_PUBLIC_URL),url=new URL(base);
+    const prefix=url.pathname.endsWith("/")?url.pathname.slice(0,-1):url.pathname;
+    url.pathname=prefix+"/health";
+    const response=await fetchWithTimeout(url.toString(),{headers:{authorization:"Bearer "+String(env.RENDERER_SHARED_SECRET||"")}},5000);
+    return response.ok;
+  }catch{return false}
+}
 
 export default {
   async fetch(request, env) {
@@ -205,6 +226,7 @@ export default {
     const url = new URL(request.url);
     headers = { ...corsHeaders(request, env), "x-request-id": requestId };
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+    if (url.pathname === "/mcp") return handleReadonlyMcp(request, env);
     if (url.pathname === "/api/auth/session") {
       if (request.method !== "POST") return json({error:"Method not allowed"},405,{...headers,allow:"POST, OPTIONS"});
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
@@ -217,7 +239,7 @@ export default {
     }
     if (url.pathname === "/api/health" && request.method === "GET") {
       if (!env.DB) return json({ ok: false, database: "unbound" }, 503, headers);
-      try { await env.DB.prepare("SELECT 1 AS ok").first(); return json({ ok: true, database: "connected", mediaStorage: !!env.MEDIA, rendererConfigured: String(env.RENDERER_SHARED_SECRET||"").length>=32 }, 200, headers); }
+      try { await env.DB.prepare("SELECT 1 AS ok").first(); const mediaStorage=await localMediaHealth(env); return json({ ok: true, database: "connected", mediaStorage, rendererConfigured: String(env.RENDERER_SHARED_SECRET||"").length>=32 }, 200, headers); }
       catch { return json({ ok: false, database: "query_failed" }, 503, headers); }
     }
     if (url.pathname === "/api/connections/status" && request.method === "GET") {
@@ -340,11 +362,11 @@ export default {
       }
     }
 
-    // R2-backed YouTube media assets. The browser and renderer never receive direct bucket credentials.
+    // Media bytes live on the user's Mac; D1 stores metadata and job state only.
     if (url.pathname === "/api/media/assets" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
-      if (!env.DB || !env.MEDIA) return json({error:"Video storage is not configured. Bind the MEDIA R2 bucket to this Worker."},503,headers);
+      if (!env.DB || String(env.RENDERER_PUBLIC_URL||"").length<12 || String(env.RENDERER_SHARED_SECRET||"").length<32) return json({error:"Mac media service is not configured. Start the media service and configure its secure tunnel URL."},503,headers);
       const workspace=url.searchParams.get("workspace")||"default";
       if (!WORKSPACE_ID.test(workspace)) return json({error:"Invalid workspace id"},400,headers);
       const declaredLength=Number(request.headers.get("content-length")||0);
@@ -352,42 +374,43 @@ export default {
       const limited=await enforceRateLimit(env.DB,workspace,"youtube-media-upload",10,headers);if(limited)return limited;
       let form;try{form=await request.formData()}catch{return json({error:"Expected multipart form data"},400,headers)}
       const file=form.get("file"),assetType=String(form.get("assetType")||"source_video");
-      if(!file||typeof file.stream!=="function"||!file.size)return json({error:"Select a video file"},400,headers);
+      if(!file||typeof file.arrayBuffer!=="function"||!file.size)return json({error:"Select a video file"},400,headers);
       if(!["source_video","rendered_video"].includes(assetType))return json({error:"Invalid media asset type"},400,headers);
       if(!["video/webm","video/mp4","video/quicktime"].includes(String(file.type||"").toLowerCase()))return json({error:"Only WebM, MP4 and QuickTime videos are accepted"},415,headers);
       if(file.size>64*1024*1024)return json({error:"Video upload limit is 64 MB per file"},413,headers);
       const assetId=crypto.randomUUID(),safeName=String(file.name||"video.bin").replace(/[^a-zA-Z0-9._-]/g,"_").slice(0,100)||"video.bin";
       const objectKey=workspace+"/youtube/"+assetId+"/"+safeName;
       try{
-        await env.MEDIA.put(objectKey,file.stream(),{httpMetadata:{contentType:file.type},customMetadata:{workspace,assetId,assetType}});
+        const stored=await localMediaFetch(env,workspace,assetId,safeName,{method:"PUT",headers:{"content-type":file.type,"content-length":String(file.size)},body:file.stream()});
+        if(!stored.ok)throw new Error("Mac media service returned HTTP "+stored.status);
         const saved=await env.DB.prepare("INSERT INTO youtube_media_assets (id,workspace_id,object_key,file_name,content_type,size_bytes,asset_type) VALUES (?,?,?,?,?,?,?) RETURNING id,workspace_id,file_name,content_type,size_bytes,asset_type,created_at")
           .bind(assetId,workspace,objectKey,safeName,file.type,file.size,assetType).first();
-        await writeAuditEvent(env.DB,workspace,"youtube.media.stored","media_asset",assetId,{bytes:file.size,assetType});
+        await writeAuditEvent(env.DB,workspace,"youtube.media.stored","media_asset",assetId,{bytes:file.size,assetType,storage:"mac"});
         return json({ok:true,asset:saved},201,headers);
       }catch(error){
-        await env.MEDIA.delete(objectKey).catch(()=>{});
-        return json({error:"Could not store video in R2. Check the MEDIA binding and D1 migration 0008."},503,headers);
+        await localMediaFetch(env,workspace,assetId,safeName,{method:"DELETE"}).catch(()=>{});
+        return json({error:"Could not store video on the Mac media service. Check the tunnel and renderer service."},503,headers);
       }
     }
     const mediaAssetMatch=url.pathname.match(/^\/api\/media\/assets\/([a-f0-9-]{36})$/i);
     if(mediaAssetMatch&&request.method==="GET"){
-      if(!env.DB||!env.MEDIA)return json({error:"Video storage is not configured"},503,headers);
+      if(!env.DB)return json({error:"Database is not configured"},503,headers);
       const workspace=url.searchParams.get("workspace")||"default";
       if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
       if(!(await isAuthorized(request,env))&&!rendererAuthorized(request,env))return json({error:"Unauthorized"},401,headers);
       try{
         const row=await env.DB.prepare("SELECT * FROM youtube_media_assets WHERE id=? AND workspace_id=? AND status='ready'").bind(mediaAssetMatch[1],workspace).first();
         if(!row)return json({error:"Media asset not found"},404,headers);
-        const object=await env.MEDIA.get(row.object_key);
-        if(!object)return json({error:"Media object is missing from R2"},404,headers);
-        return new Response(object.body,{status:200,headers:{...headers,"content-type":row.content_type,"content-length":String(row.size_bytes),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(row.file_name),"cache-control":"private, no-store"}});
-      }catch{return json({error:"Could not retrieve media asset"},503,headers)}
+        const stored=await localMediaFetch(env,workspace,row.id,row.file_name,{method:"GET"});
+        if(!stored.ok)return json({error:"Media file is unavailable on the Mac"},404,headers);
+        return new Response(stored.body,{status:200,headers:{...headers,"content-type":row.content_type,"content-length":String(row.size_bytes),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(row.file_name),"cache-control":"private, no-store"}});
+      }catch{return json({error:"Could not retrieve media asset from Mac storage"},503,headers)}
     }
     if(url.pathname==="/api/youtube/render-jobs"){
       if(!["GET","POST"].includes(request.method))return json({error:"Method not allowed"},405,{...headers,allow:"GET, POST, OPTIONS"});
       if(request.headers.get("Origin")&&!headers["access-control-allow-origin"])return json({error:"Origin not allowed"},403,headers);
       if(!(await isAuthorized(request,env)))return json({error:"Unauthorized"},401,headers);
-      if(!env.DB||!env.MEDIA)return json({error:"Video storage is not configured"},503,headers);
+      if(!env.DB)return json({error:"Database is not configured"},503,headers);
       const workspace=url.searchParams.get("workspace")||"default";
       if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
       try{
@@ -435,7 +458,7 @@ export default {
     const rendererJobMatch=url.pathname.match(/^\/api\/renderer\/jobs\/([a-f0-9-]{36})\/(heartbeat|complete|fail)$/i);
     if(rendererJobMatch&&request.method==="POST"){
       if(!rendererAuthorized(request,env))return json({error:"Renderer is not authorized"},401,headers);
-      if(!env.DB||!env.MEDIA)return json({error:"Renderer storage is not configured"},503,headers);
+      if(!env.DB||String(env.RENDERER_PUBLIC_URL||"").length<12)return json({error:"Mac media service is not configured"},503,headers);
       const jobId=rendererJobMatch[1],action=rendererJobMatch[2],workerId=String(request.headers.get("x-renderer-id")||"").trim();
       if(!/^[a-zA-Z0-9._-]{3,80}$/.test(workerId))return json({error:"A valid x-renderer-id header is required"},400,headers);
       try{
@@ -457,14 +480,15 @@ export default {
         if(file.size>64*1024*1024)return json({error:"Rendered video exceeds 64 MB"},413,headers);
         const assetId=crypto.randomUUID(),fileName="nexora-rendered.mp4",objectKey=job.workspace_id+"/youtube/"+assetId+"/"+fileName;
         let qa={};try{qa=JSON.parse(String(form.get("qaReport")||"{}"))}catch{}
-        await env.MEDIA.put(objectKey,file.stream(),{httpMetadata:{contentType:"video/mp4"},customMetadata:{workspace:job.workspace_id,assetId,assetType:"rendered_video"}});
+        const stored=await localMediaFetch(env,job.workspace_id,assetId,fileName,{method:"PUT",headers:{"content-type":"video/mp4","content-length":String(file.size)},body:file.stream()});
+        if(!stored.ok)throw new Error("Mac media service returned HTTP "+stored.status);
         try{
-          const saved=await env.DB.prepare("INSERT INTO youtube_media_assets (id,workspace_id,object_key,file_name,content_type,size_bytes,asset_type) VALUES (?,?,?,?,?,?,'rendered_video') RETURNING id").bind(assetId,job.workspace_id,objectKey,fileName,"video/mp4",file.size).first();
+          await env.DB.prepare("INSERT INTO youtube_media_assets (id,workspace_id,object_key,file_name,content_type,size_bytes,asset_type) VALUES (?,?,?,?,?,?,'rendered_video')").bind(assetId,job.workspace_id,objectKey,fileName,"video/mp4",file.size).run();
           await env.DB.prepare("UPDATE youtube_render_jobs SET status='ready_for_review',stage='ready_for_review',output_asset_id=?,qa_report_json=?,last_error=NULL,lease_owner=NULL,lease_expires_at=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND lease_owner=?").bind(assetId,JSON.stringify(qa).slice(0,20000),jobId,workerId).run();
           if(job.draft_id)await env.DB.prepare("UPDATE youtube_video_jobs SET status='ready_for_review',stage='ready_for_review',version=version+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND workspace_id=?").bind(job.draft_id,job.workspace_id).run();
-          await writeAuditEvent(env.DB,job.workspace_id,"youtube.render.completed","render_job",jobId,{outputAssetId:assetId,bytes:file.size});
+          await writeAuditEvent(env.DB,job.workspace_id,"youtube.render.completed","render_job",jobId,{outputAssetId:assetId,bytes:file.size,storage:"mac"});
           return json({ok:true,jobId,outputAssetId:assetId,status:"ready_for_review"},200,headers);
-        }catch(error){await env.MEDIA.delete(objectKey).catch(()=>{});throw error}
+        }catch(error){await localMediaFetch(env,job.workspace_id,assetId,fileName,{method:"DELETE"}).catch(()=>{});throw error}
       }catch{return json({error:"Renderer job could not be finalized"},500,headers)}
     }
     if (url.pathname === "/api/providers" && ["GET","PUT"].includes(request.method)) {
