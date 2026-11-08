@@ -24,7 +24,7 @@
 - Release contract suite: **22 tests passed** on the latest completed dashboard validation run.
 
 ## Required production setup
-- Set GitHub repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the API token needs Workers Scripts and D1 edit permissions.
+- Set GitHub repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the API token needs Workers Scripts and D1 edit permissions. R2 permissions and a renderer secret are not required.
 - The complete release workflow reads the existing D1 database ID from root `wrangler.toml`, exports a backup, applies pending migrations, deploys the Worker and checks `/api/health` before publishing Pages.
 - Keep `APP_ACCESS_TOKEN`, `TOKEN_ENCRYPTION_KEY`, AI provider keys, Google OAuth credentials, and optional ElevenLabs/image provider keys configured as Cloudflare Worker secrets/variables.
 - Verify the D1 backup artifact before treating the production migration as complete.
