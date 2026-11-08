@@ -6,7 +6,7 @@ import { createReadStream } from "node:fs";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join, resolve, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 
@@ -27,6 +27,25 @@ if(TOKEN.length<32)throw new Error("AIBC_RENDERER_TOKEN must contain at least 32
 function authorized(req){const h=String(req.headers.authorization||"");const a=Buffer.from(h),b=Buffer.from("Bearer "+TOKEN);return a.length===b.length&&timingSafeEqual(a,b);}
 function send(res,status,body){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store"});res.end(JSON.stringify(body));}
 function target(parts){if(parts.length!==3)throw new Error("Invalid asset path");const [workspace,id,name]=parts;if(!/^[A-Za-z0-9_-]{3,64}$/.test(workspace)||!/^[a-f0-9-]{36}$/i.test(id)||!/^[A-Za-z0-9._-]{1,100}$/.test(name))throw new Error("Invalid asset identifier");const path=resolve(STORAGE_ROOT,workspace,id,name);if(!path.startsWith(STORAGE_ROOT+sep))throw new Error("Invalid storage path");return path;}
+async function ensureSafeParent(finalPath){
+  const relativeParent=relative(STORAGE_ROOT,dirname(finalPath));
+  let current=STORAGE_ROOT;
+  for(const part of relativeParent.split(sep).filter(Boolean)){
+    current=join(current,part);
+    try{
+      const info=await lstat(current);
+      if(info.isSymbolicLink()||!info.isDirectory())throw new Error("Unsafe media directory");
+    }catch(error){
+      if(error.code!=="ENOENT")throw error;
+      try{await mkdir(current);}catch(createError){if(createError.code!=="EEXIST")throw createError;}
+      const info=await lstat(current);
+      if(info.isSymbolicLink()||!info.isDirectory())throw new Error("Unsafe media directory");
+    }
+  }
+  const parent=await realpath(current);
+  if(parent!==STORAGE_ROOT&&!parent.startsWith(STORAGE_ROOT+sep))throw new Error("Invalid storage path");
+  return parent;
+}
 const server=createServer(async(req,res)=>{
   if(!authorized(req)){send(res,401,{error:"Unauthorized"});return;}
   const url=new URL(req.url||"/","http://127.0.0.1");
@@ -41,9 +60,7 @@ const server=createServer(async(req,res)=>{
     if(length>MAX){send(res,413,{error:"File exceeds 64 MB"});return;}
     const temp=finalPath+"."+createHash("sha256").update(String(Date.now())+Math.random()).digest("hex").slice(0,12)+".part";
     try{
-      await mkdir(dirname(finalPath),{recursive:true});
-      const parent=await realpath(dirname(finalPath));
-      if(parent!==STORAGE_ROOT&&!parent.startsWith(STORAGE_ROOT+sep))throw new Error("Invalid storage path");
+      await ensureSafeParent(finalPath);
       try{if((await lstat(finalPath)).isSymbolicLink())throw new Error("Symbolic links are not allowed");}catch(error){if(error.code!=="ENOENT")throw error;}
       let size=0;
       const limiter= new (await import("node:stream")).Transform({transform(chunk,enc,cb){size+=chunk.length;if(size>MAX){cb(new Error("File exceeds 64 MB"));return;}cb(null,chunk);}});
