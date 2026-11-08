@@ -287,7 +287,7 @@ test("production release requires explicit manual confirmation and deploys Worke
   assert.ok(!releaseWorkflow.includes("build-android"));
 });
 
-test("short-form YouTube video builds a 1–3 minute preview and uploads privately", () => {
+test("short-form YouTube video builds a 1–3 minute preview and supports explicit publishing", () => {
   assert.ok(worker.includes("SHORT-FORM YouTube video script designed for a 1–3 minute"));
   assert.ok(app.includes("سناریوی ویدئوی کوتاه انگلیسی ۱ تا ۳ دقیقه‌ای"));
   assert.ok(app.includes("slides.length>48"));
