@@ -17,7 +17,7 @@ try {
 } catch {}
 const TOKEN=String(process.env.AIBC_RENDERER_TOKEN||"");
 const PORT=Math.max(1024,Math.min(65535,Number(process.env.AIBC_MEDIA_PORT||8788)));
-const ROOT=resolve(process.env.AIBC_MEDIA_DIR||join(homedir(),"Library","Application Support","AI Business Core","media"));
+const configuredRoot=String(process.env.AIBC_MEDIA_DIR||"").replace(/^~(?=\/)/,homedir());\nconst ROOT=resolve(configuredRoot||join(homedir(),"Library","Application Support","AI Business Core","media"));
 const MAX=64*1024*1024;
 const MIME=new Set(["video/webm","video/mp4","video/quicktime"]);
 if(TOKEN.length<32)throw new Error("AIBC_RENDERER_TOKEN must contain at least 32 characters.");
