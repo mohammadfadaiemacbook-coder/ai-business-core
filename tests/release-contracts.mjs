@@ -172,9 +172,10 @@ test("OAuth state is atomically consumed and refresh failures require reauthoriz
   assert.ok(worker.includes("status='needs_reauth'"));
 });
 
-test("YouTube upload streams the file and quota failures are mapped to Persian 429 responses", () => {
-  assert.ok(worker.includes("body: file.stream()"));
-  assert.ok(!worker.includes("file.arrayBuffer()"));
+test("YouTube uploads are sent to authenticated Mac-local media storage and quota failures map to Persian 429 responses", () => {
+  assert.ok(worker.includes("localMediaFetch(env,workspace,assetId,safeName"));
+  assert.ok(worker.includes("body:await file.arrayBuffer()"));
+  assert.ok(worker.includes("RENDERER_SHARED_SECRET"));
   assert.ok(worker.includes("سهمیه روزانه YouTube API تمام شده است"));
   assert.ok(worker.includes("quotaExceeded"));
 });
