@@ -62,17 +62,16 @@ test("generated video can be published publicly only after an explicit user conf
   assert.ok(worker.includes('requestedPrivacy === "public" && String(form.get("confirmPublic") || "") !== "true"'));
 });
 
-test("Oddlings are procedurally animated during video rendering", () => {
+test("Oddlings use animated procedural portraits during video rendering", () => {
   const start=app.indexOf("function drawOddling(ctx,character,progress=0");
   const end=app.indexOf("function isDuplicateVideo",start);
   const animation=app.slice(start,end);
-  assert.ok(animation.includes("Math.sin(t*5.4)"));
+  assert.ok(animation.includes("Math.sin(t*2.5+id)"));
   assert.ok(animation.includes("ctx.rotate("));
-  assert.ok(animation.includes("blink"));
-  assert.ok(animation.includes("Math.sin(t*8)"));
+  assert.ok(animation.includes("drawOddlingPortrait(portrait,character,true)"));
+  assert.ok(animation.includes("window.__oddlingPortraitCache"));
   assert.ok(app.includes("drawOddling(ctx,selectedOddling(),progress,index)"));
 });
-
 test("single PWA entry remains in place; no renderer or R2 service is introduced", () => {
   assert.match(index, /src="app\.js"/);
   assert.doesNotMatch(app, /queueGeneratedVideoForRenderer|renderer-queue|renderer-status/);
@@ -87,7 +86,7 @@ test("25 original Oddlings are available as a persistent selectable character ca
   assert.match(app, /indexedDB\.open\(CHARACTER_DB,1\)/);
   assert.match(app, /async function importOddlingZip\(file\)/);
   assert.match(app, /rows\.length!==25/);
-  assert.ok(app.includes('data-action="oddling-import"'));
+  assert.ok(app.includes('oddling-pack-download'));
   assert.ok(app.includes('data-action="oddling-select"'));
   assert.match(app, /model-viewer/);
 });
