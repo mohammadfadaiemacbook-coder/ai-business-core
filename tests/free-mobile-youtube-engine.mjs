@@ -49,15 +49,18 @@ test("browser renderer composes Canvas, audio, captions and thumbnail without pa
   assert.match(renderer, /generatedThumbnailBlob=await new Promise/);
 });
 
-test("automatic video upload is private-only and public scheduling controls are absent", () => {
-  const start = app.indexOf("async function uploadGeneratedVideo()");
-  const end = app.indexOf("\nfunction render()", start);
+test("generated video can be published publicly only after an explicit user confirmation", () => {
+  const start = app.indexOf("async function uploadGeneratedVideo(privacyStatus=");
+  const end = app.indexOf("\\nfunction render()", start);
   const upload = app.slice(start, end);
-  assert.match(upload, /body\.append\("privacyStatus","private"\)/);
-  assert.doesNotMatch(upload, /confirmPublic|publishAt|privacyStatus","public/);
-  assert.doesNotMatch(app, /id="autopilot-public"|id="autopilot-publish-at"/);
+  assert.match(upload, /body\\.append\\("privacyStatus",privacyStatus\\)/);
+  assert.match(upload, /privacyStatus==="public"\\)body\\.append\\("confirmPublic","true"\\)/);
+  const publishAt = app.indexOf('if(a==="video-publish"){');
+  const handler = app.slice(publishAt, app.indexOf('if(a==="video-download-again"', publishAt));
+  assert.match(handler, /confirm\\("تأیید انتشار عمومی/);
+  assert.match(handler, /uploadGeneratedVideo\\("public"\\)/);
+  assert.match(worker, /requestedPrivacy === "public" && String\\(form\\.get\\("confirmPublic"\\) \\|\\| ""\\) !== "true"/);
 });
-
 test("single PWA entry remains in place; no renderer or R2 service is introduced", () => {
   assert.match(index, /src="app\.js"/);
   assert.doesNotMatch(app, /queueGeneratedVideoForRenderer|renderer-queue|renderer-status/);
@@ -82,4 +85,16 @@ test("automatic episode prompt is centered on one persistent selected Oddling", 
   assert.match(app, /Main recurring character:/);
   assert.match(app, /drawOddling\(ctx,selectedOddling\(\),progress\)/);
   assert.match(app, /state\.settings\.selectedCharacterId=id/);
+});
+
+
+test("Oddlings are procedurally animated during video rendering", () => {
+  const start=app.indexOf("function drawOddling(ctx,character,progress=0");
+  const end=app.indexOf("\\nfunction isDuplicateVideo",start);
+  const animation=app.slice(start,end);
+  assert.match(animation,/Math\\.sin\\(t\\*5\\.4\\)/);
+  assert.match(animation,/ctx\\.rotate\\(/);
+  assert.match(animation,/blink/);
+  assert.match(animation,/Math\\.sin\\(t\\*8\\)/);
+  assert.match(app,/drawOddling\\(ctx,selectedOddling\\(\\),progress,index\\)/);
 });
