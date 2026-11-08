@@ -208,7 +208,13 @@ async function localMediaFetch(env,workspace,assetId,fileName,init={}){
   return fetchWithTimeout(target,{...init,headers:{authorization:"Bearer "+String(env.RENDERER_SHARED_SECRET||""),...(init.headers||{})}},180000);
 }
 async function localMediaHealth(env){
-  try{const base=safeProviderUrl(env.RENDERER_PUBLIC_URL),url=new URL(base);url.pathname=url.pathname.endsWith("/")?url.pathname.slice(0,-1):url.pathname+"/health";const response=await fetchWithTimeout(url.toString(),{headers:{authorization:"Bearer "+String(env.RENDERER_SHARED_SECRET||"")}},5000);return response.ok}catch{return false}
+  try{
+    const base=safeProviderUrl(env.RENDERER_PUBLIC_URL),url=new URL(base);
+    const prefix=url.pathname.endsWith("/")?url.pathname.slice(0,-1):url.pathname;
+    url.pathname=prefix+"/health";
+    const response=await fetchWithTimeout(url.toString(),{headers:{authorization:"Bearer "+String(env.RENDERER_SHARED_SECRET||"")}},5000);
+    return response.ok;
+  }catch{return false}
 }
 
 export default {
