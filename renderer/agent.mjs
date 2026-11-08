@@ -3,7 +3,8 @@ import { readFile, writeFile, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir, hostname } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { openAsBlob } from "node:fs";
+import { openAsBlob, createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
 
 async function loadEnvFile() {
   try {
@@ -104,9 +105,10 @@ async function processJob(job) {
   try {
     console.log("[job] Downloading source asset " + job.source_asset_id);
     const source = await api("/api/media/assets/" + encodeURIComponent(job.source_asset_id) + "?workspace=" + encodeURIComponent(WORKSPACE));
-    const bytes = Buffer.from(await source.arrayBuffer());
-    if (!bytes.length || bytes.length > 64 * 1024 * 1024) throw new Error("Source video is empty or exceeds 64 MB.");
-    await writeFile(sourcePath, bytes);
+    if (!source.body) throw new Error("Source video response has no readable body.");
+    await pipeline(source.body, createWriteStream(sourcePath, { flags: "wx" }));
+    const sourceInfo = await stat(sourcePath);
+    if (!sourceInfo.size || sourceInfo.size > 64 * 1024 * 1024) throw new Error("Source video is empty or exceeds 64 MB.");
     console.log("[job] Rendering with FFmpeg");
     await runFfmpeg([
       "-y", "-i", sourcePath,
