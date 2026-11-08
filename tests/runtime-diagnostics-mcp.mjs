@@ -9,6 +9,8 @@ const migration = await readFile(new URL("../migrations/0009_app_runtime_errors.
 
 test("browser errors remain local and are optionally synchronized only through an authenticated session", () => {
   assert.ok(app.includes("localStorage.setItem(ERROR_LOG_KEY"));
+  assert.ok(app.includes("async function syncPendingRuntimeDiagnostics()"));
+  assert.ok(app.includes("id:id()"));
   assert.ok(app.includes("if(!cloudToken||!navigator.onLine)return"));
   assert.ok(app.includes("/api/diagnostics/report?workspace="));
   assert.ok(app.includes("Bearer [REDACTED]"));
@@ -20,6 +22,7 @@ test("diagnostic ingestion is authenticated, workspace-scoped, bounded and rate-
   assert.ok(worker.includes('enforceRateLimit(env.DB,workspace,"runtime-diagnostics",20,headers)'));
   assert.ok(worker.includes("Diagnostic report too large"));
   assert.ok(worker.includes("Could not store runtime diagnostic"));
+  assert.ok(worker.includes("INSERT OR IGNORE INTO app_runtime_errors"));
   assert.ok(migration.includes("CREATE TABLE IF NOT EXISTS app_runtime_errors"));
 });
 
