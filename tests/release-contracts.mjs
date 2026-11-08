@@ -130,7 +130,7 @@ test("YouTube comment write permission is requested during OAuth", () => {
 test("long-form video recorder requires synthesized English narration and attaches it to the video stream", () => {
   assert.match(app, /createMediaStreamDestination/);
   assert.match(app, /audioDestination\.stream\.getAudioTracks\(\)/);
-  assert.match(app, /برای ساخت ویدئوی بلند با گویندگی انگلیسی/);
+  assert.match(app, /برای ساخت ویدئوی کوتاه، ابتدا توکن دسترسی را وارد کن/);
   assert.match(app, /decodeAudioData\(audioParts\[i\]\.slice\(0\)\)/);
 });
 
@@ -312,7 +312,8 @@ test("English voice preview explicitly requests the English voice", () => {
 
 test("English and Persian TTS capabilities are reported independently", () => {
   assert.match(worker, /ttsPersian:!!\(secrets\.elevenlabsKey&&secrets\.elevenlabsVoiceId\)/);
-  assert.match(worker, /ttsEnglish:!!\(secrets\.elevenlabsKey&&secrets\.elevenlabsEnglishVoiceId\)/);
+  assert.match(worker, /ttsFreeEnglish:freeEnglishTts/);
+  assert.match(worker, /ttsEnglish:!!\(freeEnglishTts\|\|secrets\.elevenlabsKey&&secrets\.elevenlabsEnglishVoiceId\)/);
   assert.match(app, /\["ttsEnglish","گویندگی انگلیسی"\]/);
 });
 
@@ -370,9 +371,9 @@ test("YouTube workspace has one primary preparation action, inline preview, feed
 });
 
 
-test("YouTube publish-time estimate uses recent channel video statistics and labels its confidence", () => {
-  assert.ok(app.includes('data-action="youtube-best-time" data-target="autopilot-publish-at"'));
-  assert.ok(app.includes("میانگین بازدید ساعتی در این ساعت"));
+test("public scheduling is disabled for the private-only mobile engine", () => {
+  assert.ok(app.includes('if(a==="youtube-schedule"){toast("زمان‌بندی انتشار در این شاخه غیرفعال است'));
+  assert.ok(!app.includes('id="autopilot-publish-at"'));
   assert.ok(worker.includes("part=statistics&id="));
   assert.ok(worker.includes("viewCount:stats.get(v.videoId)||0"));
 });
@@ -597,7 +598,7 @@ test("all media capability, image and TTS requests are scoped to the active work
   for (const route of ["capabilities", "image", "tts"]) {
     assert.ok(app.includes('/api/media/'+route+'?workspace="+encodeURIComponent(cloudWorkspaceId())'));
   }
-  assert.equal((app.match(/\/api\/media\/image\?workspace=/g)||[]).length, 2);
+  assert.equal((app.match(/\/api\/media\/image\?workspace=/g)||[]).length, 1);
   assert.equal((app.match(/\/api\/media\/tts\?workspace=/g)||[]).length, 2);
 });
 
