@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile, writeFile, mkdtemp, rm, stat } from "node:fs/promises";
+import { readFile, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir, hostname } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
