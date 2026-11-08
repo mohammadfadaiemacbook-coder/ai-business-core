@@ -1,0 +1,183 @@
+{
+  "pack": "The 25 Oddlings",
+  "version": 1,
+  "format": "glTF 2.0 binary (.glb)",
+  "modelNote": "Original stylized static 3D meshes; not rigged or animated.",
+  "characters": [
+    {
+      "id": 1,
+      "name": "Zogberry",
+      "persona": "The curious forest prankster",
+      "visualSignature": "two leaf horns",
+      "file": "01_zogberry.glb"
+    },
+    {
+      "id": 2,
+      "name": "Mufflump",
+      "persona": "The soft-hearted chaos maker",
+      "visualSignature": "curly top tuft",
+      "file": "02_mufflump.glb"
+    },
+    {
+      "id": 3,
+      "name": "Bramblepop",
+      "persona": "The wild inventor of the grove",
+      "visualSignature": "thorny crown",
+      "file": "03_bramblepop.glb"
+    },
+    {
+      "id": 4,
+      "name": "Glimbo",
+      "persona": "The stargazing crystal genius",
+      "visualSignature": "crystal antennae",
+      "file": "04_glimbo.glb"
+    },
+    {
+      "id": 5,
+      "name": "Noodleknit",
+      "persona": "The floppy-eared storyteller",
+      "visualSignature": "long floppy ears",
+      "file": "05_noodleknit.glb"
+    },
+    {
+      "id": 6,
+      "name": "Crumbuzzle",
+      "persona": "The snack-loving puzzle master",
+      "visualSignature": "cookie-chip crest",
+      "file": "06_crumbuzzle.glb"
+    },
+    {
+      "id": 7,
+      "name": "Wobblewick",
+      "persona": "The tiny explorer with huge ideas",
+      "visualSignature": "single spiral horn",
+      "file": "07_wobblewick.glb"
+    },
+    {
+      "id": 8,
+      "name": "Fizzlefern",
+      "persona": "The botanical spell tinkerer",
+      "visualSignature": "fern-shaped hair",
+      "file": "08_fizzlefern.glb"
+    },
+    {
+      "id": 9,
+      "name": "Grumblegum",
+      "persona": "The grumpy but loyal guardian",
+      "visualSignature": "short tusks",
+      "file": "09_grumblegum.glb"
+    },
+    {
+      "id": 10,
+      "name": "Pipkinox",
+      "persona": "The gadget builder from the ice caves",
+      "visualSignature": "three crystal spikes",
+      "file": "10_pipkinox.glb"
+    },
+    {
+      "id": 11,
+      "name": "Snorfle",
+      "persona": "The glasses-wearing comic genius",
+      "visualSignature": "pom-pom antenna",
+      "file": "11_snorfle.glb"
+    },
+    {
+      "id": 12,
+      "name": "Twinklebog",
+      "persona": "The moonlit marsh dreamer",
+      "visualSignature": "glowing crown",
+      "file": "12_twinklebog.glb"
+    },
+    {
+      "id": 13,
+      "name": "Bloopadoo",
+      "persona": "The bubbly ocean mischief-maker",
+      "visualSignature": "fin-like ears",
+      "file": "13_bloopadoo.glb"
+    },
+    {
+      "id": 14,
+      "name": "Mossmunch",
+      "persona": "The gentle giant of the old woods",
+      "visualSignature": "mossy top fringe",
+      "file": "14_mossmunch.glb"
+    },
+    {
+      "id": 15,
+      "name": "Quirkle",
+      "persona": "The unpredictable color-shifting trickster",
+      "visualSignature": "zigzag hair",
+      "file": "15_quirkle.glb"
+    },
+    {
+      "id": 16,
+      "name": "Dazzlegrit",
+      "persona": "The desert gem collector",
+      "visualSignature": "swept-back spikes",
+      "file": "16_dazzlegrit.glb"
+    },
+    {
+      "id": 17,
+      "name": "Puddleplop",
+      "persona": "The rain-loving optimist",
+      "visualSignature": "droplet crest",
+      "file": "17_puddleplop.glb"
+    },
+    {
+      "id": 18,
+      "name": "Taterwhisk",
+      "persona": "The patchwork village chef",
+      "visualSignature": "sprout hair",
+      "file": "18_taterwhisk.glb"
+    },
+    {
+      "id": 19,
+      "name": "Yondergob",
+      "persona": "The wandering horned adventurer",
+      "visualSignature": "curved ram horns",
+      "file": "19_yondergob.glb"
+    },
+    {
+      "id": 20,
+      "name": "Bibblebop",
+      "persona": "The cheerful heart-powered friend",
+      "visualSignature": "twin pom-poms",
+      "file": "20_bibblebop.glb"
+    },
+    {
+      "id": 21,
+      "name": "Cindermallow",
+      "persona": "The tiny fire-forged showoff",
+      "visualSignature": "flame-shaped crest",
+      "file": "21_cindermallow.glb"
+    },
+    {
+      "id": 22,
+      "name": "Frooplet",
+      "persona": "The garden sprite with a bowtie",
+      "visualSignature": "wide leaf ears",
+      "file": "22_frooplet.glb"
+    },
+    {
+      "id": 23,
+      "name": "Jumblejolt",
+      "persona": "The lightning-fast chaos engineer",
+      "visualSignature": "lightning hair",
+      "file": "23_jumblejolt.glb"
+    },
+    {
+      "id": 24,
+      "name": "Ponkadoo",
+      "persona": "The bubblegum-colored prankster",
+      "visualSignature": "three soft horns",
+      "file": "24_ponkadoo.glb"
+    },
+    {
+      "id": 25,
+      "name": "Velvetusk",
+      "persona": "The elegant little tusked diplomat",
+      "visualSignature": "velvet-like swept tuft",
+      "file": "25_velvetusk.glb"
+    }
+  ]
+}
