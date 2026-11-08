@@ -51,16 +51,28 @@ test("browser renderer composes Canvas, audio, captions and thumbnail without pa
 
 test("generated video can be published publicly only after an explicit user confirmation", () => {
   const start = app.indexOf("async function uploadGeneratedVideo(privacyStatus=");
-  const end = app.indexOf("\\nfunction render()", start);
+  const end = app.indexOf("function render()", start);
   const upload = app.slice(start, end);
-  assert.match(upload, /body\\.append\\("privacyStatus",privacyStatus\\)/);
-  assert.match(upload, /privacyStatus==="public"\\)body\\.append\\("confirmPublic","true"\\)/);
+  assert.ok(upload.includes('body.append("privacyStatus",privacyStatus)'));
+  assert.ok(upload.includes('if(privacyStatus==="public")body.append("confirmPublic","true")'));
   const publishAt = app.indexOf('if(a==="video-publish"){');
   const handler = app.slice(publishAt, app.indexOf('if(a==="video-download-again"', publishAt));
-  assert.match(handler, /confirm\\("تأیید انتشار عمومی/);
-  assert.match(handler, /uploadGeneratedVideo\\("public"\\)/);
-  assert.match(worker, /requestedPrivacy === "public" && String\\(form\\.get\\("confirmPublic"\\) \\|\\| ""\\) !== "true"/);
+  assert.ok(handler.includes('confirm("تأیید انتشار عمومی'));
+  assert.ok(handler.includes('uploadGeneratedVideo("public")'));
+  assert.ok(worker.includes('requestedPrivacy === "public" && String(form.get("confirmPublic") || "") !== "true"'));
 });
+
+test("Oddlings are procedurally animated during video rendering", () => {
+  const start=app.indexOf("function drawOddling(ctx,character,progress=0");
+  const end=app.indexOf("function isDuplicateVideo",start);
+  const animation=app.slice(start,end);
+  assert.ok(animation.includes("Math.sin(t*5.4)"));
+  assert.ok(animation.includes("ctx.rotate("));
+  assert.ok(animation.includes("blink"));
+  assert.ok(animation.includes("Math.sin(t*8)"));
+  assert.ok(app.includes("drawOddling(ctx,selectedOddling(),progress,index)"));
+});
+
 test("single PWA entry remains in place; no renderer or R2 service is introduced", () => {
   assert.match(index, /src="app\.js"/);
   assert.doesNotMatch(app, /queueGeneratedVideoForRenderer|renderer-queue|renderer-status/);
