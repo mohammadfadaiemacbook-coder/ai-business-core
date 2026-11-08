@@ -6,6 +6,18 @@ const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const worker = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
+test("all short-video text generation is pinned to Gemini free tier", () => {
+  const start = worker.indexOf("if(body.freeOnly===true)");
+  const end = worker.indexOf('if (!env.AI_API_KEY', start);
+  const route = worker.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(route, /gemini-2\.5-flash:generateContent/);
+  assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
+  assert.match(app, /body:JSON\.stringify\(\{task,inputs,freeOnly:true\}\)/);
+  assert.match(app, /task:"video_script",freeOnly:true/);
+  assert.match(app, /task:"yt_full_pipeline",freeOnly:true/);
+});
+
 test("English free TTS uses Gemini and has no paid fallback", () => {
   assert.match(worker, /mediaSecrets\.geminiKey/);
   assert.match(worker, /gemini-2\.5-flash-preview-tts/);
