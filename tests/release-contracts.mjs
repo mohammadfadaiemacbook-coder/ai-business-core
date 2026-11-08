@@ -614,7 +614,7 @@ test("YouTube view survives older or incomplete local settings and exposes a ren
   assert.ok(app.includes('data-action="retry-render"'));
 });
 
-test("Home dashboard replaces the mobile drawer with direct section cards", () => {
+test("Home dashboard and restored navigation expose every implemented section", () => {
   assert.ok(!html.includes('id="sidebar"'));
   assert.ok(!html.includes('id="mobile-menu"'));
   assert.ok(html.includes('class="home-brand"'));
@@ -624,7 +624,7 @@ test("Home dashboard replaces the mobile drawer with direct section cards", () =
   const homeStart = app.indexOf("function overview()");
   const homeEnd = app.indexOf("function stat(", homeStart);
   const homeMarkup = app.slice(homeStart, homeEnd);
-  assert.ok(!homeMarkup.includes('["tasks"'));
+  assert.ok(homeMarkup.includes('["tasks"'));\n  assert.ok(homeMarkup.includes('["research"'));\n  assert.ok(homeMarkup.includes('["content"'));\n  assert.ok(html.includes('id="app-sidebar"'));\n  assert.ok(html.includes('data-action="toggle-menu"'));
   assert.ok(css.includes(".home-module-grid"));
 });
 
