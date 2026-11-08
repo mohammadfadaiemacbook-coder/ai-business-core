@@ -249,10 +249,13 @@ test("Cloudflare deployment preserves existing vars and does not replace the con
   assert.ok(!/^AI_MODEL\\s*=/m.test(wranglerTemplate));
 });
 
-test("Cloudflare preview deployments cannot bind to the production D1 database", async () => {
+test("Cloudflare preview deployments use a dedicated staging D1 database", async () => {
   const config = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
-  assert.doesNotMatch(config, /\[\[previews\.d1_databases\]\]/);
+  assert.match(config, /\[\[previews\.d1_databases\]\]/);
+  assert.match(config, /database_name = "ai-business-core-preview"/);
+  assert.match(config, /database_id = "e709fe6a-6fc3-40c7-b623-3bda290503c9"/);
   assert.match(config, /database_name = "ai-business-core-db"/);
+  assert.match(config, /database_id = "a2efe780-1b52-4a56-9bfe-aa0ec531842e"/);
 });
 test("production release runs syntax and contract tests before any Cloudflare operation", () => {
   const validation = releaseWorkflow.indexOf("Validate app, Worker and release contracts");
