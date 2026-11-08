@@ -733,3 +733,9 @@ test("Worker static assets exclude source, renderer, migrations, tests and opera
   }
   assert.match(wrangler, /\[assets\][\s\S]*directory\s*=\s*"\.\/"[\s\S]*run_worker_first/);
 });
+
+
+test("CI performs an unauthenticated Wrangler dry run before release", async () => {
+  const workflow = await readFile(new URL("../.github/workflows/validate.yml", import.meta.url), "utf8");
+  assert.match(workflow, /wrangler@4 deploy --dry-run/);
+});
