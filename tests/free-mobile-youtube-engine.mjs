@@ -72,8 +72,8 @@ test("25 original Oddlings are available as a persistent selectable character ca
   assert.match(app, /indexedDB\.open\(CHARACTER_DB,1\)/);
   assert.match(app, /async function importOddlingZip\(file\)/);
   assert.match(app, /rows\.length!==25/);
-  assert.match(app, /data-action=\\\"oddling-import\\\"/);
-  assert.match(app, /data-action=\\\"oddling-select\\\"/);
+  assert.ok(app.includes('data-action="oddling-import"'));
+  assert.ok(app.includes('data-action="oddling-select"'));
   assert.match(app, /model-viewer/);
 });
 
