@@ -26,8 +26,10 @@ test("first-run dashboard exposes secure token and workspace onboarding", () => 
   assert.match(app, /function cloudWorkspaceId\(\)[\s\S]*?ai-business-core-workspace-v1/);
 });
 
-test("GitHub Pages publishes automatically after a successful main update", () => {
-  assert.match(deploy, /push:[\s\S]*?branches:\s*\[main\]/);
-  assert.match(deploy, /github\.event_name == 'push' \|\| inputs\.confirm_publish == 'PUBLISH'/);
+test("GitHub Pages deployment requires explicit manual confirmation and never runs on push", () => {
+  assert.match(deploy, /^on:\s*\n\s+workflow_dispatch:/m);
+  assert.doesNotMatch(deploy, /^\s+push:/m);
+  assert.match(deploy, /if: github\.event_name == 'workflow_dispatch' && inputs\.confirm_publish == 'PUBLISH'/);
+  assert.match(deploy, /default: NO/);
   assert.match(deploy, /actions\/deploy-pages@v4/);
 });
