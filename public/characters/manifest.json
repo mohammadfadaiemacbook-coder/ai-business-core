@@ -2,7 +2,7 @@
   "pack": "The 25 Oddlings",
   "version": 1,
   "format": "glTF 2.0 binary (.glb)",
-  "modelNote": "Original stylized static 3D meshes; not rigged or animated.",
+  "modelNote": "The manifest lists intended GLB filenames only. No actual GLB model assets are currently included; no rigging or animation can be claimed.",
   "characters": [
     {
       "id": 1,
@@ -179,5 +179,7 @@
       "visualSignature": "velvet-like swept tuft",
       "file": "25_velvetusk.glb"
     }
-  ]
+  ],
+  "assetStatus": "metadata-only; the 25 referenced GLB files are not present in this repository",
+  "portraitRendering": "The current in-app portraits are procedurally drawn as 2D Canvas PNGs."
 }
