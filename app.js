@@ -150,7 +150,61 @@ function oddlingPalette(key){const colors={mint:"#59d1a6",plum:"#4d1f57",gold:"#
 function oddlingStore(){return new Promise((resolve,reject)=>{const req=indexedDB.open(CHARACTER_DB,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains("models"))req.result.createObjectStore("models")};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 async function getOddlingModel(id){const db=await oddlingStore();return new Promise((resolve,reject)=>{const req=db.transaction("models").objectStore("models").get(String(id));req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
 async function saveOddlingModels(rows){const db=await oddlingStore();return new Promise((resolve,reject)=>{const tx=db.transaction("models","readwrite"),store=tx.objectStore("models");for(const row of rows)store.put(row.blob,String(row.id));tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
-async function importOddlingZip(file){if(!file||!file.name.toLowerCase().endsWith(".zip"))throw Error("فایل ZIP مجموعه شخصیت‌ها را انتخاب کن.");if(file.size>20*1024*1024)throw Error("حجم ZIP بیش از ۲۰ مگابایت است.");if(typeof DecompressionStream==="undefined")throw Error("مرورگر این دستگاه بازکردن ZIP را پشتیبانی نمی‌کند؛ Chrome به‌روز را امتحان کن.");const buf=await file.arrayBuffer(),view=new DataView(buf);let eocd=-1;for(let p=buf.byteLength-22;p>=Math.max(0,buf.byteLength-65557);p--){if(view.getUint32(p,true)===0x06054b50){eocd=p;break}}if(eocd<0)throw Error("ساختار ZIP معتبر نیست.");const count=view.getUint16(eocd+10,true);let pos=view.getUint32(eocd+16,true),rows=[],manifestRow=null;for(let n=0;n<count;n++){if(view.getUint32(pos,true)!==0x02014b50)throw Error("فهرست ZIP خراب است.");const method=view.getUint16(pos+10,true),compressed=view.getUint32(pos+20,true),nameLen=view.getUint16(pos+28,true),extraLen=view.getUint16(pos+30,true),commentLen=view.getUint16(pos+32,true),local=view.getUint32(pos+42,true),name=new TextDecoder().decode(new Uint8Array(buf,pos+46,nameLen));pos+=46+nameLen+extraLen+commentLen;if(!name.endsWith(".glb")&&!name.endsWith("manifest.json"))continue;const localName=view.getUint16(local+26,true),localExtra=view.getUint16(local+28,true),start=local+30+localName+localExtra,part=buf.slice(start,start+compressed);let data;if(method===0)data=part;else if(method===8){const stream=new Blob([part]).stream().pipeThrough(new DecompressionStream("deflate-raw"));data=await new Response(stream).arrayBuffer()}else throw Error("روش فشرده‌سازی ZIP پشتیبانی نمی‌شود.");if(name.endsWith("manifest.json")){manifestRow=JSON.parse(new TextDecoder().decode(data));continue}const leaf=name.split("/").pop(),match=leaf.match(/^(\\d+)_([a-z0-9-]+)\\.glb$/i);if(!match)continue;const id=Number(match[1]);if(ODDLINGS.some(x=>x.id===id))rows.push({id,blob:new Blob([data],{type:"model/gltf-binary"}),file:leaf})}if(rows.length!==25)throw Error("از ZIP فقط "+rows.length+" مدل معتبر شناسایی شد؛ انتظار ۲۵ مدل بود.");await saveOddlingModels(rows);localStorage.setItem("aibc-oddling-pack-installed-v1",JSON.stringify({count:rows.length,at:new Date().toISOString(),manifest:manifestRow?.pack||"The 25 Oddlings"}));await renderOddlingLibrary();toast("هر ۲۵ مدل سه‌بعدی وارد کتابخانه محلی اپ شد.")}
+async function importOddlingZip(file){
+  if(!file||!file.name.toLowerCase().endsWith(".zip"))throw Error("فایل ZIP مجموعه شخصیت‌ها را انتخاب کن.");
+  if(file.size>150*1024*1024)throw Error("حجم ZIP بیش از ۱۵۰ مگابایت است؛ برای موبایل بسته را سبک‌تر کن.");
+  if(typeof DecompressionStream==="undefined")throw Error("مرورگر این دستگاه بازکردن ZIP را پشتیبانی نمی‌کند؛ Chrome به‌روز را امتحان کن.");
+  const buf=await file.arrayBuffer(),view=new DataView(buf);
+  let eocd=-1;
+  for(let p=buf.byteLength-22;p>=Math.max(0,buf.byteLength-65557);p--){if(p+4<=buf.byteLength&&view.getUint32(p,true)===0x06054b50){eocd=p;break}}
+  if(eocd<0)throw Error("ساختار ZIP معتبر نیست.");
+  const count=view.getUint16(eocd+10,true);
+  if(count>100)throw Error("تعداد فایل‌های ZIP غیرعادی است.");
+  let pos=view.getUint32(eocd+16,true),rows=[],manifestRow=null,totalExpanded=0;
+  const seen=new Set(),expectedById=new Map(ODDLINGS.map(x=>[x.id,x]));
+  for(let n=0;n<count;n++){
+    if(pos+46>buf.byteLength||view.getUint32(pos,true)!==0x02014b50)throw Error("فهرست ZIP خراب یا ناقص است.");
+    const method=view.getUint16(pos+10,true),compressed=view.getUint32(pos+20,true),expanded=view.getUint32(pos+24,true),nameLen=view.getUint16(pos+28,true),extraLen=view.getUint16(pos+30,true),commentLen=view.getUint16(pos+32,true),local=view.getUint32(pos+42,true);
+    if(pos+46+nameLen+extraLen+commentLen>buf.byteLength)throw Error("فهرست ZIP از محدوده فایل خارج شده است.");
+    const name=new TextDecoder().decode(new Uint8Array(buf,pos+46,nameLen));
+    pos+=46+nameLen+extraLen+commentLen;
+    if(name.endsWith("/"))continue;
+    if(!name.endsWith(".glb")&&!name.endsWith("manifest.json"))continue;
+    if(expanded>30*1024*1024)throw Error("یکی از فایل‌های مدل بیش از ۳۰ مگابایت است.");
+    totalExpanded+=expanded;
+    if(totalExpanded>300*1024*1024)throw Error("حجم بازشده ZIP از سقف ایمن ۳۰۰ مگابایت بیشتر است.");
+    if(local+30>buf.byteLength||view.getUint32(local,true)!==0x04034b50)throw Error("سرآیند یکی از فایل‌های ZIP خراب است.");
+    const localName=view.getUint16(local+26,true),localExtra=view.getUint16(local+28,true),dataStart=local+30+localName+localExtra;
+    if(dataStart+compressed>buf.byteLength)throw Error("داده یکی از فایل‌های ZIP ناقص است.");
+    const part=buf.slice(dataStart,dataStart+compressed);
+    let data;
+    if(method===0)data=part;
+    else if(method===8){const stream=new Blob([part]).stream().pipeThrough(new DecompressionStream("deflate-raw"));data=await new Response(stream).arrayBuffer()}
+    else throw Error("روش فشرده‌سازی ZIP پشتیبانی نمی‌شود.");
+    if(data.byteLength!==expanded)throw Error("اندازه بازشده یکی از فایل‌های ZIP با فهرست آن مطابقت ندارد.");
+    if(name.endsWith("manifest.json")){
+      if(manifestRow)throw Error("ZIP بیش از یک manifest دارد.");
+      try{manifestRow=JSON.parse(new TextDecoder().decode(data))}catch{throw Error("manifest.json معتبر نیست.")}
+      continue;
+    }
+    const leaf=name.split("/").pop(),match=leaf.match(/^(\d{2})_([a-z0-9-]+)\.glb$/i);
+    if(!match)throw Error("نام فایل مدل با الگوی بسته شخصیت‌ها مطابقت ندارد: "+leaf);
+    const id=Number(match[1]),expected=expectedById.get(id);
+    if(!expected||expected.file.toLowerCase()!==leaf.toLowerCase())throw Error("فایل "+leaf+" متعلق به مجموعه ۲۵ شخصیت این اپ نیست.");
+    if(seen.has(id))throw Error("مدل تکراری برای شخصیت "+expected.name+" در ZIP پیدا شد.");
+    if(data.byteLength<20)throw Error("فایل GLB شخصیت "+expected.name+" خالی یا ناقص است.");
+    const glb=new DataView(data);
+    if(glb.getUint32(0,true)!==0x46546c67||glb.getUint32(4,true)!==2||glb.getUint32(8,true)!==data.byteLength)throw Error("ساختار GLB نسخه ۲ برای شخصیت "+expected.name+" معتبر نیست.");
+    seen.add(id);
+    rows.push({id,blob:new Blob([data],{type:"model/gltf-binary"}),file:leaf});
+  }
+  if(rows.length!==25||seen.size!==25||ODDLINGS.some(x=>!seen.has(x.id)))throw Error("از ZIP فقط "+rows.length+" مدل یکتای معتبر شناسایی شد؛ هر ۲۵ مدل مستقل لازم است.");
+  if(manifestRow&&Array.isArray(manifestRow.characters)&&manifestRow.characters.length!==25)throw Error("تعداد شخصیت‌های manifest با بسته ۲۵تایی مطابقت ندارد.");
+  await saveOddlingModels(rows);
+  localStorage.setItem("aibc-oddling-pack-installed-v1",JSON.stringify({count:rows.length,at:new Date().toISOString(),manifest:manifestRow?.pack||manifestRow?.version||"The 25 Oddlings"}));
+  await renderOddlingLibrary();
+  toast("هر ۲۵ فایل GLB معتبر وارد کتابخانه محلی اپ شد.");
+}
 const ODDLING_TRAITS=[
 ["مرد","قدبلند و ورزیده","masculine","athletic"],["مرد","درشت‌اندام","masculine","heavy"],["مرد","لاغر و کشیده","masculine","lean"],["مرد","کوتاه و چهارشانه","masculine","stocky"],["مرد","عضلانی","masculine","muscular"],["مرد","شکم‌دار و بانمک","masculine","round"],["مرد","قدبلند و باریک","masculine","tall"],["مرد","چهارچوب پهن","masculine","broad"],["مرد","چابک و ریزاندام","masculine","compact"],["مرد","پیر و تنومند","masculine","elder"],
 ["زن","قدبلند و ورزیده","feminine","athletic"],["زن","اندام منحنی","feminine","curvy"],["زن","ظریف و کشیده","feminine","slim"],["زن","کوتاه و چابک","feminine","petite"],["زن","چهارچوب قوی","feminine","strong"],["زن","اندام گرد","feminine","round"],["زن","قدبلند و باریک","feminine","tall"],["زن","ورزیده","feminine","muscular"],["زن","ریزاندام","feminine","compact"],["زن","بالغ و باوقار","feminine","elder"],
@@ -213,7 +267,7 @@ async function renderOddlingLibrary(){
 const box=$("#oddling-library");if(!box)return;const selected=selectedOddling(),cards=ODDLINGS.map(x=>{const tr=oddlingTraits(x);return '<button type="button" class="oddling-card oddling-id-'+x.id+' '+(x.id===selected.id?'active':'')+'" data-action="oddling-select" data-id="'+x.id+'"><canvas class="oddling-portrait" width="180" height="220" data-portrait-id="'+x.id+'" aria-label="'+esc(x.name)+'"></canvas><strong>'+esc(x.name)+'</strong><small>'+esc(tr[0])+' · '+esc(tr[1])+'</small><small>'+esc(x.persona)+'</small></button>'}).join("");
 box.innerHTML='<div class="panel-head"><div><span class="eyebrow">NEXORA ORIGINAL CAST</span><h2>۲۵ شخصیت اختصاصی Oddlings</h2><p class="muted">۲۵ طراحی مستقل با جنسیت، تناسب اندام، چهره، رنگ و پوشش متفاوت؛ ساخته‌شده در خود اپ و بدون سرویس تصویر پولی.</p></div><span class="pill">۲۵ شخصیت کدنویسی‌شده</span></div><div class="actions"><button class="button primary" data-action="oddling-pack-download">ساخت و دریافت ZIP بسته شخصیت‌ها (PNG)</button><button class="button secondary" data-action="oddling-import">واردکردن بسته مدل سه‌بعدی GLB</button><input id="oddling-zip-input" type="file" accept=".zip,application/zip" hidden><small class="muted">ZIP فعلی شامل ۲۵ پرتره PNG است. برای نمایش مدل سه‌بعدی باید بسته مستقل GLB در اختیار داشته باشی.</small></div><div class="oddling-selected"><div><strong>'+esc(selected.name)+'</strong><p>'+esc(oddlingTraits(selected)[0]+' · '+oddlingTraits(selected)[1]+' · '+selected.persona)+'</p><canvas id="oddling-selected-portrait" width="360" height="440" class="oddling-selected-portrait"></canvas><div id="oddling-model-viewer"><model-viewer id="oddling-model" camera-controls auto-rotate shadow-intensity="1" hidden style="width:100%;height:280px;background:linear-gradient(135deg,#101b31,#263c60);border-radius:16px"></model-viewer></div></div><div class="oddling-detail"><h3>شناسنامه شخصیت</h3><p>'+esc(selected.visualSignature)+'</p><p>جنسیت/تیپ: '+esc(oddlingTraits(selected)[0])+'</p><p>فرم بدن: '+esc(oddlingTraits(selected)[1])+'</p><p>این شخصیت برای صحنه‌های ویدئو با موتور Canvas فعلی قابل استفاده است. مدل سه‌بعدی قابل چرخش هنوز نیازمند فایل GLB مستقل است.</p></div></div><div class="oddling-grid">'+cards+'</div>';
 for(const c of box.querySelectorAll("canvas[data-portrait-id]")){const character=ODDLINGS.find(x=>x.id===Number(c.dataset.portraitId));if(character)drawOddlingPortrait(c,character,false)}
-const big=$("#oddling-selected-portrait");if(big)drawOddlingPortrait(big,selected,false);const storedModel=await getOddlingModel(selected.id).catch(()=>null),viewer=$("#oddling-model");if(storedModel&&viewer){if(!customElements.get("model-viewer")){const script=document.createElement("script");script.type="module";script.src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js";document.head.appendChild(script);await customElements.whenDefined("model-viewer")}if(window.__oddlingModelUrl)URL.revokeObjectURL(window.__oddlingModelUrl);window.__oddlingModelUrl=URL.createObjectURL(storedModel);viewer.hidden=false;viewer.setAttribute("src",window.__oddlingModelUrl)}
+const big=$("#oddling-selected-portrait"),storedModel=await getOddlingModel(selected.id).catch(()=>null),viewer=$("#oddling-model");if(storedModel&&viewer){if(!customElements.get("model-viewer")){const script=document.createElement("script");script.type="module";script.src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js";document.head.appendChild(script);await customElements.whenDefined("model-viewer")}if(window.__oddlingModelUrl)URL.revokeObjectURL(window.__oddlingModelUrl);window.__oddlingModelUrl=URL.createObjectURL(storedModel);viewer.hidden=false;if(big)big.hidden=true;viewer.setAttribute("src",window.__oddlingModelUrl)}else{if(viewer){viewer.hidden=true;viewer.removeAttribute("src")}if(big){big.hidden=false;drawOddlingPortrait(big,selected,false)}}
 }function drawOddling(ctx,character,progress=0,sceneIndex=0){
 const id=Number(character.id||1),t=performance.now()/1000+sceneIndex*.83+progress*6.28,bob=Math.sin(t*2.5+id)*7,walk=Math.sin(t*5.4),sway=Math.sin(t*1.6+id)*.025,blink=Math.sin(t*1.7+id)>.985,jaw=Math.abs(Math.sin(t*8));
 if(!window.__oddlingPortraitCache)window.__oddlingPortraitCache=new Map();
