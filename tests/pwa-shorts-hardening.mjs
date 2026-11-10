@@ -45,7 +45,7 @@ test("all YouTube production tasks are forced onto the Gemini free-only path ser
   const start = worker.indexOf("if(body.freeOnly===true");
   const end = worker.indexOf('if (!env.AI_API_KEY', start);
   const route = worker.slice(start, end);
-  assert.match(route, /gemini-2\.5-flash:generateContent/);
+  assert.match(route, /gemini-3\.5-flash-lite:generateContent/);
   assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
 });
 
