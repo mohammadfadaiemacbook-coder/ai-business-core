@@ -106,7 +106,7 @@ function makeFiles({ count = 25, rigged = true, manifestOverrides = {}, mutate =
   if (mutate) mutate(files);
   return files;
 }
-async function runImport(files) {
+async function runImportBlob(blob) {
   let saved = null, metadata = null;
   const context = {
     ODDLINGS: manifest.characters.map(x => ({ ...x })),
@@ -124,12 +124,14 @@ async function runImport(files) {
   };
   const importer = await vm.runInNewContext("(async()=>{" + importerSource + ";return importOddlingZip})()", context);
   try {
-    await importer(makeZip(files));
+    await importer(blob);
     return { saved, metadata, error: null };
   } catch (error) {
     return { saved, metadata, error: error.message };
   }
 }
+
+async function runImport(files) { return runImportBlob(makeZip(files)); }
 
 test("imports exactly 25 unique, rigged and animated GLB 2.0 models only after full validation", async () => {
   const result = await runImport(makeFiles());
@@ -152,7 +154,15 @@ test("rejects an unrigged or unanimated GLB", async () => {
 });
 
 test("rejects corrupted ZIP data using CRC before saving", async () => {
-  const result = await runImport(makeFiles({ mutate: files => { files[0].bytes[25] ^= 0xff; } }));
+  const original = makeZip(makeFiles());
+  const bytes = Buffer.from(await original.arrayBuffer());
+  const firstNameLength = bytes.readUInt16LE(26);
+  const firstExtraLength = bytes.readUInt16LE(28);
+  const firstDataStart = 30 + firstNameLength + firstExtraLength;
+  bytes[firstDataStart + 25] ^= 0xff;
+  const corrupted = new Blob([bytes], { type: "application/zip" });
+  Object.defineProperty(corrupted, "name", { value: "oddling-pack.zip" });
+  const result = await runImportBlob(corrupted);
   assert.match(result.error, /CRC|اندازه/);
   assert.equal(result.saved, null);
 });
