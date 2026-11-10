@@ -150,58 +150,99 @@ function oddlingPalette(key){const colors={mint:"#59d1a6",plum:"#4d1f57",gold:"#
 function oddlingStore(){return new Promise((resolve,reject)=>{const req=indexedDB.open(CHARACTER_DB,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains("models"))req.result.createObjectStore("models")};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 async function getOddlingModel(id){const db=await oddlingStore();return new Promise((resolve,reject)=>{const req=db.transaction("models").objectStore("models").get(String(id));req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
 async function saveOddlingModels(rows){const db=await oddlingStore();return new Promise((resolve,reject)=>{const tx=db.transaction("models","readwrite"),store=tx.objectStore("models");for(const row of rows)store.put(row.blob,String(row.id));tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
+function validateOddlingGlb(data,name){
+  if(data.byteLength<20)throw Error("فایل GLB شخصیت "+name+" خالی یا ناقص است.");
+  const view=new DataView(data);
+  if(view.getUint32(0,true)!==0x46546c67||view.getUint32(4,true)!==2||view.getUint32(8,true)!==data.byteLength)throw Error("سرآیند GLB 2.0 برای "+name+" معتبر نیست.");
+  let offset=12,json=null,chunkIndex=0;
+  while(offset<data.byteLength){
+    if(offset+8>data.byteLength)throw Error("ساختار chunk در مدل "+name+" ناقص است.");
+    const length=view.getUint32(offset,true),type=view.getUint32(offset+4,true);
+    offset+=8;
+    if(!length||offset+length>data.byteLength)throw Error("اندازه chunk در مدل "+name+" معتبر نیست.");
+    if(chunkIndex===0){
+      if(type!==0x4e4f534a)throw Error("اولین chunk مدل "+name+" باید JSON باشد.");
+      try{json=JSON.parse(new TextDecoder().decode(new Uint8Array(data,offset,length)).replace(/\0+$/,"").trim())}catch{throw Error("JSON داخلی مدل "+name+" معتبر نیست.")}
+    }
+    offset+=length;
+    chunkIndex++;
+  }
+  if(offset!==data.byteLength||!json||json.asset?.version!=="2.0")throw Error("ساختار glTF 2.0 در مدل "+name+" کامل نیست.");
+  const skinnedMesh=Array.isArray(json.meshes)&&json.meshes.some(mesh=>(mesh.primitives||[]).some(primitive=>primitive.attributes&&primitive.attributes.JOINTS_0!==undefined&&primitive.attributes.WEIGHTS_0!==undefined));
+  const skinnedNode=Array.isArray(json.nodes)&&json.nodes.some(node=>Number.isInteger(node.mesh)&&Number.isInteger(node.skin));
+  const hasRig=Array.isArray(json.skins)&&json.skins.some(skin=>Array.isArray(skin.joints)&&skin.joints.length>=2)&&skinnedMesh&&skinnedNode;
+  const hasAnimation=Array.isArray(json.animations)&&json.animations.some(animation=>Array.isArray(animation.channels)&&animation.channels.length>0);
+  if(!hasRig||!hasAnimation)throw Error("مدل "+name+" باید اسکلت واقعی، وزن‌دهی JOINTS/WEIGHTS و حداقل یک انیمیشن داشته باشد.");
+  return json;
+}
 async function importOddlingZip(file){
   if(!file||!file.name.toLowerCase().endsWith(".zip"))throw Error("فایل ZIP مجموعه شخصیت‌ها را انتخاب کن.");
-  if(file.size>80*1024*1024)throw Error("حجم ZIP بیش از ۸۰ مگابایت است؛ برای جلوگیری از فشار حافظه، بسته را کوچک‌تر کن.");
+  if(file.size>80*1024*1024)throw Error("حجم ZIP بیش از ۸۰ مگابایت است؛ بسته را برای موبایل سبک‌تر کن.");
   if(typeof DecompressionStream==="undefined")throw Error("مرورگر این دستگاه بازکردن ZIP را پشتیبانی نمی‌کند؛ Chrome به‌روز را امتحان کن.");
   const buf=await file.arrayBuffer(),view=new DataView(buf);
+  if(buf.byteLength<22)throw Error("فایل ZIP بیش از حد کوتاه است.");
   let eocd=-1;
   for(let p=buf.byteLength-22;p>=Math.max(0,buf.byteLength-65557);p--){if(view.getUint32(p,true)===0x06054b50){eocd=p;break}}
   if(eocd<0)throw Error("ساختار ZIP معتبر نیست.");
-  const count=view.getUint16(eocd+10,true);
+  const disk=view.getUint16(eocd+4,true),centralDisk=view.getUint16(eocd+6,true),diskCount=view.getUint16(eocd+8,true),count=view.getUint16(eocd+10,true),centralSize=view.getUint32(eocd+12,true),centralOffset=view.getUint32(eocd+16,true),commentLength=view.getUint16(eocd+20,true);
+  if(disk!==0||centralDisk!==0||diskCount!==count||count===0xffff||centralSize===0xffffffff||centralOffset===0xffffffff)throw Error("ZIP چندبخشی یا ZIP64 در این نسخه پشتیبانی نمی‌شود.");
+  if(eocd+22+commentLength!==buf.byteLength||centralOffset+centralSize>eocd||centralOffset>buf.byteLength)throw Error("مرزبندی فهرست ZIP معتبر نیست.");
   if(count>100)throw Error("تعداد فایل‌های ZIP غیرعادی است.");
-  let pos=view.getUint32(eocd+16,true),manifestRow=null;
-  const rows=[],seenIds=new Set(),seenFiles=new Set();
+  let pos=centralOffset,totalExpanded=0,manifestRow=null;
+  const rows=[],seenIds=new Set(),seenFiles=new Set(),expectedById=new Map(ODDLINGS.map(x=>[x.id,x]));
   for(let n=0;n<count;n++){
-    if(pos+46>buf.byteLength||view.getUint32(pos,true)!==0x02014b50)throw Error("فهرست ZIP خراب یا ناقص است.");
-    const method=view.getUint16(pos+10,true),compressed=view.getUint32(pos+20,true),nameLen=view.getUint16(pos+28,true),extraLen=view.getUint16(pos+30,true),commentLen=view.getUint16(pos+32,true),local=view.getUint32(pos+42,true);
-    if(pos+46+nameLen+extraLen+commentLen>buf.byteLength)throw Error("فهرست ZIP از محدوده فایل خارج شده است.");
+    if(pos+46>centralOffset+centralSize||view.getUint32(pos,true)!==0x02014b50)throw Error("فهرست ZIP خراب یا ناقص است.");
+    const flags=view.getUint16(pos+8,true),method=view.getUint16(pos+10,true),crc=view.getUint32(pos+16,true),compressed=view.getUint32(pos+20,true),expanded=view.getUint32(pos+24,true),nameLen=view.getUint16(pos+28,true),extraLen=view.getUint16(pos+30,true),commentLen=view.getUint16(pos+32,true),local=view.getUint32(pos+42,true);
+    if(pos+46+nameLen+extraLen+commentLen>centralOffset+centralSize)throw Error("نام یا داده فهرست ZIP از محدوده خارج شده است.");
     const name=new TextDecoder().decode(new Uint8Array(buf,pos+46,nameLen));
     pos+=46+nameLen+extraLen+commentLen;
-    if(!name.endsWith(".glb")&&!name.endsWith("manifest.json"))continue;
-    if(local+30>buf.byteLength||view.getUint32(local,true)!==0x04034b50)throw Error("هدر یکی از فایل‌های ZIP معتبر نیست.");
-    const localName=view.getUint16(local+26,true),localExtra=view.getUint16(local+28,true),dataStart=local+30+localName+localExtra;
-    if(dataStart+compressed>buf.byteLength)throw Error("داده یکی از فایل‌های ZIP ناقص است.");
+    if(name.endsWith("/"))continue;
+    const lower=name.toLowerCase(),isManifest=lower.endsWith("manifest.json"),isModel=lower.endsWith(".glb");
+    if(!isManifest&&!isModel)continue;
+    if(flags&1)throw Error("فایل رمزگذاری‌شده در ZIP پشتیبانی نمی‌شود.");
+    if(name.includes("\\")||name.startsWith("/")||name.split("/").includes(".."))throw Error("مسیر فایل در ZIP معتبر نیست: "+name);
+    if(method!==0&&method!==8)throw Error("روش فشرده‌سازی ZIP برای "+name+" پشتیبانی نمی‌شود.");
+    if(expanded>(isManifest?256*1024:12*1024*1024))throw Error("حجم بازشده "+name+" از حد مجاز بیشتر است.");
+    totalExpanded+=expanded;
+    if(totalExpanded>200*1024*1024)throw Error("حجم کل بازشده بسته برای موبایل بیش از ۲۰۰ مگابایت است.");
+    if(local+30>centralOffset||view.getUint32(local,true)!==0x04034b50)throw Error("سرآیند محلی فایل "+name+" خراب است.");
+    const localFlags=view.getUint16(local+6,true),localMethod=view.getUint16(local+8,true),localNameLen=view.getUint16(local+26,true),localExtraLen=view.getUint16(local+28,true);
+    if(localFlags!==flags||localMethod!==method||local+30+localNameLen+localExtraLen>centralOffset)throw Error("سرآیند محلی و فهرست ZIP برای "+name+" یکسان نیستند.");
+    const localName=new TextDecoder().decode(new Uint8Array(buf,local+30,localNameLen));
+    if(localName!==name)throw Error("نام فایل محلی با فهرست ZIP برای "+name+" مطابقت ندارد.");
+    const dataStart=local+30+localNameLen+localExtraLen;
+    if(dataStart+compressed>centralOffset)throw Error("داده فایل "+name+" ناقص یا خارج از محدوده است.");
     const part=buf.slice(dataStart,dataStart+compressed);
     let data;
-    if(method===0)data=part;
-    else if(method===8){const stream=new Blob([part]).stream().pipeThrough(new DecompressionStream("deflate-raw"));data=await new Response(stream).arrayBuffer()}
-    else throw Error("روش فشرده‌سازی ZIP پشتیبانی نمی‌شود.");
-    if(name.endsWith("manifest.json")){
+    if(method===0){if(compressed!==expanded)throw Error("اندازه فایل بدون فشرده‌سازی "+name+" معتبر نیست.");data=part}
+    else{const stream=new Blob([part]).stream().pipeThrough(new DecompressionStream("deflate-raw"));data=await new Response(stream).arrayBuffer()}
+    if(data.byteLength!==expanded||crc32(new Uint8Array(data))!==crc)throw Error("اندازه یا CRC فایل "+name+" با فهرست ZIP مطابقت ندارد.");
+    if(isManifest){
       if(manifestRow)throw Error("ZIP بیش از یک manifest دارد.");
-      manifestRow=JSON.parse(new TextDecoder().decode(data));
+      try{manifestRow=JSON.parse(new TextDecoder().decode(data))}catch{throw Error("manifest.json معتبر نیست.")}
       continue;
     }
-    const leaf=name.split("/").pop(),match=leaf.match(/^(\d+)_([a-z0-9-]+)\.glb$/i);
-    if(!match)throw Error("نام فایل GLB با الگوی بسته شخصیت‌ها سازگار نیست: "+leaf);
-    const id=Number(match[1]);
-    if(!ODDLINGS.some(x=>x.id===id))throw Error("شناسه شخصیت ناشناخته است: "+id);
-    if(seenIds.has(id)||seenFiles.has(leaf.toLowerCase()))throw Error("مدل تکراری در بسته پیدا شد: "+leaf);
-    if(data.byteLength<20||data.byteLength>12*1024*1024)throw Error("حجم مدل "+leaf+" خارج از محدوده مجاز است.");
-    const glb=new DataView(data);
-    if(glb.getUint32(0,true)!==0x46546c67||glb.getUint32(4,true)!==2||glb.getUint32(8,true)!==data.byteLength)throw Error("ساختار GLB 2.0 معتبر نیست: "+leaf);
+    const leaf=name.split("/").pop(),match=leaf.match(/^(\d{2})_([a-z0-9-]+)\.glb$/i);
+    if(!match)throw Error("نام فایل مدل با الگوی بسته شخصیت‌ها مطابقت ندارد: "+leaf);
+    const id=Number(match[1]),expected=expectedById.get(id);
+    if(!expected||expected.file.toLowerCase()!==leaf.toLowerCase())throw Error("فایل "+leaf+" متعلق به مجموعه ۲۵ شخصیت این اپ نیست.");
+    if(seenIds.has(id)||seenFiles.has(leaf.toLowerCase()))throw Error("مدل تکراری برای شخصیت "+expected.name+" پیدا شد.");
+    validateOddlingGlb(data,expected.name);
     seenIds.add(id);seenFiles.add(leaf.toLowerCase());
     rows.push({id,blob:new Blob([data],{type:"model/gltf-binary"}),file:leaf});
   }
+  if(pos!==centralOffset+centralSize)throw Error("طول فهرست ZIP با تعداد ورودی‌ها مطابقت ندارد.");
   if(!manifestRow||!Array.isArray(manifestRow.characters)||manifestRow.characters.length!==25)throw Error("manifest باید دقیقاً ۲۵ شخصیت را معرفی کند.");
-  if(rows.length!==25||seenIds.size!==25||Array.from({length:25},(_,i)=>i+1).some(id=>!seenIds.has(id)))throw Error("بسته باید دقیقاً یک GLB معتبر برای هر یک از ۲۵ شناسه داشته باشد؛ هیچ مدل تکراری یا مفقودی پذیرفته نیست.");
+  const status=String(manifestRow.assetStatus||"").toLowerCase(),note=String(manifestRow.modelNote||"").toLowerCase();
+  if(/metadata-only|not present|no actual glb|فقط.*اطلاعات/.test(status+" "+note)||/not rigged|not animated|no rigging|بدون ریگ/.test(status+" "+note))throw Error("manifest فقط فهرست فایل‌های موردنظر را دارد و مدل‌های واقعی ریگ‌شده را تأیید نمی‌کند.");
+  if(rows.length!==25||seenIds.size!==25||Array.from({length:25},(_,i)=>i+1).some(id=>!seenIds.has(id)))throw Error("بسته باید دقیقاً یک مدل معتبر برای هر یک از ۲۵ شناسه داشته باشد.");
   const manifestIds=new Set(manifestRow.characters.map(x=>Number(x.id)));
   if(manifestIds.size!==25||Array.from({length:25},(_,i)=>i+1).some(id=>!manifestIds.has(id)))throw Error("شناسه‌های manifest باید دقیقاً ۱ تا ۲۵ و بدون تکرار باشند.");
-  for(const row of rows){const item=manifestRow.characters.find(x=>Number(x.id)===row.id);if(!item||item.file!==row.file)throw Error("نام فایل و شناسه در manifest با مدل "+row.file+" مطابقت ندارد.");}
+  for(const row of rows){const expected=expectedById.get(row.id),item=manifestRow.characters.find(x=>Number(x.id)===row.id);if(!item||item.file!==row.file||item.name!==expected.name)throw Error("نام، شناسه یا فایل در manifest با مدل "+row.file+" مطابقت ندارد.");}
   await saveOddlingModels(rows);
-  localStorage.setItem("aibc-oddling-pack-installed-v1",JSON.stringify({count:rows.length,at:new Date().toISOString(),manifest:manifestRow.pack||"The 25 Oddlings",format:"validated-glb-2.0"}));
+  localStorage.setItem("aibc-oddling-pack-installed-v1",JSON.stringify({count:rows.length,at:new Date().toISOString(),manifest:manifestRow.pack||"The 25 Oddlings",format:"validated-rigged-glb-2.0"}));
   await renderOddlingLibrary();
-  toast("۲۵ فایل GLB معتبر بررسی و در کتابخانه محلی این دستگاه ذخیره شدند.");
+  toast("۲۵ مدل GLB ریگ‌شده و انیمیشن‌دار اعتبارسنجی و در کتابخانه محلی این دستگاه ذخیره شدند.");
 }
 const ODDLING_TRAITS=[
 ["مرد","قدبلند و ورزیده","masculine","athletic"],["مرد","درشت‌اندام","masculine","heavy"],["مرد","لاغر و کشیده","masculine","lean"],["مرد","کوتاه و چهارشانه","masculine","stocky"],["مرد","عضلانی","masculine","muscular"],["مرد","شکم‌دار و بانمک","masculine","round"],["مرد","قدبلند و باریک","masculine","tall"],["مرد","چهارچوب پهن","masculine","broad"],["مرد","چابک و ریزاندام","masculine","compact"],["مرد","پیر و تنومند","masculine","elder"],
