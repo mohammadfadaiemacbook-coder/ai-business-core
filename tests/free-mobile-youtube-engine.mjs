@@ -5,6 +5,8 @@ import { readFile } from "node:fs/promises";
 const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const worker = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
+const docs = await readFile(new URL("../docs/free-mobile-youtube-engine.md", import.meta.url), "utf8");
+const manifest = JSON.parse(await readFile(new URL("../public/characters/manifest.json", import.meta.url), "utf8"));
 
 test("all short-video text generation is pinned to Gemini free tier", () => {
   const start = worker.indexOf('if(body.freeOnly===true||["trend_strategy"');
@@ -99,3 +101,24 @@ test("automatic episode prompt is centered on one persistent selected Oddling", 
 });
 
 
+
+test("short-video documentation matches Gemini model and explicit publishing safeguards", () => {
+  assert.match(worker, /gemini-3\\.5-flash-lite:generateContent/);
+  assert.match(docs, /Gemini 3\\.5 Flash-Lite/);
+  assert.match(docs, /Upload defaults to \\x60private\\x60/);
+  assert.match(docs, /confirmPublic=true/);
+  assert.match(docs, /Scheduled publishing is not exposed/);
+  assert.doesNotMatch(docs, /private-only\\. Public publishing and scheduled public publishing are disabled/);
+  assert.match(app, /confirm\\("تأیید انتشار عمومی/);
+  assert.match(worker, /requestedPrivacy === "public" && String\\(form\\.get\\("confirmPublic"\\)/);
+});
+
+test("character pack documentation and manifest clearly distinguish 2D PNG portraits from missing GLB assets", () => {
+  assert.equal(manifest.characters.length, 25);
+  assert.match(manifest.modelNote, /No actual GLB model assets are currently included/);
+  assert.match(manifest.assetStatus, /metadata-only/);
+  assert.match(manifest.portraitRendering, /2D Canvas PNGs/);
+  assert.match(docs, /2D Canvas PNG artwork/);
+  assert.match(docs, /not a GLB pack/);
+  assert.match(docs, /does \\*\\*not\\*\\* contain the referenced GLB files/);
+});
