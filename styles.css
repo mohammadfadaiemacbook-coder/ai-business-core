@@ -171,3 +171,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .oddling-detail h3{margin-top:0}
 .oddling-card.active .oddling-portrait{outline:2px solid var(--blue);outline-offset:2px}
 @media(max-width:520px){.oddling-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.oddling-card{padding:8px}}
+
+/* PR #67: honest 2D/3D state and mobile-safe character preview */
+.oddling-preview-stage{width:100%;min-width:0;display:grid;justify-items:center;gap:10px;padding:12px;border:1px solid #2b3d59;border-radius:16px;background:radial-gradient(ellipse at 50% 15%,#243a5b,#0b1424 76%);overflow:hidden}
+.oddling-selected-portrait{width:auto;max-width:100%;height:auto;max-height:300px;aspect-ratio:9/11;object-fit:contain;margin:0 auto;border-radius:12px;box-shadow:0 12px 28px #0006}
+.oddling-model-viewer{width:100%;min-height:260px}
+#oddling-model{display:block;width:100%;height:clamp(260px,48vw,420px);max-height:420px;background:radial-gradient(ellipse at 50% 20%,#243a5b,#0b1424 76%);border-radius:14px;--poster-color:transparent;touch-action:pan-y}
+.oddling-model-status{width:100%;margin:0;padding:9px 11px;border:1px solid #384a67;border-radius:10px;background:#111f33;color:#c1cee3;font-size:11px;line-height:1.7;text-align:center}
+.oddling-selected{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);align-items:start}
+.oddling-selected>div:first-child{min-width:0}
+.oddling-detail{min-width:0;overflow-wrap:anywhere}
+@media(max-width:700px){.oddling-selected{grid-template-columns:minmax(0,1fr);gap:10px}.oddling-selected>div:first-child{padding:10px}.oddling-preview-stage{padding:9px}.oddling-selected-portrait{max-height:260px;width:auto;max-width:100%}#oddling-model{height:300px;max-height:300px}.oddling-detail{padding:13px}.oddling-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
