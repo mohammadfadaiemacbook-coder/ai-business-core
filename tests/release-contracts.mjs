@@ -536,10 +536,11 @@ test("PWA shell includes accessible skip navigation and home dashboard", async (
 });
 test("service worker cache writes are tied to fetch event lifetime and tolerate quota failures", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /function cacheNetworkResponse\\(key, response\\)/);
-  assert.match(sw, /\\.catch\\(\\(\\) => undefined\\)\\s*\\.then\\(\\(\\) => response\\)/);
-  assert.match(sw, /cacheNetworkResponse\\(request, response\\)/);
-  assert.match(sw, /ai-business-core-shell-v22/);
+  assert.ok(sw.includes("function cacheNetworkResponse(key, response)"));
+  assert.ok(sw.includes(".catch(() => undefined)"));
+  assert.ok(sw.includes(".then(() => response)"));
+  assert.ok(sw.includes("cacheNetworkResponse(request, response)"));
+  assert.ok(sw.includes("ai-business-core-shell-v22"));
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
