@@ -10,7 +10,7 @@ function cacheNetworkResponse(key, response) {
 }
 
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).catch(error => { console.warn("PWA shell cache failed; keeping the app online", error); }));
 });
 
 self.addEventListener("message", event => {
