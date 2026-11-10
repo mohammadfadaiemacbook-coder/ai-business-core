@@ -4,7 +4,7 @@ on:
     branches: [main, "build/**", "feature/**", "feat/**"]
   # Also validate stacked operational PRs targeting audit/** or build/**.
   pull_request:
-    branches: [main, "feature/**", "feat/**", "audit/**", "build/**"]
+    branches: [main, "feature/**", "feat/**", "audit/**", "build/**", "fix/**"]
 permissions:
   contents: read
 jobs:
@@ -34,6 +34,8 @@ jobs:
           test -s manifest.webmanifest
           test -s sw.js
           test -s icons/icon.svg
+          test -s icons/icon-192.png
+          test -s icons/icon-512.png
           test -s icons/icon-maskable.svg
           test -s ai-gateway/worker.js
           test -s ai-gateway/mcp-readonly.js

@@ -290,7 +290,7 @@ test("production release requires explicit manual confirmation and deploys Worke
 test("short-form YouTube video builds a 1–3 minute preview and supports explicit publishing", () => {
   assert.ok(worker.includes("SHORT-FORM YouTube video script designed for a 1–3 minute"));
   assert.ok(app.includes("سناریوی ویدئوی کوتاه انگلیسی ۱ تا ۳ دقیقه‌ای"));
-  assert.ok(app.includes("slides.length>48"));
+  assert.ok(app.includes("slides.length>18"));
   assert.ok(app.includes("decodeAudioData(audioParts[i].slice(0))"));
   assert.ok(app.includes("totalNarrationSeconds<60||totalNarrationSeconds>180"));
   assert.ok(app.includes("requestAnimationFrame(animate)"));
@@ -381,7 +381,7 @@ test("public scheduling is disabled for the private-only mobile engine", () => {
 
 test("service worker cache is bumped for the automatic content and scheduling update", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /ai-business-core-shell-v21/);
+  assert.match(sw, /ai-business-core-shell-v22/);
 });
 
 test("YouTube core analytics remains available when monetization metrics are unavailable", () => {
@@ -534,10 +534,13 @@ test("PWA shell includes accessible skip navigation and home dashboard", async (
   assert.doesNotMatch(html, /id="mobile-menu"|id="sidebar"/);
   assert.match(app, /class="home-module-grid"/);
 });
-test("service worker cache writes are tied to fetch event lifetime", async () => {
+test("service worker cache writes are tied to fetch event lifetime and tolerate quota failures", async () => {
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /return caches\.open\(CACHE_NAME\)\.then\(cache => cache\.put\(request, copy\)\)\.then\(\(\) => response\)/);
-  assert.match(sw, /ai-business-core-shell-v21/);
+  assert.ok(sw.includes("function cacheNetworkResponse(key, response)"));
+  assert.ok(sw.includes(".catch(() => undefined)"));
+  assert.ok(sw.includes(".then(() => response)"));
+  assert.ok(sw.includes("cacheNetworkResponse(request, response)"));
+  assert.ok(sw.includes("ai-business-core-shell-v22"));
 });
 test("mobile styles include safe-area and keyboard focus support", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");
