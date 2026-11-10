@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 
 const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const manifest = JSON.parse(await readFile(new URL("../public/characters/manifest.json", import.meta.url), "utf8"));
-const start = app.indexOf("async function importOddlingZip(file){");
+const start = app.indexOf("function validateOddlingGlb(data,name){");
 const end = app.indexOf("\nconst ODDLING_TRAITS=", start);
 assert.ok(start >= 0 && end > start, "importer source must exist");
 const importerSource = app.slice(start, end);
@@ -83,7 +83,9 @@ function makeZip(files) {
   end.writeUInt16LE(files.length, 10);
   end.writeUInt32LE(centralSize, 12);
   end.writeUInt32LE(centralOffset, 16);
-  return new Blob([...localParts, ...centralParts, end], { type: "application/zip" });
+  const blob = new Blob([...localParts, ...centralParts, end], { type: "application/zip" });
+  Object.defineProperty(blob, "name", { value: "oddling-pack.zip" });
+  return blob;
 }
 function makeManifest(overrides = {}) {
   return {
