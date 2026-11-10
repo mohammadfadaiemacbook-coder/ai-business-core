@@ -21,9 +21,9 @@ jobs:
           node-version: 22
       - name: Parse application JavaScript
         run: node --check app.js
-      - name: Validate PWA metadata and cache
+      - name: Validate installable PWA metadata, icons and cache resilience
         run: |
-          node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('manifest.webmanifest','utf8')); if(!m.name || !m.start_url || !m.icons?.length) throw Error('Invalid PWA manifest'); const sw=fs.readFileSync('sw.js','utf8'); if(!/CACHE_NAME/.test(sw)) throw Error('Missing service worker cache name');"
+          node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('manifest.webmanifest','utf8')); if(!m.id || !m.name || !m.start_url || !m.icons?.some(i=>i.sizes==='192x192'&&i.type==='image/png') || !m.icons?.some(i=>i.sizes==='512x512'&&i.type==='image/png')) throw Error('PWA manifest needs a stable id and PNG 192/512 icons'); for(const p of ['icons/icon-192.png','icons/icon-512.png']) if(!fs.existsSync(p)||!fs.statSync(p).size) throw Error('Missing PWA icon '+p); const sw=fs.readFileSync('sw.js','utf8'); if(!/cacheNetworkResponse/.test(sw)) throw Error('Missing cache-write resilience helper'); const html=fs.readFileSync('index.html','utf8'); if(!/beforeinstallprompt/.test(html)||!/apple-touch-icon/.test(html)) throw Error('Missing PWA installation affordance');"
       - name: Validate procedural character pack wiring
         run: |
           node <<'NODE'
@@ -36,7 +36,8 @@ jobs:
             ['ZIP pack exporter', app.includes('async function downloadOddlingPack()') && app.includes('function zipStore(')],
             ['character gallery renderer', app.includes('async function renderOddlingLibrary()')],
             ['video renderer uses character portrait', app.includes('window.__oddlingPortraitCache') && app.includes('drawOddlingPortrait(portrait,character,true)')],
-            ['portrait styles', css.includes('.oddling-portrait')]
+            ['portrait styles', css.includes('.oddling-portrait')],
+            ['short video uses portrait 9:16 canvas', app.includes('canvas.width=720;canvas.height=1280;')]
           ];
           for (const [name, ok] of checks) {
             console.log((ok ? 'PASS ' : 'FAIL ') + name);
@@ -53,4 +54,6 @@ jobs:
           test -s site/app.js
           test -s site/styles.css
           test -s site/sw.js
+          test -s site/icons/icon-192.png
+          test -s site/icons/icon-512.png
           node --check site/app.js

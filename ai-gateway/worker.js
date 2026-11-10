@@ -759,7 +759,7 @@ export default {
         const googleSecondary=String(mediaSecrets.secondaryUrl||"").startsWith("https://generativelanguage.googleapis.com/");
         const apiKey=mediaSecrets.geminiKey||(googleSecondary?mediaSecrets.secondaryKey:"")||env.GEMINI_API_KEY;
         if(!apiKey)return json({error:"برای گویندگی رایگان انگلیسی، کلید Google AI Studio را در تنظیمات امن وارد کن."},503,headers);
-        const model=String(mediaSecrets.geminiTtsModel||"gemini-2.5-flash-preview-tts");
+        const model="gemini-2.5-flash-preview-tts";
         if(!/^gemini-[a-zA-Z0-9.-]+-tts(?:-preview)?$/.test(model))return json({error:"Gemini TTS model is not allowed"},400,headers);
         const voice=String(body?.voice||"Kore");
         if(!["Kore","Puck","Aoede","Charon","Fenrir","Leda","Orus","Zephyr"].includes(voice))return json({error:"Unsupported Gemini voice"},400,headers);
@@ -791,7 +791,7 @@ export default {
     if (!body || typeof body.task !== "string" || !ALLOWED_TASKS.has(body.task)) return json({ error: "Unsupported task" }, 400, headers);
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
     const aiProviderSecrets=await loadProviderSecrets(env,env.DB,workspace);
-    if(body.freeOnly===true){
+    if(body.freeOnly===true||["trend_strategy","youtube_research","video_outline","video_script","title_ideas","youtube_metadata","thumbnail_brief","yt_full_pipeline","social_caption"].includes(body.task)){
       // Short-video text generation is pinned to the Gemini Developer API free tier.
       // No primary provider, paid secondary provider, or paid review model is called here.
       const googleSecondary=String(aiProviderSecrets.secondaryUrl||"").startsWith("https://generativelanguage.googleapis.com/");
