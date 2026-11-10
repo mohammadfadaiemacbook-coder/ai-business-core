@@ -798,11 +798,11 @@ export default {
       const apiKey=aiProviderSecrets.geminiKey||(googleSecondary?aiProviderSecrets.secondaryKey:"")||env.GEMINI_API_KEY;
       if(!apiKey)return json({error:"برای تولید رایگان متن ویدئو، کلید Google AI Studio را در تنظیمات امن وارد کن."},503,headers);
       try{
-        const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:buildPrompt(body.task,body.inputs)}]}],generationConfig:{temperature:0.4}}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
+        const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:buildPrompt(body.task,body.inputs)}]}],generationConfig:{temperature:0.4}}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
         if(!response.ok){const detail=(await response.text().catch(()=> "")).replace(/AIza[0-9A-Za-z_-]{20,}/g,"[redacted]").slice(0,400);return json({error:response.status===429?"سهمیه رایگان Gemini برای تولید متن تمام شده است؛ بعداً دوباره تلاش کن. هیچ مدل پولی جایگزین نمی‌شود.":"Gemini free-tier text generation failed",detail,providerStatus:response.status},response.status===429?429:502,headers)}
         const data=await response.json(),output=(data.candidates||[]).flatMap(x=>x.content?.parts||[]).filter(x=>typeof x.text==="string").map(x=>x.text).join("\\n").trim();
         if(!output)return json({error:"Gemini returned no text output"},502,headers);
-        return json({output,model:"gemini-2.5-flash · free-only",usedFallback:false,consultation:{status:"not_configured",message:"Free-only mode skips all paid secondary review providers."}},200,headers);
+        return json({output,model:"gemini-3.5-flash-lite · free-only",usedFallback:false,consultation:{status:"not_configured",message:"Free-only mode skips all paid secondary review providers."}},200,headers);
       }catch{return json({error:"Gemini free-tier text request failed",detail:"No paid provider fallback is enabled."},502,headers)}
     }
     if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
