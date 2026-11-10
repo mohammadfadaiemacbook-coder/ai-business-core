@@ -4,7 +4,7 @@ on:
     branches: [main, "build/**", "feature/**", "feat/**"]
   # Also validate stacked operational PRs targeting audit/** or build/**.
   pull_request:
-    branches: [main, "feature/**", "feat/**", "audit/**", "build/**"]
+    branches: [main, "feature/**", "feat/**", "audit/**", "build/**", "fix/**"]
 permissions:
   contents: read
 jobs:
