@@ -238,7 +238,7 @@ function validateOddlingGlb(data,name){
       skinnedPrimitiveCount++;
     }
   }
-  if(!skinnedPrimitiveCount||weightedJointNodes.size<2)fail("باید mesh واقعی با JOINTS_0 و WEIGHTS_0 و حداقل دو مفصل وزن‌دهی‌شده داشته باشد.");
+  if(!skinnedPrimitiveCount||weightedJointNodes.size<2)fail("باید mesh اسکلتی واقعی با JOINTS_0 و WEIGHTS_0 و حداقل دو مفصل وزن‌دهی‌شده داشته باشد.");
   const animations=Array.isArray(json.animations)?json.animations:[];
   let hasAnimation=false;
   for(const animation of animations){
