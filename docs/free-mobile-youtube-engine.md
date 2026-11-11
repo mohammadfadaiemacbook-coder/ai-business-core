@@ -4,10 +4,11 @@
 This branch adds a zero-paid-provider short-video path to the existing PWA. Target output is an English 60–180 second YouTube video rendered in the browser on Android Chrome or another browser that supports Canvas captureStream, MediaRecorder, and Web Audio.
 
 ## Free-tier provider policy
-- Video topic analysis, script, metadata and the 11-stage review use a dedicated `freeOnly` Worker path pinned to Google Gemini 2.5 Flash; it never calls the configured primary provider, paid secondary provider, or paid review model.\n- English narration uses the Google Gemini Developer API TTS model `gemini-2.5-flash-preview-tts` through the authenticated Worker route.
+- Video topic analysis, script, metadata and the 11-stage review use a dedicated `freeOnly` Worker path pinned to Google Gemini 3.5 Flash-Lite (`gemini-3.5-flash-lite`); it never calls the configured primary provider, paid secondary provider, or paid review model.\n- English narration uses the Google Gemini Developer API TTS model `gemini-2.5-flash-preview-tts` through the authenticated Worker route. Google's current pricing table lists this TTS model as free on the Standard Free tier.
 - The Gemini key is read from the encrypted Worker provider store (`geminiKey`), or from the existing Gemini secondary-provider key only when its configured URL is the official `generativelanguage.googleapis.com` host. It is never sent to the browser.
 - English narration never falls back to ElevenLabs or another paid provider. A Gemini text-generation quota/rate-limit error also stops production without a paid fallback. A Gemini quota/rate-limit error stops production.
-- Use a Google AI Studio project on its free tier with no billing account attached. The app cannot override a provider account that has billing enabled; do not attach billing or configure paid fallbacks.
+- Use a Google AI Studio project on its free tier with no billing account attached. The app cannot override or inspect whether a supplied project has billing enabled; do not attach billing or configure paid fallbacks. If the free quota is exhausted or a billing prompt appears, stop and retry later instead of upgrading.
+- Gemini 2.5 Flash is deprecated and Google documents automatic routing to Gemini 3.5 Flash-Lite from December 1, 2026. The Worker pins the currently listed free-tier `gemini-3.5-flash-lite` model explicitly so the free-only route does not silently inherit that future model change.
 - The video render path does not call the image-generation endpoint. It uses browser Canvas graphics, motion, narration, captions, and a thumbnail.
 - No R2, external renderer, FFmpeg, Mac process, or paid storage is required.
 
