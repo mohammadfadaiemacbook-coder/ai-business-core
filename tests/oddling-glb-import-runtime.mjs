@@ -18,27 +18,61 @@ function crc32(bytes) {
   }
   return (c ^ -1) >>> 0;
 }
-function makeGlb(rigged = true) {
+function makeGlb(rigged = true, options = {}) {
+  const binary = Buffer.alloc(136);
+  const positions = [0,0,0, 1,0,0, 0,1,0];
+  positions.forEach((value, i) => binary.writeFloatLE(value, i * 4));
+  for (let vertex = 0; vertex < 3; vertex++) {
+    binary.set([0,1,0,0], 36 + vertex * 4);
+    [0.5,0.5,0,0].forEach((value, i) => binary.writeFloatLE(value, 48 + vertex * 16 + i * 4));
+  }
+  binary.writeFloatLE(0, 96);
+  binary.writeFloatLE(1, 100);
+  [0,0,0,1, 0,0,0.3826834,0.9238795].forEach((value, i) => binary.writeFloatLE(value, 104 + i * 4));
   const document = {
     asset: { version: "2.0" },
     scene: 0,
-    scenes: [{ nodes: [0, 1, 2] }],
-    nodes: rigged ? [{ mesh: 0, skin: 0 }, {}, {}] : [{ mesh: 0 }],
+    scenes: [{ nodes: [0, 1] }],
+    nodes: rigged ? [{ mesh: 0, skin: 0 }, { children: [2] }, {}] : [{ mesh: 0 }, { children: [2] }, {}],
     meshes: [{ primitives: [{ attributes: rigged ? { POSITION: 0, JOINTS_0: 1, WEIGHTS_0: 2 } : { POSITION: 0 } }] }],
-    skins: rigged ? [{ joints: [1, 2] }] : [],
-    animations: rigged ? [{ channels: [{ sampler: 0, target: { node: 1, path: "rotation" } }], samplers: [{ input: 3, output: 4 }] }] : []
+    skins: rigged ? [{ joints: [1, 2], skeleton: 1 }] : [],
+    animations: rigged ? [{ channels: [{ sampler: 0, target: { node: 1, path: "rotation" } }], samplers: [{ input: 3, output: 4, interpolation: "LINEAR" }] }] : [],
+    buffers: [{ byteLength: binary.length }],
+    bufferViews: [
+      { buffer: 0, byteOffset: 0, byteLength: 36, target: 34962 },
+      { buffer: 0, byteOffset: 36, byteLength: 12, target: 34962 },
+      { buffer: 0, byteOffset: 48, byteLength: 48, target: 34962 },
+      { buffer: 0, byteOffset: 96, byteLength: 8 },
+      { buffer: 0, byteOffset: 104, byteLength: 32 }
+    ],
+    accessors: [
+      { bufferView: 0, componentType: 5126, count: 3, type: "VEC3", min: [0,0,0], max: [1,1,0] },
+      { bufferView: 1, componentType: 5121, count: 3, type: "VEC4" },
+      { bufferView: 2, componentType: 5126, count: 3, type: "VEC4" },
+      { bufferView: 3, componentType: 5126, count: 2, type: "SCALAR", min: [0], max: [1] },
+      { bufferView: 4, componentType: 5126, count: 2, type: "VEC4" }
+    ]
   };
+  if (typeof options.mutateJson === "function") options.mutateJson(document);
   const json = Buffer.from(JSON.stringify(document));
-  const paddedLength = Math.ceil(json.length / 4) * 4;
-  const padded = Buffer.alloc(paddedLength, 0x20);
-  json.copy(padded);
-  const out = Buffer.alloc(20 + paddedLength);
+  const jsonLength = Math.ceil(json.length / 4) * 4;
+  const jsonPadded = Buffer.alloc(jsonLength, 0x20);
+  json.copy(jsonPadded);
+  const includeBin = options.includeBin !== false;
+  const totalLength = 12 + 8 + jsonLength + (includeBin ? 8 + binary.length : 0);
+  const out = Buffer.alloc(totalLength);
   out.writeUInt32LE(0x46546c67, 0);
   out.writeUInt32LE(2, 4);
-  out.writeUInt32LE(out.length, 8);
-  out.writeUInt32LE(paddedLength, 12);
+  out.writeUInt32LE(totalLength, 8);
+  out.writeUInt32LE(jsonLength, 12);
   out.writeUInt32LE(0x4e4f534a, 16);
-  padded.copy(out, 20);
+  jsonPadded.copy(out, 20);
+  if (includeBin) {
+    const binHeader = 20 + jsonLength;
+    out.writeUInt32LE(binary.length, binHeader);
+    out.writeUInt32LE(0x004e4942, binHeader + 4);
+    binary.copy(out, binHeader + 8);
+  }
   return out;
 }
 function makeZip(files) {
@@ -97,10 +131,10 @@ function makeManifest(overrides = {}) {
     ...overrides
   };
 }
-function makeFiles({ count = 25, rigged = true, manifestOverrides = {}, mutate = null } = {}) {
+function makeFiles({ count = 25, rigged = true, manifestOverrides = {}, mutate = null, glbOptions = {} } = {}) {
   const files = manifest.characters.slice(0, count).map(x => ({
     name: "models/" + x.file,
-    bytes: makeGlb(rigged)
+    bytes: makeGlb(rigged, glbOptions)
   }));
   files.push({ name: "manifest.json", bytes: Buffer.from(JSON.stringify(makeManifest(manifestOverrides))) });
   if (mutate) mutate(files);
@@ -170,5 +204,28 @@ test("rejects corrupted ZIP data using CRC before saving", async () => {
 test("rejects the repository metadata-only manifest instead of accepting planned filenames as assets", async () => {
   const result = await runImport(makeFiles({ manifestOverrides: { assetStatus: "metadata-only; the 25 referenced GLB files are not present" } }));
   assert.match(result.error, /فهرست فایل|مدل‌های واقعی/);
+  assert.equal(result.saved, null);
+});
+test("rejects a GLB that declares skin metadata but has no embedded BIN chunk", async () => {
+  const result = await runImport(makeFiles({ glbOptions: { includeBin: false } }));
+  assert.match(result.error, /BIN|باینری|buffer/);
+  assert.equal(result.saved, null);
+});
+
+test("rejects accessors that point beyond the embedded binary buffer", async () => {
+  const result = await runImport(makeFiles({ glbOptions: { mutateJson: json => { json.accessors[1].count = 100; } } }));
+  assert.match(result.error, /bufferView|accessor|خارج از محدوده/);
+  assert.equal(result.saved, null);
+});
+
+test("rejects animation metadata that does not animate a skin joint", async () => {
+  const result = await runImport(makeFiles({ glbOptions: { mutateJson: json => { json.animations[0].channels[0].target.node = 0; } } }));
+  assert.match(result.error, /مفصل|انیمیشن/);
+  assert.equal(result.saved, null);
+});
+
+test("rejects vertex weights that do not reference valid skin joints", async () => {
+  const result = await runImport(makeFiles({ glbOptions: { mutateJson: json => { json.skins[0].joints = [1]; } } }));
+  assert.match(result.error, /مفصل|joint|اسکلت/);
   assert.equal(result.saved, null);
 });

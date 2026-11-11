@@ -151,28 +151,110 @@ function oddlingStore(){return new Promise((resolve,reject)=>{const req=indexedD
 async function getOddlingModel(id){const db=await oddlingStore();return new Promise((resolve,reject)=>{const req=db.transaction("models").objectStore("models").get(String(id));req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
 async function saveOddlingModels(rows){const db=await oddlingStore();return new Promise((resolve,reject)=>{const tx=db.transaction("models","readwrite"),store=tx.objectStore("models");for(const row of rows)store.put(row.blob,String(row.id));tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
 function validateOddlingGlb(data,name){
-  if(data.byteLength<20)throw Error("فایل GLB شخصیت "+name+" خالی یا ناقص است.");
+  const fail=message=>{throw Error("مدل "+name+" "+message)};
+  if(!data||data.byteLength<32)fail("خالی یا ناقص است.");
   const view=new DataView(data);
-  if(view.getUint32(0,true)!==0x46546c67||view.getUint32(4,true)!==2||view.getUint32(8,true)!==data.byteLength)throw Error("سرآیند GLB 2.0 برای "+name+" معتبر نیست.");
-  let offset=12,json=null,chunkIndex=0;
+  if(view.getUint32(0,true)!==0x46546c67||view.getUint32(4,true)!==2||view.getUint32(8,true)!==data.byteLength)fail("سرآیند GLB 2.0 معتبر نیست.");
+  let offset=12,json=null,bin=null,chunkIndex=0;
   while(offset<data.byteLength){
-    if(offset+8>data.byteLength)throw Error("ساختار chunk در مدل "+name+" ناقص است.");
+    if(offset+8>data.byteLength)fail("ساختار chunk ناقص است.");
     const length=view.getUint32(offset,true),type=view.getUint32(offset+4,true);
     offset+=8;
-    if(!length||offset+length>data.byteLength)throw Error("اندازه chunk در مدل "+name+" معتبر نیست.");
+    if(!length||length%4!==0||offset+length>data.byteLength)fail("اندازه یا هم‌ترازی chunk معتبر نیست.");
     if(chunkIndex===0){
-      if(type!==0x4e4f534a)throw Error("اولین chunk مدل "+name+" باید JSON باشد.");
-      try{json=JSON.parse(new TextDecoder().decode(new Uint8Array(data,offset,length)).replace(/\0+$/,"").trim())}catch{throw Error("JSON داخلی مدل "+name+" معتبر نیست.")}
-    }
+      if(type!==0x4e4f534a)fail("اولین chunk باید JSON باشد.");
+      try{json=JSON.parse(new TextDecoder().decode(new Uint8Array(data,offset,length)).replace(/\0+$/,"").trim())}catch{fail("JSON داخلی معتبر نیست.")}
+    }else if(chunkIndex===1){
+      if(type!==0x004e4942)fail("دومین chunk باید داده باینری BIN باشد.");
+      bin={offset,length};
+    }else fail("تعداد یا ترتیب chunkهای GLB پشتیبانی نمی‌شود.");
     offset+=length;
     chunkIndex++;
   }
-  if(offset!==data.byteLength||!json||json.asset?.version!=="2.0")throw Error("ساختار glTF 2.0 در مدل "+name+" کامل نیست.");
-  const skinnedMesh=Array.isArray(json.meshes)&&json.meshes.some(mesh=>(mesh.primitives||[]).some(primitive=>primitive.attributes&&primitive.attributes.JOINTS_0!==undefined&&primitive.attributes.WEIGHTS_0!==undefined));
-  const skinnedNode=Array.isArray(json.nodes)&&json.nodes.some(node=>Number.isInteger(node.mesh)&&Number.isInteger(node.skin));
-  const hasRig=Array.isArray(json.skins)&&json.skins.some(skin=>Array.isArray(skin.joints)&&skin.joints.length>=2)&&skinnedMesh&&skinnedNode;
-  const hasAnimation=Array.isArray(json.animations)&&json.animations.some(animation=>Array.isArray(animation.channels)&&animation.channels.length>0);
-  if(!hasRig||!hasAnimation)throw Error("مدل "+name+" باید اسکلت واقعی، وزن‌دهی JOINTS/WEIGHTS و حداقل یک انیمیشن داشته باشد.");
+  if(offset!==data.byteLength||!json||json.asset?.version!=="2.0"||!bin)fail("باید شامل JSON و داده باینری GLB 2.0 باشد.");
+  if(!Array.isArray(json.buffers)||json.buffers.length!==1||json.buffers[0].uri!==undefined)fail("باید دقیقاً یک buffer داخلی و بدون URI خارجی داشته باشد.");
+  const bufferLength=json.buffers[0].byteLength;
+  if(!Number.isInteger(bufferLength)||bufferLength<=0||bufferLength>bin.length||bin.length-bufferLength>3)fail("طول buffer با chunk باینری GLB مطابقت ندارد.");
+  if(!Array.isArray(json.bufferViews)||!json.bufferViews.length||!Array.isArray(json.accessors)||!json.accessors.length)fail("bufferView یا accessor واقعی ندارد.");
+  for(const [i,bv] of json.bufferViews.entries()){
+    const start=Number.isInteger(bv.byteOffset)?bv.byteOffset:0;
+    if(bv.buffer!==0||!Number.isInteger(bv.byteLength)||bv.byteLength<=0||start<0||start%4!==0||start+bv.byteLength>bufferLength)fail("bufferView شماره "+i+" خارج از محدوده داده باینری است.");
+    if(bv.byteStride!==undefined&&(!Number.isInteger(bv.byteStride)||bv.byteStride<4||bv.byteStride>252||bv.byteStride%4!==0))fail("byteStride در bufferView شماره "+i+" معتبر نیست.");
+  }
+  const componentBytes={5120:1,5121:1,5122:2,5123:2,5125:4,5126:4};
+  const componentCounts={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT2:4,MAT3:9,MAT4:16};
+  const accessorInfo=(index,type,allowed,label)=>{
+    if(!Number.isInteger(index)||index<0||index>=json.accessors.length)fail("ارجاع accessor برای "+label+" معتبر نیست.");
+    const a=json.accessors[index];
+    if(a.sparse||!Number.isInteger(a.bufferView)||a.bufferView<0||a.bufferView>=json.bufferViews.length)fail("accessor برای "+label+" باید داده باینری مستقیم داشته باشد.");
+    const bv=json.bufferViews[a.bufferView],size=componentBytes[a.componentType],parts=componentCounts[a.type],count=a.count,byteOffset=Number.isInteger(a.byteOffset)?a.byteOffset:0;
+    if(!size||!parts||!allowed.includes(a.componentType)||a.type!==type||!Number.isInteger(count)||count<1||byteOffset<0||byteOffset%size!==0)fail("نوع، componentType یا تعداد داده "+label+" معتبر نیست.");
+    const elementBytes=size*parts,stride=bv.byteStride||elementBytes;
+    if(stride<elementBytes||stride%size!==0||byteOffset+(count-1)*stride+elementBytes>bv.byteLength)fail("داده accessor برای "+label+" از bufferView خارج می‌شود.");
+    return {accessor:a,componentBytes:size,components:parts,count,stride,absoluteOffset:(Number.isInteger(bv.byteOffset)?bv.byteOffset:0)+byteOffset};
+  };
+  const readComponent=(info,element,component)=>{
+    const at=info.absoluteOffset+element*info.stride+component*info.componentBytes;
+    if(info.accessor.componentType===5121)return view.getUint8(bin.offset+at);
+    if(info.accessor.componentType===5123)return view.getUint16(bin.offset+at,true);
+    if(info.accessor.componentType===5126)return view.getFloat32(bin.offset+at,true);
+    return null;
+  };
+  if(!Array.isArray(json.nodes)||!Array.isArray(json.meshes)||!Array.isArray(json.skins))fail("ساختار node، mesh یا skin ناقص است.");
+  const jointNodes=new Set(),weightedJointNodes=new Set();
+  let skinnedPrimitiveCount=0;
+  for(let nodeIndex=0;nodeIndex<json.nodes.length;nodeIndex++){
+    const node=json.nodes[nodeIndex];
+    if(node.skin===undefined)continue;
+    if(!Number.isInteger(node.skin)||node.skin<0||node.skin>=json.skins.length||!Number.isInteger(node.mesh)||node.mesh<0||node.mesh>=json.meshes.length)fail("گره اسکلتی باید به mesh و skin معتبر متصل باشد.");
+    const skin=json.skins[node.skin],joints=skin?.joints;
+    if(!Array.isArray(joints)||joints.length<2||new Set(joints).size!==joints.length||joints.some(j=>!Number.isInteger(j)||j<0||j>=json.nodes.length))fail("اسکلت باید دست‌کم دو مفصل یکتا و معتبر داشته باشد.");
+    if(skin.skeleton!==undefined&&(!Number.isInteger(skin.skeleton)||!joints.includes(skin.skeleton)))fail("ریشه اسکلت باید یکی از مفصل‌های تعریف‌شده باشد.");
+    if(skin.inverseBindMatrices!==undefined){const ibm=accessorInfo(skin.inverseBindMatrices,"MAT4",[5126],"inverseBindMatrices");if(ibm.count<joints.length)fail("تعداد ماتریس‌های bind با تعداد مفصل‌ها سازگار نیست.");}
+    const mesh=json.meshes[node.mesh];
+    if(!Array.isArray(mesh.primitives)||!mesh.primitives.length)fail("mesh اسکلتی primitive ندارد.");
+    for(const joint of joints)jointNodes.add(joint);
+    for(const primitive of mesh.primitives){
+      const attrs=primitive.attributes||{};
+      const position=accessorInfo(attrs.POSITION,"VEC3",[5126],"POSITION");
+      const jointsInfo=accessorInfo(attrs.JOINTS_0,"VEC4",[5121,5123],"JOINTS_0");
+      const weightsInfo=accessorInfo(attrs.WEIGHTS_0,"VEC4",[5126,5121,5123],"WEIGHTS_0");
+      if(jointsInfo.accessor.normalized===true)fail("JOINTS_0 نباید normalized باشد.");
+      if(weightsInfo.accessor.componentType!==5126&&weightsInfo.accessor.normalized!==true)fail("وزن‌های صحیح WEIGHTS_0 باید normalized باشند.");
+      if(position.count!==jointsInfo.count||position.count!==weightsInfo.count)fail("تعداد POSITION، JOINTS_0 و WEIGHTS_0 یکسان نیست.");
+      for(let vertex=0;vertex<jointsInfo.count;vertex++){
+        let weightSum=0;
+        for(let k=0;k<4;k++){
+          const jointIndex=readComponent(jointsInfo,vertex,k);
+          let weight=readComponent(weightsInfo,vertex,k);
+          if(weightsInfo.accessor.componentType===5121)weight/=255;
+          if(weightsInfo.accessor.componentType===5123)weight/=65535;
+          if(jointIndex===null||jointIndex>=joints.length||!Number.isFinite(weight)||weight<0)fail("مقدار joint یا weight در رأس "+vertex+" معتبر نیست.");
+          if(weight>0)weightedJointNodes.add(joints[jointIndex]);
+          weightSum+=weight;
+        }
+        if(weightSum<0.5||weightSum>1.5)fail("وزن‌های اسکلت در رأس "+vertex+" مجموع معتبر ندارند.");
+      }
+      skinnedPrimitiveCount++;
+    }
+  }
+  if(!skinnedPrimitiveCount||weightedJointNodes.size<2)fail("باید mesh واقعی با JOINTS_0 و WEIGHTS_0 و حداقل دو مفصل وزن‌دهی‌شده داشته باشد.");
+  const animations=Array.isArray(json.animations)?json.animations:[];
+  let hasAnimation=false;
+  for(const animation of animations){
+    if(!Array.isArray(animation.samplers)||!Array.isArray(animation.channels))continue;
+    for(const channel of animation.channels){
+      const sampler=animation.samplers[channel.sampler],target=channel.target;
+      if(!sampler||!target||!Number.isInteger(target.node)||!jointNodes.has(target.node)||!["translation","rotation","scale"].includes(target.path))continue;
+      const input=accessorInfo(sampler.input,"SCALAR",[5126],"animation input");
+      const outputType=target.path==="rotation"?"VEC4":"VEC3";
+      const output=accessorInfo(sampler.output,outputType,[5126],"animation output");
+      const interpolation=sampler.interpolation||"LINEAR";
+      if(!["LINEAR","STEP","CUBICSPLINE"].includes(interpolation)||input.count<2||output.count!==input.count*(interpolation==="CUBICSPLINE"?3:1))fail("keyframeهای انیمیشن با sampler سازگار نیستند.");
+      hasAnimation=true;
+    }
+  }
+  if(!hasAnimation)fail("باید حداقل یک انیمیشن معتبر داشته باشد که یکی از مفصل‌های اسکلت را حرکت دهد.");
   return json;
 }
 async function importOddlingZip(file){
