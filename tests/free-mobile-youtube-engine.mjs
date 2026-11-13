@@ -5,6 +5,8 @@ import { readFile } from "node:fs/promises";
 const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const worker = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
+const docs = await readFile(new URL("../docs/free-mobile-youtube-engine.md", import.meta.url), "utf8");
+const manifest = JSON.parse(await readFile(new URL("../public/characters/manifest.json", import.meta.url), "utf8"));
 
 test("all short-video text generation is pinned to Gemini free tier", () => {
   const start = worker.indexOf('if(body.freeOnly===true||["trend_strategy"');
@@ -99,3 +101,27 @@ test("automatic episode prompt is centered on one persistent selected Oddling", 
 });
 
 
+
+test("short-video documentation matches Gemini model and explicit publishing safeguards", () => {
+  assert.ok(worker.includes("gemini-3.5-flash-lite:generateContent"));
+  assert.ok(docs.includes("Gemini 3.5 Flash-Lite"));
+  assert.ok(docs.includes("Upload defaults to `private`"));
+  assert.ok(app.includes("بارگذاری اولیه خصوصی است؛ انتشار عمومی فقط با دکمه جداگانه و تأیید صریح تو انجام می‌شود."));
+  assert.ok(docs.includes("confirmPublic=true"));
+  assert.ok(docs.includes("Scheduled publishing is not exposed"));
+  assert.equal(docs.includes("private-only. Public publishing and scheduled public publishing are disabled"), false);
+  assert.ok(app.includes('confirm("تأیید انتشار عمومی'));
+  assert.ok(worker.includes('requestedPrivacy === "public" && String(form.get("confirmPublic") || "") !== "true"'));
+});
+
+test("character pack documentation and manifest clearly distinguish 2D PNG portraits from missing GLB assets", () => {
+  assert.equal(manifest.characters.length, 25);
+  assert.equal(manifest.format, "metadata-only JSON; no GLB binary assets are included");
+  assert.equal(manifest.plannedModelFormat, "glTF 2.0 binary (.glb)");
+  assert.ok(manifest.modelNote.includes("No actual GLB model assets are currently included"));
+  assert.ok(manifest.assetStatus.includes("metadata-only"));
+  assert.ok(manifest.portraitRendering.includes("2D Canvas PNGs"));
+  assert.ok(docs.includes("2D Canvas PNG artwork"));
+  assert.ok(docs.includes("not a GLB pack"));
+  assert.ok(docs.includes("does **not** contain the referenced GLB files"));
+});
