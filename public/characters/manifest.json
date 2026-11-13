@@ -1,7 +1,7 @@
 {
   "pack": "The 25 Oddlings",
   "version": 1,
-  "format": "glTF 2.0 binary (.glb)",
+  "format": "metadata-only JSON; no GLB binary assets are included",
   "modelNote": "The manifest lists intended GLB filenames only. No actual GLB model assets are currently included; no rigging or animation can be claimed.",
   "characters": [
     {
@@ -180,6 +180,7 @@
       "file": "25_velvetusk.glb"
     }
   ],
-  "assetStatus": "metadata-only; the 25 referenced GLB files are not present in this repository",
-  "portraitRendering": "The current in-app portraits are procedurally drawn as 2D Canvas PNGs."
+  "assetStatus": "metadata-only; the 25 referenced GLB filenames are plans only and no GLB files are present in this repository",
+  "portraitRendering": "The current in-app portraits are procedurally drawn as 2D Canvas PNGs.",
+  "plannedModelFormat": "glTF 2.0 binary (.glb)"
 }
