@@ -115,6 +115,8 @@ test("short-video documentation matches Gemini model and explicit publishing saf
 
 test("character pack documentation and manifest clearly distinguish 2D PNG portraits from missing GLB assets", () => {
   assert.equal(manifest.characters.length, 25);
+  assert.equal(manifest.format, "metadata-only JSON; no GLB binary assets are included");
+  assert.equal(manifest.plannedModelFormat, "glTF 2.0 binary (.glb)");
   assert.ok(manifest.modelNote.includes("No actual GLB model assets are currently included"));
   assert.ok(manifest.assetStatus.includes("metadata-only"));
   assert.ok(manifest.portraitRendering.includes("2D Canvas PNGs"));
