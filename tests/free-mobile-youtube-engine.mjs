@@ -106,6 +106,7 @@ test("short-video documentation matches Gemini model and explicit publishing saf
   assert.ok(worker.includes("gemini-3.5-flash-lite:generateContent"));
   assert.ok(docs.includes("Gemini 3.5 Flash-Lite"));
   assert.ok(docs.includes("Upload defaults to `private`"));
+  assert.ok(app.includes("بارگذاری اولیه خصوصی است؛ انتشار عمومی فقط با دکمه جداگانه و تأیید صریح تو انجام می‌شود."));
   assert.ok(docs.includes("confirmPublic=true"));
   assert.ok(docs.includes("Scheduled publishing is not exposed"));
   assert.equal(docs.includes("private-only. Public publishing and scheduled public publishing are disabled"), false);
