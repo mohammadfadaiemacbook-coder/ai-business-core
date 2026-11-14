@@ -752,6 +752,7 @@ export default {
       const limited=await enforceRateLimit(env.DB, workspace, "media-tts", 20, headers);if(limited)return limited;
       let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
       const language=String(body?.language||"en").toLowerCase();if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);
+      if(language!=="en")return json({error:"گویندگی فارسی در نسخه بدون هزینه غیرفعال است؛ هیچ سرویس پولی فراخوانی نمی‌شود."},503,headers);
       const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
       const mediaSecrets=await loadProviderSecrets(env,env.DB,workspace);
       if(language==="en"){
@@ -775,11 +776,8 @@ export default {
           return new Response(wav,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
         }catch{return json({error:"Gemini TTS request failed",detail:"Please retry later; no paid fallback is enabled."},502,headers)}
       }
-      const ttsKey=mediaSecrets.elevenlabsKey||env.ELEVENLABS_API_KEY,ttsModel=mediaSecrets.elevenlabsModel||env.ELEVENLABS_MODEL_ID,voiceId=mediaSecrets.elevenlabsVoiceId||env.ELEVENLABS_VOICE_ID;
-      if(!ttsKey||!voiceId)return json({error:"Persian TTS is not configured in app provider settings."},503,headers);
-      try{const response=await fetchWithTimeout("https://api.elevenlabs.io/v1/text-to-speech/"+encodeURIComponent(voiceId),{method:"POST",headers:{"xi-api-key":ttsKey,"content-type":"application/json","accept":"audio/mpeg"},body:JSON.stringify({text,model_id:ttsModel||"eleven_multilingual_v2"}),signal:AbortSignal.timeout(90000)});if(!response.ok)return json({error:"TTS provider failed"},502,headers);return new Response(response.body,{status:200,headers:{"content-type":"audio/mpeg","cache-control":"no-store",...headers}})}catch{return json({error:"TTS request failed"},502,headers)}
     }
-    if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
+        if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
     if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized. Exchange APP_ACCESS_TOKEN for a 15-minute session at /api/auth/session." }, 401, headers);

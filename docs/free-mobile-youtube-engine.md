@@ -7,6 +7,7 @@ This branch adds a zero-paid-provider short-video path to the existing PWA. Targ
 - Video topic analysis, script, metadata and the 11-stage review use a dedicated `freeOnly` Worker path pinned to Google Gemini 3.5 Flash-Lite; it never calls the configured primary provider, paid secondary provider, or paid review model.\n- English narration uses the Google Gemini Developer API TTS model `gemini-3.1-flash-tts-preview` (currently listed in the Standard Free Tier) through the authenticated Worker route.
 - The Gemini key is read from the encrypted Worker provider store (`geminiKey`), or from the existing Gemini secondary-provider key only when its configured URL is the official `generativelanguage.googleapis.com` host. It is never sent to the browser.
 - English narration never falls back to ElevenLabs or another paid provider. A Gemini text-generation quota/rate-limit error also stops production without a paid fallback. A Gemini quota/rate-limit error stops production.
+- The zero-cost build rejects Persian TTS requests with HTTP 503; it does not call ElevenLabs or any other paid voice provider.
 - Use a Google AI Studio project on its free tier with no billing account attached. The app cannot override a provider account that has billing enabled; do not attach billing or configure paid fallbacks.
 - The video render path does not call the image-generation endpoint. It uses browser Canvas graphics, motion, narration, captions, and a thumbnail.
 - No R2, external renderer, FFmpeg, Mac process, or paid storage is required.
