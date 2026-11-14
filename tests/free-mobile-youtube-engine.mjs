@@ -29,7 +29,7 @@ test("English free TTS uses Gemini and has no paid fallback", () => {
   assert.match(english, /no paid fallback is enabled/i);
   assert.match(english, /responseModalities:\["AUDIO"\]/);
   assert.match(english, /speechConfig:/);
-  assert.doesNotMatch(worker, /gemini-2\\.5-flash-preview-tts/);
+  assert.doesNotMatch(worker, /gemini-2\.5-flash-preview-tts/);
   assert.doesNotMatch(english, /api\.elevenlabs\.com/);
 });
 
