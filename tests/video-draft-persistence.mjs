@@ -42,9 +42,10 @@ test("restored preview keeps the safe private-upload path and separately confirm
   assert.match(app, /if\(a==="video-send"\)[\s\S]*?#yt-video-privacy"\)\.value="private"/);
 });
 
-test("restored upload controls appear only in the result panel, not duplicated beside the inline preview", () => {
-  assert.match(app, /function videoDraftPreviewMarkup\(includeUploadActions=false\)/);
-  assert.match(app, /if\(preview\)preview\.innerHTML=videoDraftPreviewMarkup\(false\)/);
-  assert.match(app, /if\(result\)result\.innerHTML=videoDraftPreviewMarkup\(true\)/);
-  assert.match(app, /includeUploadActions\?'<button class="button secondary" data-action="video-send"/);
+test("restored upload actions render when YouTube studio is opened after asynchronous draft restoration", () => {
+  assert.match(app, /function videoDraftActionsMarkup\(\)/);
+  assert.match(app, /if\(preview\)preview\.innerHTML=videoDraftPreviewMarkup\(\)/);
+  assert.match(app, /if\(result\)result\.innerHTML=videoDraftActionsMarkup\(\)/);
+  assert.match(app, /id="video-studio-result" class="section-gap">'\+videoDraftActionsMarkup\(\)\+/);
+  assert.match(app, /if\(!generatedVideoBlob\)return ""/);
 });
