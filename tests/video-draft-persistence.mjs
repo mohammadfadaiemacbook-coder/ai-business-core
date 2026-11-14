@@ -41,3 +41,10 @@ test("restored preview keeps the safe private-upload path and separately confirm
   assert.match(app, /uploadGeneratedVideo\("public"\)/);
   assert.match(app, /if\(a==="video-send"\)[\s\S]*?#yt-video-privacy"\)\.value="private"/);
 });
+
+test("restored upload controls appear only in the result panel, not duplicated beside the inline preview", () => {
+  assert.match(app, /function videoDraftPreviewMarkup\(includeUploadActions=false\)/);
+  assert.match(app, /if\(preview\)preview\.innerHTML=videoDraftPreviewMarkup\(false\)/);
+  assert.match(app, /if\(result\)result\.innerHTML=videoDraftPreviewMarkup\(true\)/);
+  assert.match(app, /includeUploadActions\?'<button class="button secondary" data-action="video-send"/);
+});
