@@ -24,7 +24,7 @@ test("English free TTS uses Gemini and has no paid fallback", () => {
   const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
   const route = worker.slice(start, end);
-  const english = route.slice(route.indexOf('if(language==="en")'), route.indexOf('const ttsKey='));
+  const english = route.slice(route.indexOf('if(language==="en")'));
   assert.match(english, /generativelanguage\.googleapis\.com/);
   assert.match(english, /no paid fallback is enabled/i);
   assert.match(english, /responseModalities:\["AUDIO"\]/);
@@ -102,3 +102,13 @@ test("automatic episode prompt is centered on one persistent selected Oddling", 
 });
 
 
+
+
+test("zero-cost build rejects Persian TTS before any paid provider can be called", () => {
+  const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
+  const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
+  const route = worker.slice(start, end);
+  assert.match(route, /if\(language!=="en"\)return json/);
+  assert.match(route, /گویندگی فارسی در نسخه بدون هزینه غیرفعال است/);
+  assert.doesNotMatch(route, /ELEVENLABS_API_KEY|api\.elevenlabs\.com|elevenlabsKey/);
+});
