@@ -187,10 +187,10 @@ async function readGeneratedVideoDraft(){
     tx.onerror=()=>{const error=tx.error||new Error("خواندن حافظه پیش‌نمایش ناموفق بود.");db.close();reject(error)};
   });
 }
-function videoDraftPreviewMarkup(){
+function videoDraftPreviewMarkup(includeUploadActions=false){
   if(!generatedVideoBlob||!generatedVideoUrl)return "";
   const title=String(generatedVideoMetadata?.title||"پیش‌نمایش ویدئوی ذخیره‌شده").slice(0,100);
-  return '<div class="panel"><h3>'+esc(title)+'</h3><video controls playsinline style="width:100%;max-width:320px;max-height:560px;aspect-ratio:9/16;object-fit:contain;border-radius:14px" src="'+esc(generatedVideoUrl)+'"></video><p class="muted">پیش‌نمایش محلی بازیابی‌شده · '+(generatedVideoBlob.size/1024/1024).toFixed(1)+' مگابایت · WebM</p><div class="actions"><button class="button secondary" data-action="video-download-again">دریافت ویدئو</button>'+(generatedSubtitlesBlob?'<button class="button secondary" data-action="video-subtitles">دریافت زیرنویس SRT</button>':"")+(generatedThumbnailBlob?'<button class="button secondary" data-action="video-thumbnail">دریافت کاور PNG</button>':"")+'<button class="button secondary" data-action="video-send">انتقال به فرم آپلود خصوصی</button><button class="button primary" data-action="video-publish">انتشار عمومی با تأیید جداگانه</button></div></div>';
+  return '<div class="panel"><h3>'+esc(title)+'</h3><video controls playsinline style="width:100%;max-width:320px;max-height:560px;aspect-ratio:9/16;object-fit:contain;border-radius:14px" src="'+esc(generatedVideoUrl)+'"></video><p class="muted">پیش‌نمایش محلی بازیابی‌شده · '+(generatedVideoBlob.size/1024/1024).toFixed(1)+' مگابایت · WebM</p><div class="actions"><button class="button secondary" data-action="video-download-again">دریافت ویدئو</button>'+(generatedSubtitlesBlob?'<button class="button secondary" data-action="video-subtitles">دریافت زیرنویس SRT</button>':"")+(generatedThumbnailBlob?'<button class="button secondary" data-action="video-thumbnail">دریافت کاور PNG</button>':"")+(includeUploadActions?'<button class="button secondary" data-action="video-send">انتقال به فرم آپلود خصوصی</button><button class="button primary" data-action="video-publish">انتشار عمومی با تأیید جداگانه</button>':"")+'</div></div>';
 }
 async function restoreGeneratedVideoDraft(){
   try{
@@ -207,9 +207,9 @@ async function restoreGeneratedVideoDraft(){
     const summary=$("#youtube-inline-draft");
     if(summary)summary.innerHTML='<p class="muted">آخرین ویدئوی ساخته‌شده از حافظه محلی همین دستگاه بازیابی شد؛ پیش از هرگونه انتشار، آن را دوباره بررسی کن.</p>';
     const preview=$("#youtube-inline-video");
-    if(preview)preview.innerHTML=videoDraftPreviewMarkup();
+    if(preview)preview.innerHTML=videoDraftPreviewMarkup(false);
     const result=$("#video-studio-result");
-    if(result)result.innerHTML=videoDraftPreviewMarkup();
+    if(result)result.innerHTML=videoDraftPreviewMarkup(true);
   }catch(error){
     recordAppError("بازیابی پیش‌نمایش ویدئو از حافظه محلی ناموفق بود","video-draft-storage",error?.message||"");
   }
