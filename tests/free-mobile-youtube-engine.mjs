@@ -22,13 +22,15 @@ test("all short-video text generation is pinned to Gemini free tier", () => {
 
 test("English free TTS uses Gemini and has no paid fallback", () => {
   assert.match(worker, /mediaSecrets\.geminiKey/);
-  assert.match(worker, /gemini-2\.5-flash-preview-tts/);
+  assert.match(worker, /gemini-3.1-flash-tts-preview/);
   const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
   const route = worker.slice(start, end);
   const english = route.slice(route.indexOf('if(language==="en")'), route.indexOf('const ttsKey='));
   assert.match(english, /generativelanguage\.googleapis\.com/);
   assert.match(english, /no paid fallback is enabled/i);
+  assert.match(english, /responseModalities:\["AUDIO"\]/);
+  assert.match(english, /speechConfig:/);
   assert.doesNotMatch(english, /api\.elevenlabs\.com/);
 });
 
