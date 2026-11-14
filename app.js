@@ -187,10 +187,14 @@ async function readGeneratedVideoDraft(){
     tx.onerror=()=>{const error=tx.error||new Error("خواندن حافظه پیش‌نمایش ناموفق بود.");db.close();reject(error)};
   });
 }
-function videoDraftPreviewMarkup(includeUploadActions=false){
+function videoDraftPreviewMarkup(){
   if(!generatedVideoBlob||!generatedVideoUrl)return "";
   const title=String(generatedVideoMetadata?.title||"پیش‌نمایش ویدئوی ذخیره‌شده").slice(0,100);
-  return '<div class="panel"><h3>'+esc(title)+'</h3><video controls playsinline style="width:100%;max-width:320px;max-height:560px;aspect-ratio:9/16;object-fit:contain;border-radius:14px" src="'+esc(generatedVideoUrl)+'"></video><p class="muted">پیش‌نمایش محلی بازیابی‌شده · '+(generatedVideoBlob.size/1024/1024).toFixed(1)+' مگابایت · WebM</p><div class="actions"><button class="button secondary" data-action="video-download-again">دریافت ویدئو</button>'+(generatedSubtitlesBlob?'<button class="button secondary" data-action="video-subtitles">دریافت زیرنویس SRT</button>':"")+(generatedThumbnailBlob?'<button class="button secondary" data-action="video-thumbnail">دریافت کاور PNG</button>':"")+(includeUploadActions?'<button class="button secondary" data-action="video-send">انتقال به فرم آپلود خصوصی</button><button class="button primary" data-action="video-publish">انتشار عمومی با تأیید جداگانه</button>':"")+'</div></div>';
+  return '<div class="panel"><h3>'+esc(title)+'</h3><video controls playsinline style="width:100%;max-width:320px;max-height:560px;aspect-ratio:9/16;object-fit:contain;border-radius:14px" src="'+esc(generatedVideoUrl)+'"></video><p class="muted">پیش‌نمایش محلی بازیابی‌شده · '+(generatedVideoBlob.size/1024/1024).toFixed(1)+' مگابایت · WebM</p><div class="actions"><button class="button secondary" data-action="video-download-again">دریافت ویدئو</button>'+(generatedSubtitlesBlob?'<button class="button secondary" data-action="video-subtitles">دریافت زیرنویس SRT</button>':"")+(generatedThumbnailBlob?'<button class="button secondary" data-action="video-thumbnail">دریافت کاور PNG</button>':"")+'</div></div>';
+}
+function videoDraftActionsMarkup(){
+  if(!generatedVideoBlob)return "";
+  return '<div class="actions section-gap"><button class="button secondary" data-action="video-send">انتقال به فرم آپلود خصوصی</button><button class="button primary" data-action="video-publish">انتشار عمومی با تأیید جداگانه</button></div>';
 }
 async function restoreGeneratedVideoDraft(){
   try{
@@ -207,9 +211,9 @@ async function restoreGeneratedVideoDraft(){
     const summary=$("#youtube-inline-draft");
     if(summary)summary.innerHTML='<p class="muted">آخرین ویدئوی ساخته‌شده از حافظه محلی همین دستگاه بازیابی شد؛ پیش از هرگونه انتشار، آن را دوباره بررسی کن.</p>';
     const preview=$("#youtube-inline-video");
-    if(preview)preview.innerHTML=videoDraftPreviewMarkup(false);
+    if(preview)preview.innerHTML=videoDraftPreviewMarkup();
     const result=$("#video-studio-result");
-    if(result)result.innerHTML=videoDraftPreviewMarkup(true);
+    if(result)result.innerHTML=videoDraftActionsMarkup();
   }catch(error){
     recordAppError("بازیابی پیش‌نمایش ویدئو از حافظه محلی ناموفق بود","video-draft-storage",error?.message||"");
   }
@@ -301,7 +305,7 @@ return heading("YOUTUBE","مدیریت کانال یوتیوب","یک صفحه �
 '<section class="panel section-gap" id="oddling-library"></section>'+
 '<section class="panel yt-welcome"><div><span class="eyebrow">NEXORA AI · CREATOR DESK</span><h2>تولید ویدئوی کوتاه با یک کلیک</h2><p>موضوع تازه بر اساس ترندها انتخاب می‌شود؛ سناریوی انگلیسی ۱ تا ۳ دقیقه‌ای، صدای Gemini، زیرنویس، کاور، عنوان و توضیحات آماده می‌شوند.</p></div><div class="yt-status-row"><span class="status-dot"></span><span id="youtube-account-status">وضعیت اتصال هنوز بررسی نشده</span></div></section>'+
 '<section class="yt-actions-grid yt-actions-single"><button class="yt-main-action yt-generate" data-action="video-auto"><span class="yt-action-icon">✦</span><strong>آماده‌سازی ویدئو</strong><small>از انتخاب موضوع تا آماده‌شدن نسخه قابل بازبینی</small></button></section>'+
-'<section class="panel yt-draft-panel"><div class="panel-head"><div><span class="eyebrow">VIDEO PREVIEW</span><h2>پیش‌نمایش ویدئو</h2><p class="muted">ویدئو را اینجا تماشا کن؛ در این مرحله فقط بارگذاری خصوصی فعال است.</p></div><span class="pill" id="yt-draft-status">آماده</span></div><div id="youtube-inline-draft">'+(generatedVideoBlob?'<p class="muted">آخرین پیش‌نمایش ویدئو در حافظه محلی همین دستگاه موجود است.</p>':'<div class="yt-empty"><span>✧</span><strong>هنوز ویدئویی آماده نشده</strong><p>برای شروع، دکمه «آماده‌سازی ویدئو» را بزن.</p></div>')+'</div><div id="youtube-inline-video" class="section-gap">'+videoDraftPreviewMarkup()+'</div><div id="video-studio-result" class="section-gap"></div></section>'+
+'<section class="panel yt-draft-panel"><div class="panel-head"><div><span class="eyebrow">VIDEO PREVIEW</span><h2>پیش‌نمایش ویدئو</h2><p class="muted">ویدئو را اینجا تماشا کن؛ در این مرحله فقط بارگذاری خصوصی فعال است.</p></div><span class="pill" id="yt-draft-status">آماده</span></div><div id="youtube-inline-draft">'+(generatedVideoBlob?'<p class="muted">آخرین پیش‌نمایش ویدئو در حافظه محلی همین دستگاه موجود است.</p>':'<div class="yt-empty"><span>✧</span><strong>هنوز ویدئویی آماده نشده</strong><p>برای شروع، دکمه «آماده‌سازی ویدئو» را بزن.</p></div>')+'</div><div id="youtube-inline-video" class="section-gap">'+videoDraftPreviewMarkup()+'</div><div id="video-studio-result" class="section-gap">'+videoDraftActionsMarkup()+'</div></section>'+
 '<section class="panel section-gap yt-analytics-panel"><div class="panel-head"><div><span class="eyebrow">CHANNEL INSIGHTS</span><h2>آمار کانال</h2><p class="muted">آمار ۳۰ روز اخیر و درآمد تخمینی از YouTube Analytics.</p></div><button class="button secondary" data-action="youtube-analytics">به‌روزرسانی آمار</button></div><div id="youtube-dashboard"><div class="yt-empty"><span>◉</span><strong>آمار هنوز دریافت نشده</strong><p>برای نمایش نمودارها، آمار کانال را به‌روزرسانی کن.</p></div></div></section>'+
 '<section class="panel section-gap"><div class="panel-head"><div><h2>مدیریت کامنت‌ها</h2><p class="muted">پاسخ هوشمند بساز؛ قبل از ارسال بازبینی و تأیید کن.</p></div><button class="button secondary" data-action="youtube-comments">دریافت کامنت‌ها</button></div><div id="youtube-comments-list"><p class="muted">برای دیدن کامنت‌ها، دکمه دریافت کامنت‌ها را بزن.</p></div></section>'+
 '<div class="yt-hidden"><input id="yt-channel-name" value="Nexora AI"><input id="yt-region" value="US"><input id="yt-niche" value="AI education, AI tools, agents and automation"><input id="yt-audience" value="Global English-speaking audience"><input id="cloud-workspace" value="'+esc(localStorage.getItem("ai-business-core-workspace-v1")||"default")+'" autocomplete="off"><input id="cloud-token" type="password" autocomplete="off"></div>'+
