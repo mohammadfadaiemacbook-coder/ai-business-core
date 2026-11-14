@@ -51,7 +51,7 @@ test("all YouTube production tasks are forced onto the Gemini free-only path ser
 
 test("English narration is pinned to the current free-tier Gemini 3.1 Flash TTS Preview model", () => {
   assert.match(worker, /const model="gemini-3.1-flash-tts-preview"/);
-  assert.doesNotMatch(worker, /gemini-2\\.5-flash-preview-tts/);
+  assert.doesNotMatch(worker, /gemini-2\.5-flash-preview-tts/);
   assert.doesNotMatch(worker, /mediaSecrets\.geminiTtsModel/);
   const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
