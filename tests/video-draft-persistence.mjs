@@ -33,3 +33,11 @@ test("restored preview provides local video, SRT and thumbnail downloads", () =>
   assert.match(app, /data-action="video-subtitles"/);
   assert.match(app, /data-action="video-thumbnail"/);
 });
+
+test("restored preview keeps the safe private-upload path and separately confirmed public-publish action available", () => {
+  assert.match(app, /data-action="video-send">انتقال به فرم آپلود خصوصی/);
+  assert.match(app, /data-action="video-publish">انتشار عمومی با تأیید جداگانه/);
+  assert.match(app, /if\(a==="video-publish"\)[\s\S]*?confirm\(/);
+  assert.match(app, /uploadGeneratedVideo\("public"\)/);
+  assert.match(app, /if\(a==="video-send"\)[\s\S]*?#yt-video-privacy"\)\.value="private"/);
+});
