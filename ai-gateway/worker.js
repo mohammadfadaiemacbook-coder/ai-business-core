@@ -759,7 +759,7 @@ export default {
         const googleSecondary=String(mediaSecrets.secondaryUrl||"").startsWith("https://generativelanguage.googleapis.com/");
         const apiKey=mediaSecrets.geminiKey||(googleSecondary?mediaSecrets.secondaryKey:"")||env.GEMINI_API_KEY;
         if(!apiKey)return json({error:"برای گویندگی رایگان انگلیسی، کلید Google AI Studio را در تنظیمات امن وارد کن."},503,headers);
-        const model="gemini-2.5-flash-preview-tts";
+        const model="gemini-3.1-flash-tts-preview";
         if(!/^gemini-[a-zA-Z0-9.-]+-tts(?:-preview)?$/.test(model))return json({error:"Gemini TTS model is not allowed"},400,headers);
         const voice=String(body?.voice||"Kore");
         if(!["Kore","Puck","Aoede","Charon","Fenrir","Leda","Orus","Zephyr"].includes(voice))return json({error:"Unsupported Gemini voice"},400,headers);
