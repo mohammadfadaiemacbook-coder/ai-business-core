@@ -49,14 +49,19 @@ test("all YouTube production tasks are forced onto the Gemini free-only path ser
   assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
 });
 
-test("English narration is pinned to the free-tier Gemini 2.5 Flash Preview TTS model", () => {
-  assert.match(worker, /const model="gemini-2\.5-flash-preview-tts"/);
+test("English narration is pinned to the current free-tier Gemini 3.1 Flash TTS Preview model", () => {
+  assert.match(worker, /const model="gemini-3.1-flash-tts-preview"/);
   assert.doesNotMatch(worker, /mediaSecrets\.geminiTtsModel/);
   const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
   const english = worker.slice(start, end);
   assert.match(english, /no paid fallback is enabled/i);
   assert.doesNotMatch(english.slice(english.indexOf('if(language==="en")'), english.indexOf("const ttsKey=")), /api\.elevenlabs\.com/);
+});
+
+test("YouTube preview copy does not claim private-only while exposing a separately confirmed public action", () => {
+  assert.doesNotMatch(app, /در این مرحله فقط بارگذاری خصوصی فعال است/);
+  assert.match(app, /confirm\("تأیید انتشار عمومی/);
 });
 
 test("manual YouTube script generation sends freeOnly and refuses external provider endpoints", () => {
