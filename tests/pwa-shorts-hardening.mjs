@@ -49,15 +49,20 @@ test("all YouTube production tasks are forced onto the Gemini free-only path ser
   assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
 });
 
-test("English narration is pinned to the current free-tier Gemini 3.8 Flash TTS model", () => {
-  assert.match(worker, /const model="gemini-3.8-flash-tts"/);
+test("English narration uses the Gemini 3.8 Interactions API with WAV output", () => {
+  assert.match(worker, /const model="gemini-3\.8-flash-tts"/);
   assert.doesNotMatch(worker, /gemini-2\.5-flash-preview-tts/);
   assert.doesNotMatch(worker, /mediaSecrets\.geminiTtsModel/);
   const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
-  const english = worker.slice(start, end);
-  assert.match(english, /no paid fallback is enabled/i);
-  assert.doesNotMatch(english.slice(english.indexOf('if(language==="en")'), english.indexOf("const ttsKey=")), /api\.elevenlabs\.com/);
+  const route = worker.slice(start, end);
+  assert.match(route, /v1beta\/interactions/);
+  assert.match(route, /annotations:\[\{type:"speech_metadata"/);
+  assert.match(route, /response_format:\{type:"audio",mime_type:"audio\/wav"\}/);
+  assert.match(route, /result\.steps/);
+  assert.match(route, /item\.type==="audio"/);
+  assert.doesNotMatch(route, /:generateContent|candidates|inlineData/);
+  assert.doesNotMatch(route, /api\.elevenlabs\.com/);
 });
 
 test("YouTube preview copy distinguishes private upload from separately confirmed public publishing", () => {
