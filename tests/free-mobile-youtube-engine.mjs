@@ -20,7 +20,7 @@ test("all short-video text generation is pinned to Gemini free tier", () => {
 
 test("English free TTS uses Gemini and has no paid fallback", () => {
   assert.match(worker, /mediaSecrets\.geminiKey/);
-  assert.match(worker, /gemini-3.1-flash-tts-preview/);
+  assert.match(worker, /gemini-3.8-flash-tts/);
   const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
   const route = worker.slice(start, end);
@@ -29,6 +29,10 @@ test("English free TTS uses Gemini and has no paid fallback", () => {
   assert.match(english, /no paid fallback is enabled/i);
   assert.match(english, /responseModalities:\["AUDIO"\]/);
   assert.match(english, /speechConfig:/);
+  assert.match(english, /speech_metadata:\{style:/);
+  assert.doesNotMatch(english, /Read aloud in clear, natural English/);
+  assert.match(english, /mime\.includes\("wav"\)/);
+  assert.match(english, /String\.fromCharCode\(raw\[0\]/);
   assert.doesNotMatch(worker, /gemini-2\.5-flash-preview-tts/);
   assert.doesNotMatch(english, /api\.elevenlabs\.com/);
 });
