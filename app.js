@@ -58,7 +58,18 @@ async function pushCloudSnapshot(){
   finally{cloudSaveInFlight=false}
 }
 function scheduleCloudSave(){if(!cloudToken)return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(()=>{if(cloudSaveInFlight){scheduleCloudSave();return}pushCloudSnapshot()},1200)}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state));scheduleCloudSave();return true}catch{toast("ذخیره‌سازی انجام نشد؛ ممکن است حافظه مرورگر غیرفعال یا پر شده باشد.");return false}}
+function save(){
+  let localSaved=false;
+  try{localStorage.setItem(KEY,JSON.stringify(state));localSaved=true}
+  catch(error){console.warn("Local workspace save failed",error)}
+  // A failed localStorage write must not prevent the independent D1 cloud save attempt.
+  scheduleCloudSave();
+  if(!localSaved){
+    toast(cloudToken&&!cloudConflict?"ذخیره محلی ناموفق بود؛ همگام‌سازی ابری برای تلاش زمان‌بندی شد. تا تأیید همگام‌سازی از برنامه خارج نشو.":"ذخیره محلی ناموفق بود؛ همگام‌سازی ابری فعال نیست یا به‌دلیل تعارض متوقف است. پیش از خروج، خروجی پشتیبان JSON بگیر.");
+    return false;
+  }
+  return true;
+}
 async function initializeCloudSync(){
   const remembered=sessionStorage.getItem(CLOUD_TOKEN_KEY)||localStorage.getItem(CLOUD_TOKEN_KEY);
   if(!remembered)return;
