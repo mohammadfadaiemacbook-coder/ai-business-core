@@ -49,8 +49,8 @@ test("all YouTube production tasks are forced onto the Gemini free-only path ser
   assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
 });
 
-test("English narration is pinned to the current free-tier Gemini 3.1 Flash TTS Preview model", () => {
-  assert.match(worker, /const model="gemini-3.1-flash-tts-preview"/);
+test("English narration is pinned to the current free-tier Gemini 3.8 Flash TTS model", () => {
+  assert.match(worker, /const model="gemini-3.8-flash-tts"/);
   assert.doesNotMatch(worker, /gemini-2\.5-flash-preview-tts/);
   assert.doesNotMatch(worker, /mediaSecrets\.geminiTtsModel/);
   const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
