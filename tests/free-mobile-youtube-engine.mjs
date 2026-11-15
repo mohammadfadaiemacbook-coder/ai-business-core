@@ -18,21 +18,23 @@ test("all short-video text generation is pinned to Gemini free tier", () => {
   assert.match(app, /task:"yt_full_pipeline",freeOnly:true/);
 });
 
-test("English free TTS uses Gemini and has no paid fallback", () => {
-  assert.match(worker, /mediaSecrets\.geminiKey/);
-  assert.match(worker, /gemini-3.8-flash-tts/);
+test("English free TTS uses the Gemini 3.8 Interactions API and validates WAV without paid fallback", () => {
+  assert.match(worker, /const model="gemini-3\.8-flash-tts"/);
   const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
   const route = worker.slice(start, end);
   const english = route.slice(route.indexOf('if(language==="en")'));
-  assert.match(english, /generativelanguage\.googleapis\.com/);
-  assert.match(english, /no paid fallback is enabled/i);
-  assert.match(english, /responseModalities:\["AUDIO"\]/);
-  assert.match(english, /speechConfig:/);
-  assert.match(english, /speech_metadata:\{style:/);
-  assert.doesNotMatch(english, /Read aloud in clear, natural English/);
+  assert.match(english, /generativelanguage\.googleapis\.com\/v1beta\/interactions/);
+  assert.match(english, /input:\[\{type:"user_input",content:\[\{type:"text",text,annotations:\[\{type:"speech_metadata",style:/);
+  assert.match(english, /response_format:\{type:"audio",mime_type:"audio\/wav"\}/);
+  assert.match(english, /generation_config:\{speech_config:\[\{voice\}\]\}/);
+  assert.match(english, /result\.steps/);
+  assert.match(english, /item\.type==="audio"/);
+  assert.match(english, /typeof item\.data==="string"/);
   assert.match(english, /mime\.includes\("wav"\)/);
-  assert.match(english, /String\.fromCharCode\(raw\[0\]/);
+  assert.match(english, /"RIFF"/);
+  assert.match(english, /"WAVE"/);
+  assert.doesNotMatch(english, /generateContent|candidates|inlineData/);
   assert.doesNotMatch(worker, /gemini-2\.5-flash-preview-tts/);
   assert.doesNotMatch(english, /api\.elevenlabs\.com/);
 });

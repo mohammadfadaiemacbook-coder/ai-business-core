@@ -765,15 +765,15 @@ export default {
         const voice=String(body?.voice||"Kore");
         if(!["Kore","Puck","Aoede","Charon","Fenrir","Leda","Orus","Zephyr"].includes(voice))return json({error:"Unsupported Gemini voice"},400,headers);
         try{
-          const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text, speech_metadata:{style:"Clear, natural English educational presenter narration with a confident, engaging pace. Pronounce technical terms clearly."}}]}],generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}}),signal:AbortSignal.timeout(90000)});
+          const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/interactions",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({model,input:[{type:"user_input",content:[{type:"text",text,annotations:[{type:"speech_metadata",style:"Clear, natural English educational presenter narration with a confident, engaging pace. Pronounce technical terms clearly."}]}]}],response_format:{type:"audio",mime_type:"audio/wav"},generation_config:{speech_config:[{voice}]}}),signal:AbortSignal.timeout(90000)});
           if(!response.ok){const detail=(await response.text().catch(()=> "")).replace(/AIza[0-9A-Za-z_-]{20,}/g,"[redacted]").slice(0,500);return json({error:response.status===429?"سهمیه رایگان Gemini TTS تمام شده است؛ بعداً دوباره تلاش کن. هیچ سرویس پولی جایگزین نمی‌شود.":"Gemini TTS request failed",detail},response.status===429?429:502,headers)}
-          const result=await response.json(),part=(result.candidates||[]).flatMap(x=>x.content?.parts||[]).find(x=>x.inlineData?.data);
-          if(!part)return json({error:"Gemini TTS returned no audio data"},502,headers);
-          const raw=Uint8Array.from(atob(part.inlineData.data),c=>c.charCodeAt(0)),mime=String(part.inlineData.mimeType||"").toLowerCase();if(!mime.includes("wav")||raw.length<44||String.fromCharCode(raw[0],raw[1],raw[2],raw[3])!=="RIFF"||String.fromCharCode(raw[8],raw[9],raw[10],raw[11])!=="WAVE")return json({error:"Gemini TTS returned an unexpected audio format"},502,headers);return new Response(raw,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
+          const result=await response.json(),audio=(result.steps||[]).filter(step=>step.type==="model_output").flatMap(step=>step.content||[]).find(item=>item.type==="audio"&&typeof item.data==="string");
+          if(!audio)return json({error:"Gemini TTS returned no audio data"},502,headers);
+          const raw=Uint8Array.from(atob(audio.data),c=>c.charCodeAt(0)),mime=String(audio.mime_type||audio.mimeType||"audio/wav").toLowerCase();if(!mime.includes("wav")||raw.length<44||String.fromCharCode(raw[0],raw[1],raw[2],raw[3])!=="RIFF"||String.fromCharCode(raw[8],raw[9],raw[10],raw[11])!=="WAVE")return json({error:"Gemini TTS returned an unexpected audio format"},502,headers);return new Response(raw,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
         }catch{return json({error:"Gemini TTS request failed",detail:"Please retry later; no paid fallback is enabled."},502,headers)}
       }
     }
-        if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
+    if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
     if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({ error: "Origin not allowed" }, 403, headers);
     if (!(await isAuthorized(request, env))) return json({ error: "Unauthorized. Exchange APP_ACCESS_TOKEN for a 15-minute session at /api/auth/session." }, 401, headers);
