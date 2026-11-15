@@ -65,7 +65,7 @@ function save(){
   // A failed localStorage write must not prevent the independent D1 cloud save attempt.
   scheduleCloudSave();
   if(!localSaved){
-    toast(cloudToken?"ذخیره محلی ناموفق بود؛ همگام‌سازی ابری برای تلاش زمان‌بندی شد. تا تأیید همگام‌سازی از برنامه خارج نشو.":"ذخیره محلی ناموفق بود و اتصال ابری فعال نیست؛ پیش از خروج، خروجی پشتیبان JSON بگیر.");
+    toast(cloudToken&&!cloudConflict?"ذخیره محلی ناموفق بود؛ همگام‌سازی ابری برای تلاش زمان‌بندی شد. تا تأیید همگام‌سازی از برنامه خارج نشو.":"ذخیره محلی ناموفق بود؛ همگام‌سازی ابری فعال نیست یا به‌دلیل تعارض متوقف است. پیش از خروج، خروجی پشتیبان JSON بگیر.");
     return false;
   }
   return true;
