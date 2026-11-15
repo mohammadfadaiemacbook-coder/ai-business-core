@@ -760,20 +760,16 @@ export default {
         const googleSecondary=String(mediaSecrets.secondaryUrl||"").startsWith("https://generativelanguage.googleapis.com/");
         const apiKey=mediaSecrets.geminiKey||(googleSecondary?mediaSecrets.secondaryKey:"")||env.GEMINI_API_KEY;
         if(!apiKey)return json({error:"برای گویندگی رایگان انگلیسی، کلید Google AI Studio را در تنظیمات امن وارد کن."},503,headers);
-        const model="gemini-3.1-flash-tts-preview";
+        const model="gemini-3.8-flash-tts";
         if(!/^gemini-[a-zA-Z0-9.-]+-tts(?:-preview)?$/.test(model))return json({error:"Gemini TTS model is not allowed"},400,headers);
         const voice=String(body?.voice||"Kore");
         if(!["Kore","Puck","Aoede","Charon","Fenrir","Leda","Orus","Zephyr"].includes(voice))return json({error:"Unsupported Gemini voice"},400,headers);
         try{
-          const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:"Read aloud in clear, natural English with an engaging educational presenter style. Speak only the following transcript, verbatim:\n"+text}]}],generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}}),signal:AbortSignal.timeout(90000)});
+          const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text, speech_metadata:{style:"Clear, natural English educational presenter narration with a confident, engaging pace. Pronounce technical terms clearly."}}]}],generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}}),signal:AbortSignal.timeout(90000)});
           if(!response.ok){const detail=(await response.text().catch(()=> "")).replace(/AIza[0-9A-Za-z_-]{20,}/g,"[redacted]").slice(0,500);return json({error:response.status===429?"سهمیه رایگان Gemini TTS تمام شده است؛ بعداً دوباره تلاش کن. هیچ سرویس پولی جایگزین نمی‌شود.":"Gemini TTS request failed",detail},response.status===429?429:502,headers)}
           const result=await response.json(),part=(result.candidates||[]).flatMap(x=>x.content?.parts||[]).find(x=>x.inlineData?.data);
           if(!part)return json({error:"Gemini TTS returned no audio data"},502,headers);
-          const raw=Uint8Array.from(atob(part.inlineData.data),c=>c.charCodeAt(0)),mime=String(part.inlineData.mimeType||"audio/pcm").toLowerCase();
-          if(mime.includes("wav"))return new Response(raw,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
-          const wav=new Uint8Array(44+raw.length),view=new DataView(wav.buffer),write=(offset,value)=>{for(let i=0;i<value.length;i++)wav[offset+i]=value.charCodeAt(0)};
-          write(0,"RIFF");view.setUint32(4,36+raw.length,true);write(8,"WAVE");write(12,"fmt ");view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,24000,true);view.setUint32(28,48000,true);view.setUint16(32,2,true);view.setUint16(34,16,true);write(36,"data");view.setUint32(40,raw.length,true);wav.set(raw,44);
-          return new Response(wav,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
+          const raw=Uint8Array.from(atob(part.inlineData.data),c=>c.charCodeAt(0)),mime=String(part.inlineData.mimeType||"").toLowerCase();if(!mime.includes("wav")||raw.length<44||String.fromCharCode(raw[0],raw[1],raw[2],raw[3])!=="RIFF"||String.fromCharCode(raw[8],raw[9],raw[10],raw[11])!=="WAVE")return json({error:"Gemini TTS returned an unexpected audio format"},502,headers);return new Response(raw,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
         }catch{return json({error:"Gemini TTS request failed",detail:"Please retry later; no paid fallback is enabled."},502,headers)}
       }
     }
