@@ -40,8 +40,8 @@ test("app bootstrap survives storage methods that throw", () => {
 });
 
 test("all application storage reads are routed through guarded helpers", () => {
-  assert.equal((app.match(/localStorage\\.getItem\\(/g) || []).length, 1);
-  assert.equal((app.match(/sessionStorage\\.getItem\\(/g) || []).length, 1);
-  assert.match(app, /function safeLocalGet\\(key\\)/);
-  assert.match(app, /function safeSessionGet\\(key\\)/);
+  assert.equal((app.match(/localStorage\.getItem\(/g) || []).length, 1);
+  assert.equal((app.match(/sessionStorage\.getItem\(/g) || []).length, 1);
+  assert.match(app, /function safeLocalGet\(key\)/);
+  assert.match(app, /function safeSessionGet\(key\)/);
 });
