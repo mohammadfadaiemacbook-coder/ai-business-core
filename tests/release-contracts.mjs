@@ -31,7 +31,7 @@ test("provider credentials are managed from Settings rather than hidden inside t
   assert.ok(app.includes('data-action="media-check"'));
 });
 test("connection checks use the active workspace rather than a hard-coded default", () => {
-  assert.ok(app.includes('wid=cloudWorkspaceId(),token=(sessionStorage.getItem(CLOUD_TOKEN_KEY)'));
+  assert.ok(app.includes('wid=cloudWorkspaceId(),token=(safeSessionGet(CLOUD_TOKEN_KEY)'));
 });
 test("Instagram is never reported connected until an Instagram OAuth/API flow exists", () => {
   assert.ok(worker.includes('if(key==="youtube"&&!accounts[key])'));
