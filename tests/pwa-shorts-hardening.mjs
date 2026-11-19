@@ -78,12 +78,12 @@ test("YouTube preview copy distinguishes private upload from separately confirme
   assert.match(app, /confirm\("تأیید انتشار عمومی/);
 });
 
-test("manual YouTube script generation sends freeOnly and refuses external provider endpoints", () => {
-  assert.match(app, /freeOnly:\["trend_strategy","youtube_research","video_outline","video_script","title_ideas","youtube_metadata","thumbnail_brief","yt_full_pipeline","social_caption"\]\.includes\(task\)/);
-  assert.match(app, /u\.origin!==\"https:\/\/ai-business-core\.mohammadfadaiemacbook\.workers\.dev\"/);
+test("manual YouTube script generation restricts every YouTube task to the official free gateway", () => {
+  assert.match(app, /if\(YOUTUBE_FREE_ONLY_TASKS\.has\(task\)&&u\.origin!==/);
+  assert.match(app, /freeOnly:YOUTUBE_FREE_ONLY_TASKS\.has\(task\)/);
   assert.match(app, /برای موتور ویدئوی رایگان فقط درگاه رسمی Gemini همین پروژه مجاز است/);
+  assert.match(worker, /if\(body\.freeOnly===true\|\|YOUTUBE_FREE_ONLY_TASKS\.has\(body\.task\)\)/);
 });
-
 test("Shorts renderer produces vertical 9:16 video, readable captions and a portrait thumbnail", () => {
   assert.match(app, /canvas\.width=720;canvas\.height=1280/);
   assert.match(app, /ctx\.canvas\.width\|\|720/);
