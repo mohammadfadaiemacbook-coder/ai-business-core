@@ -7,7 +7,7 @@ const worker = await readFile(new URL("../ai-gateway/worker.js", import.meta.url
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
 test("every YouTube task is server-enforced onto Gemini free tier even when the client omits freeOnly", () => {
-  const setMatch = worker.match(/const YOUTUBE_FREE_ONLY_TASKS = new Set\\(\\[([\\s\\S]*?)\\]\\);/);
+  const setMatch = worker.match(/const YOUTUBE_FREE_ONLY_TASKS = new Set\(\[([\s\S]*?)\]\);/);
   assert.ok(setMatch, "Worker must define a server-side YouTube free-only task set");
   const tasks = [...setMatch[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
   const expected = ["youtube_research","video_outline","video_script","title_ideas","youtube_metadata","trend_strategy","comment_reply","thumbnail_brief","yt_plan","yt_viral","yt_edit","yt_retention","yt_shorts","yt_seo","yt_chapters","yt_audit","yt_full_pipeline"];
@@ -16,9 +16,9 @@ test("every YouTube task is server-enforced onto Gemini free tier even when the 
   const end = worker.indexOf("if (!env.AI_API_KEY", start);
   assert.ok(start >= 0 && end > start, "all YouTube tasks must enter the Gemini-only branch before paid provider setup");
   const route = worker.slice(start, end);
-  assert.match(route, /gemini-3\\.5-flash-lite:generateContent/);
-  assert.doesNotMatch(route, /env\\.AI_API_KEY|AI_SECONDARY_API_KEY|api\\.anthropic\\.com/);
-  assert.match(app, /body:JSON\\.stringify\\(\\{task,inputs,freeOnly:true\\}\\)/);
+  assert.match(route, /gemini-3\.5-flash-lite:generateContent/);
+  assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
+  assert.match(app, /body:JSON\.stringify\(\{task,inputs,freeOnly:true\}\)/);
   assert.match(app, /task:"video_script",freeOnly:true/);
   assert.match(app, /task:"yt_full_pipeline",freeOnly:true/);
 });
