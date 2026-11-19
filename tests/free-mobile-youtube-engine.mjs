@@ -12,7 +12,7 @@ test("every YouTube task is server-enforced onto Gemini free tier even when the 
   const tasks = [...setMatch[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
   const expected = ["youtube_research","video_outline","video_script","title_ideas","youtube_metadata","trend_strategy","comment_reply","thumbnail_brief","yt_plan","yt_viral","yt_edit","yt_retention","yt_shorts","yt_seo","yt_chapters","yt_audit","yt_full_pipeline","social_caption"];
   assert.deepEqual([...tasks].sort(), [...expected].sort());
-  assert.match(app, /const YOUTUBE_FREE_ONLY_TASKS = new Set\\(/);
+  assert.ok(app.includes("const YOUTUBE_FREE_ONLY_TASKS = new Set(["));
   const start = worker.indexOf("if(body.freeOnly===true||YOUTUBE_FREE_ONLY_TASKS.has(body.task)){");
   const end = worker.indexOf("if (!env.AI_API_KEY", start);
   assert.ok(start >= 0 && end > start, "all YouTube tasks must enter the Gemini-only branch before paid provider setup");
