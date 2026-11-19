@@ -41,14 +41,22 @@ test("service worker serves fresh network content even when Cache Storage writes
 });
 
 test("all YouTube production tasks are forced onto the Gemini free-only path server-side", () => {
-  assert.match(worker, /body\.freeOnly===true\|\|\["trend_strategy","youtube_research","video_outline","video_script","title_ideas","youtube_metadata","thumbnail_brief","yt_full_pipeline","social_caption"\]\.includes\(body\.task\)/);
-  const start = worker.indexOf("if(body.freeOnly===true");
-  const end = worker.indexOf('if (!env.AI_API_KEY', start);
+  const expected = ["youtube_research","video_outline","video_script","title_ideas","youtube_metadata","trend_strategy","comment_reply","thumbnail_brief","yt_plan","yt_viral","yt_edit","yt_retention","yt_shorts","yt_seo","yt_chapters","yt_audit","yt_full_pipeline","social_caption"];
+  const workerSet = worker.match(/const YOUTUBE_FREE_ONLY_TASKS = new Set\(\[([\s\S]*?)\]\);/);
+  const appSet = app.match(/const YOUTUBE_FREE_ONLY_TASKS = new Set\(\[([\s\S]*?)\]\);/);
+  assert.ok(workerSet && appSet, "both Worker and app must define the free-only task set");
+  const values = match => [...match[1].matchAll(/"([^"]+)"/g)].map(item => item[1]);
+  assert.deepEqual(values(workerSet).sort(), [...expected].sort());
+  assert.deepEqual(values(appSet).sort(), [...expected].sort());
+  const start = worker.indexOf("if(body.freeOnly===true||YOUTUBE_FREE_ONLY_TASKS.has(body.task)){");
+  const end = worker.indexOf("if (!env.AI_API_KEY", start);
   const route = worker.slice(start, end);
+  assert.ok(start >= 0 && end > start, "YouTube tasks must enter the Gemini-only branch before paid provider setup");
   assert.match(route, /gemini-3\.5-flash-lite:generateContent/);
   assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
+  assert.match(app, /if\(YOUTUBE_FREE_ONLY_TASKS\.has\(task\)&&u\.origin!==/);
+  assert.match(app, /freeOnly:YOUTUBE_FREE_ONLY_TASKS\.has\(task\)/);
 });
-
 test("English narration uses the Gemini 3.8 Interactions API with WAV output", () => {
   assert.match(worker, /const model="gemini-3\.8-flash-tts"/);
   assert.doesNotMatch(worker, /gemini-2\.5-flash-preview-tts/);
@@ -70,12 +78,12 @@ test("YouTube preview copy distinguishes private upload from separately confirme
   assert.match(app, /confirm\("تأیید انتشار عمومی/);
 });
 
-test("manual YouTube script generation sends freeOnly and refuses external provider endpoints", () => {
-  assert.match(app, /freeOnly:\["trend_strategy","youtube_research","video_outline","video_script","title_ideas","youtube_metadata","thumbnail_brief","yt_full_pipeline","social_caption"\]\.includes\(task\)/);
-  assert.match(app, /u\.origin!==\"https:\/\/ai-business-core\.mohammadfadaiemacbook\.workers\.dev\"/);
+test("manual YouTube script generation restricts every YouTube task to the official free gateway", () => {
+  assert.match(app, /if\(YOUTUBE_FREE_ONLY_TASKS\.has\(task\)&&u\.origin!==/);
+  assert.match(app, /freeOnly:YOUTUBE_FREE_ONLY_TASKS\.has\(task\)/);
   assert.match(app, /برای موتور ویدئوی رایگان فقط درگاه رسمی Gemini همین پروژه مجاز است/);
+  assert.match(worker, /if\(body\.freeOnly===true\|\|YOUTUBE_FREE_ONLY_TASKS\.has\(body\.task\)\)/);
 });
-
 test("Shorts renderer produces vertical 9:16 video, readable captions and a portrait thumbnail", () => {
   assert.match(app, /canvas\.width=720;canvas\.height=1280/);
   assert.match(app, /ctx\.canvas\.width\|\|720/);

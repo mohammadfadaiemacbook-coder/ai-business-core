@@ -1,6 +1,26 @@
 import { YOUTUBE_AGENT_PROMPTS, YOUTUBE_FULL_PIPELINE_PROMPT } from "./youtube-agent-skills.js";
 import { handleReadonlyMcp } from "./mcp-readonly.js";
 const ALLOWED_TASKS = new Set(["youtube_research", "video_outline", "video_script", "title_ideas", "youtube_metadata", "instagram_repurpose", "trend_strategy", "social_caption", "comment_reply", "thumbnail_brief", "yt_plan", "yt_viral", "yt_edit", "yt_retention", "yt_shorts", "yt_seo", "yt_chapters", "yt_audit", "yt_full_pipeline"]);
+const YOUTUBE_FREE_ONLY_TASKS = new Set([
+  "youtube_research",
+  "video_outline",
+  "video_script",
+  "title_ideas",
+  "youtube_metadata",
+  "trend_strategy",
+  "comment_reply",
+  "thumbnail_brief",
+  "yt_plan",
+  "yt_viral",
+  "yt_edit",
+  "yt_retention",
+  "yt_shorts",
+  "yt_seo",
+  "yt_chapters",
+  "yt_audit",
+  "yt_full_pipeline",
+  "social_caption"
+]);
 const MAX_BODY_BYTES = 256 * 1024;
 const WORKSPACE_ID = /^[a-zA-Z0-9_-]{3,64}$/;
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers } });
@@ -785,7 +805,7 @@ export default {
     if (!body || typeof body.task !== "string" || !ALLOWED_TASKS.has(body.task)) return json({ error: "Unsupported task" }, 400, headers);
     if (!body.inputs || typeof body.inputs !== "object" || Array.isArray(body.inputs)) return json({ error: "inputs must be a JSON object" }, 400, headers);
     const aiProviderSecrets=await loadProviderSecrets(env,env.DB,workspace);
-    if(body.freeOnly===true||["trend_strategy","youtube_research","video_outline","video_script","title_ideas","youtube_metadata","thumbnail_brief","yt_full_pipeline","social_caption"].includes(body.task)){
+    if(body.freeOnly===true||YOUTUBE_FREE_ONLY_TASKS.has(body.task)){
       // Short-video text generation is pinned to the Gemini Developer API free tier.
       // No primary provider, paid secondary provider, or paid review model is called here.
       const apiKey=aiProviderSecrets.geminiKey||env.GEMINI_API_KEY;
