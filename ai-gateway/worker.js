@@ -18,7 +18,8 @@ const YOUTUBE_FREE_ONLY_TASKS = new Set([
   "yt_seo",
   "yt_chapters",
   "yt_audit",
-  "yt_full_pipeline"
+  "yt_full_pipeline",
+  "social_caption"
 ]);
 const MAX_BODY_BYTES = 256 * 1024;
 const WORKSPACE_ID = /^[a-zA-Z0-9_-]{3,64}$/;
