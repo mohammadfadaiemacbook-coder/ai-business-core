@@ -114,3 +114,13 @@ test("automatic episode prompt is centered on one persistent selected Oddling", 
 });
 
 
+
+test("browser never forwards the app bearer token to a custom AI endpoint", () => {
+  const start=app.indexOf("async function workerFetch(");
+  const end=app.indexOf("async function readWorkerJson",start);
+  const wrapper=app.slice(start,end);
+  assert.ok(start>=0&&end>start);
+  assert.ok(wrapper.includes('authorization.startsWith("Bearer ")&&url.origin!=="https://"+WORKER_HOST'));
+  assert.ok(wrapper.includes("توکن برنامه فقط به Worker رسمی AI Business Core ارسال می‌شود"));
+  assert.match(app, /id="ai-endpoint"[^>]*readonly/);
+});
