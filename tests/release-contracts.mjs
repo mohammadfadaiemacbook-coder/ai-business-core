@@ -246,6 +246,7 @@ test("Provider endpoints require public HTTPS and blank form fields preserve sav
   assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl),{redirect:"error"'));
   assert.ok(worker.includes("External image generation is disabled in the zero-cost build"));
   assert.ok(!worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl),{redirect:"error"'));
+  assert.ok(worker.includes("configured:{secondaryAI:false,claude:false,tts:freeEnglishTts,ttsPersian:false,ttsEnglish:freeEnglishTts,ttsFreeEnglish:freeEnglishTts,image:false}"));
   assert.ok(worker.includes("// Empty password fields are omitted by the UI after saving; preserve existing secrets."));
   assert.ok(worker.includes("if(!value.trim()){"));
   assert.ok(!worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
