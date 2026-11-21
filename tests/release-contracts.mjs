@@ -315,10 +315,12 @@ test("English voice preview explicitly requests the English voice", () => {
 });
 
 
-test("English and Persian TTS capabilities are reported independently", () => {
-  assert.match(worker, /ttsPersian:!!\(secrets\.elevenlabsKey&&secrets\.elevenlabsVoiceId\)/);
-  assert.match(worker, /ttsFreeEnglish:freeEnglishTts/);
-  assert.match(worker, /ttsEnglish:!!\(freeEnglishTts\|\|secrets\.elevenlabsKey&&secrets\.elevenlabsEnglishVoiceId\)/);
+test("TTS capabilities expose only free English Gemini and disable paid Persian voice", () => {
+  assert.ok(worker.includes("ttsPersian:false"));
+  assert.ok(worker.includes("ttsFreeEnglish:freeEnglishTts"));
+  assert.ok(worker.includes("ttsEnglish:freeEnglishTts"));
+  assert.ok(worker.includes("api/media/tts"));
+  assert.ok(!worker.includes("api.elevenlabs.com"));
   assert.match(app, /\["ttsEnglish","گویندگی انگلیسی"\]/);
 });
 
