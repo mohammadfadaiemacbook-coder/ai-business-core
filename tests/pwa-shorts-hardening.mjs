@@ -84,6 +84,18 @@ test("manual YouTube script generation restricts every YouTube task to the offic
   assert.match(app, /برای موتور ویدئوی رایگان فقط درگاه رسمی Gemini همین پروژه مجاز است/);
   assert.match(worker, /if\(body\.freeOnly===true\|\|YOUTUBE_FREE_ONLY_TASKS\.has\(body\.task\)\)/);
 });
+test("video repair keeps free-only requests on the official Gemini gateway", () => {
+  const start = app.indexOf('if(a==="video-fix"){');
+  const end = app.indexOf('if(a==="video-build")', start);
+  const handler = app.slice(start, end);
+  const guard = handler.indexOf('const freeEndpoint=new URL(endpoint)');
+  const request = handler.indexOf('workerFetch(endpoint');
+  assert.ok(start >= 0 && end > start, "video-fix handler must be present");
+  assert.ok(guard >= 0 && request > guard, "endpoint guard must run before any token-bearing fetch");
+  assert.match(handler, /freeEndpoint\\.origin!==\\"https:\\/\\/ai-business-core\\.mohammadfadaiemacbook\\.workers\\.dev\\"/);
+  assert.match(handler, /freeEndpoint\\.pathname!==\\"\\/api\\/generate\\"/);
+});
+
 test("Shorts renderer produces vertical 9:16 video, readable captions and a portrait thumbnail", () => {
   assert.match(app, /canvas\.width=720;canvas\.height=1280/);
   assert.match(app, /ctx\.canvas\.width\|\|720/);
