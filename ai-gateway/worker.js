@@ -494,7 +494,7 @@ export default {
         await ensureWorkspace(env.DB,workspace);
         if(request.method==="PUT"){const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>24000)return json({error:"Settings payload too large"},413,headers);let body;try{body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}await saveProviderSecrets(env,env.DB,workspace,body?.providers||{});}
         const secrets=await loadProviderSecrets(env,env.DB,workspace);
-        const freeEnglishTts=!!(secrets.geminiKey||((String(secrets.secondaryUrl||"").startsWith("https://generativelanguage.googleapis.com/"))&&secrets.secondaryKey)||env.GEMINI_API_KEY);return json({ok:true,configured:{secondaryAI:!!(secrets.secondaryUrl&&secrets.secondaryKey&&secrets.secondaryModel),claude:!!(secrets.claudeKey&&secrets.claudeModel),tts:!!(freeEnglishTts||secrets.elevenlabsKey&&(secrets.elevenlabsVoiceId||secrets.elevenlabsEnglishVoiceId)),ttsPersian:!!(secrets.elevenlabsKey&&secrets.elevenlabsVoiceId),ttsEnglish:!!(freeEnglishTts||secrets.elevenlabsKey&&secrets.elevenlabsEnglishVoiceId),ttsFreeEnglish:freeEnglishTts,image:!!(secrets.imageUrl&&secrets.imageKey)}},200,headers);
+        const freeEnglishTts=!!(secrets.geminiKey||env.GEMINI_API_KEY);return json({ok:true,configured:{secondaryAI:false,claude:false,tts:freeEnglishTts,ttsPersian:false,ttsEnglish:freeEnglishTts,ttsFreeEnglish:freeEnglishTts,image:false}},200,headers);
       }catch(error){return json({error:"Provider settings operation failed",detail:"Please retry or contact support."},500,headers)}
     }
     if (url.pathname === "/api/social/accounts" && request.method === "GET") {
@@ -729,6 +729,8 @@ export default {
     if (url.pathname === "/api/media/image" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
       if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
+      const workspace=url.searchParams.get("workspace")||"default";
+      if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
       return json({error:"External image generation is disabled in the zero-cost build. Use built-in Canvas portraits; no paid image provider is called."},503,headers);
     }
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
@@ -736,7 +738,7 @@ export default {
       if (!(await isAuthorized(request, env))) return json({error:"Unauthorized"},401,headers);
       const workspace=url.searchParams.get("workspace")||"default";
       if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
-      const limited=await enforceRateLimit(env.DB,workspace,"media-tts",20,headers);
+      const limited=await enforceRateLimit(env.DB, workspace, "media-tts", 20, headers);
       if(limited)return limited;
       let body;
       try {
