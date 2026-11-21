@@ -84,13 +84,15 @@ test("all 11 YouTube Agent skills are available to the Worker", () => {
   assert.ok(app.includes('aiCall("yt_full_pipeline"'));
   assert.ok(app.includes("productionReport:youtubePipelineReport"));
 });
-test("Claude review uses Anthropic Messages API and server-side secret storage", () => {
-  assert.match(worker, /api\.anthropic\.com\/v1\/messages/);
-  assert.match(worker, /"x-api-key":claudeKey/);
-  assert.match(worker, /"claudeKey","claudeModel"/);
-  assert.match(worker, /claude:!!\(secrets\.claudeKey&&secrets\.claudeModel\)/);
+test("free-only text generation skips paid Claude and secondary review providers", () => {
+  const start=worker.indexOf("if(body.freeOnly===true||FREE_ONLY_TEXT_TASKS.has(body.task)){");
+  const end=worker.indexOf("if (!env.AI_API_KEY",start);
+  const route=worker.slice(start,end);
+  assert.ok(start>=0&&end>start);
+  assert.ok(route.includes("Free-only mode skips all paid secondary review providers."));
+  assert.ok(!route.includes("api.anthropic.com"));
+  assert.ok(!route.includes("AI_SECONDARY_API_KEY"));
 });
-
 test("YouTube trend discovery defaults to English-language AI education in the US market", () => {
   assert.match(worker, /url\.searchParams\.get\("q"\) \|\| "artificial intelligence education"/);
   assert.match(worker, /url\.searchParams\.get\("region"\) \|\| "US"/);
@@ -109,7 +111,7 @@ test("manual trend discovery and creator helpers stay aligned with the English i
   assert.match(app, /separate natural English captions for YouTube and Instagram/);
   assert.match(app, /گویندگی انگلیسی/);
   assert.match(app, /videoBitsPerSecond:600000,audioBitsPerSecond:64000/);
-  assert.match(app, /English-language Nexora AI YouTube video/);
+  assert.match(app, /تصویرسازی خارجی در نسخه بدون هزینه غیرفعال است/);
 });
 
 test("YouTube replies use the actual top-level comment ID required by comments.insert", () => {
@@ -242,7 +244,8 @@ test("Provider endpoints require public HTTPS and blank form fields preserve sav
   assert.ok(worker.includes('url.protocol!=="https:"'));
   assert.ok(worker.includes('host==="localhost"'));
   assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(secondaryUrl),{redirect:"error"'));
-  assert.ok(worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl),{redirect:"error"'));
+  assert.ok(worker.includes("External image generation is disabled in the zero-cost build"));
+  assert.ok(!worker.includes('fetchWithTimeout(safeProviderUrl(imageUrl),{redirect:"error"'));
   assert.ok(worker.includes("// Empty password fields are omitted by the UI after saving; preserve existing secrets."));
   assert.ok(worker.includes("if(!value.trim()){"));
   assert.ok(!worker.includes('DELETE FROM provider_secrets WHERE workspace_id=? AND secret_key=?'));
@@ -472,7 +475,7 @@ test("Worker rate limits expensive operations with atomic D1 buckets and fails c
   assert.ok(worker.includes("ON CONFLICT(bucket_key, window_start) DO UPDATE SET request_count=request_count+1 RETURNING request_count"));
   assert.ok(worker.includes('"retry-after": "60"'));
   assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "youtube-upload", 3, headers)'));
-  assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "media-image", 5, headers)'));
+  assert.ok(worker.includes("External image generation is disabled in the zero-cost build"));
   assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "media-tts", 20, headers)'));
   assert.ok(worker.includes('enforceRateLimit(env.DB, workspace, "ai-generate", 20, headers)'));
 });
@@ -552,25 +555,33 @@ test("web app shell does not include the retired native APK update flow", async 
   assert.doesNotMatch(html, /AndroidApp|checkAndroidRelease|app-debug\\.apk|app-update-banner/);
 });
 
-test("media capability endpoint enforces CORS, method, workspace and safe provider lookup", () => {
+test("media capability endpoint exposes only free Gemini capability and disables paid providers", () => {
   const start=worker.indexOf('if (url.pathname === "/api/media/capabilities")');
   const end=worker.indexOf('if (url.pathname === "/api/media/image"',start);
   const source=worker.slice(start,end);
   assert.ok(source.includes('request.method !== "GET"'));
   assert.ok(source.includes('Origin not allowed'));
   assert.ok(source.includes('WORKSPACE_ID.test(workspace)'));
-  assert.ok(source.includes('catch { return json({error:"Media capability settings are temporarily unavailable"},503,headers); }'));
-  assert.ok(source.includes('ttsPersian=!!(ttsKey&&'));
-  assert.ok(source.includes('ttsEnglish=!!(ttsKey&&'));
+  assert.ok(source.includes('catch { return json({error:"Free-tier capability settings are temporarily unavailable"},503,headers); }'));
+  assert.ok(source.includes("ttsPersian:false"));
+  assert.ok(source.includes("ttsEnglish:freeGemini"));
+  assert.ok(source.includes("secondaryAI:false"));
+  assert.ok(source.includes("claude:false"));
+  assert.ok(source.includes("imageGeneration:false"));
 });
 test("TTS accepts only explicit Persian or English language codes", () => {
   assert.ok(worker.includes('if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers)'));
 });
-test("image generation bounds and validates provider base64 output before decoding", () => {
-  assert.ok(worker.includes('if(encoded.length>24*1024*1024)'));
-  assert.ok(worker.includes('Image provider returned invalid image data'));
+test("external image generation is disabled before provider lookup or network access", () => {
+  const start=worker.indexOf('if (url.pathname === "/api/media/image" && request.method === "POST")');
+  const end=worker.indexOf('if (url.pathname === "/api/media/tts" && request.method === "POST")',start);
+  const source=worker.slice(start,end);
+  assert.ok(start>=0&&end>start);
+  assert.ok(source.includes("WORKSPACE_ID.test(workspace)"));
+  assert.ok(source.includes("External image generation is disabled in the zero-cost build"));
+  for(const forbidden of ["loadProviderSecrets","safeProviderUrl","fetchWithTimeout","IMAGE_API_URL","imageApiKey"]) assert.ok(!source.includes(forbidden));
+  assert.ok(worker.includes("imageGeneration:false"));
 });
-
 test("cloud autosave pauses after a version conflict instead of retrying stale writes", () => {
   const start=app.indexOf("async function pushCloudSnapshot()");
   const end=app.indexOf("function scheduleCloudSave()",start);
@@ -595,27 +606,23 @@ test("manual cloud push also pauses autosave when the server reports a version c
   assert.ok(source.includes('ذخیره خودکار متوقف شد'));
 });
 
-test("all media capability, image and TTS requests are scoped to the active workspace", () => {
-  for (const route of ["capabilities", "image", "tts"]) {
-    assert.ok(app.includes('/api/media/'+route+'?workspace="+encodeURIComponent(cloudWorkspaceId())'));
-  }
-  assert.equal((app.match(/\/api\/media\/image\?workspace=/g)||[]).length, 1);
-  assert.equal((app.match(/\/api\/media\/tts\?workspace=/g)||[]).length, 2);
+test("free media capability and TTS requests use the active workspace; image generation is disabled", () => {
+  assert.ok(app.includes('/api/media/capabilities?workspace="+encodeURIComponent(cloudWorkspaceId())'));
+  assert.ok(app.includes('/api/media/tts?workspace="+encodeURIComponent(cloudWorkspaceId())'));
+  assert.equal((app.match(/\/api\/media\/image\?workspace=/g)||[]).length, 0);
+  assert.ok(worker.includes("External image generation is disabled in the zero-cost build"));
 });
-
-test("AI generation, image generation and TTS reject malformed workspace identifiers", () => {
-  const routes = [
-    worker.slice(worker.indexOf('if (url.pathname === "/api/media/image"'), worker.indexOf('if (url.pathname === "/api/media/tts"')),
-    worker.slice(worker.indexOf('if (url.pathname === "/api/media/tts"'), worker.indexOf('if (url.pathname !== "/api/generate")')),
-    worker.slice(worker.indexOf('if (url.pathname !== "/api/generate")'))
-  ];
-  for (const source of routes) {
-    assert.ok(source.includes('WORKSPACE_ID.test(workspace)'));
-    assert.ok(source.includes('enforceRateLimit(env.DB, workspace'));
+test("AI generation and TTS reject malformed workspaces while image generation fails closed", () => {
+  const image=worker.slice(worker.indexOf('if (url.pathname === "/api/media/image"'),worker.indexOf('if (url.pathname === "/api/media/tts"'));
+  const tts=worker.slice(worker.indexOf('if (url.pathname === "/api/media/tts"'),worker.indexOf('if (url.pathname !== "/api/generate")'));
+  const generate=worker.slice(worker.indexOf('if (url.pathname !== "/api/generate")'));
+  assert.ok(image.includes("WORKSPACE_ID.test(workspace)"));
+  assert.ok(image.includes("External image generation is disabled in the zero-cost build"));
+  for(const source of [tts,generate]) {
+    assert.ok(source.includes("WORKSPACE_ID.test(workspace)"));
+    assert.ok(source.includes("enforceRateLimit(env.DB"));
   }
-  assert.ok(worker.includes('loadProviderSecrets(env,env.DB,workspace)'));
 });
-
 test("YouTube view survives older or incomplete local settings and exposes a render recovery action", () => {
   assert.ok(app.includes("state.settings={...empty().settings"));
   assert.ok(app.includes("View render failed:"));
@@ -644,14 +651,17 @@ test("Home dashboard exposes implemented modules and hides unfinished integratio
 });
 
 
-test("AI generation falls back to the configured secondary provider on primary rate limits and reports actionable quota details", () => {
-  assert.ok(worker.includes('upstream.status===429||upstream.status>=500'));
-  assert.ok(worker.includes('activeModel=secondaryModel;usedFallback=true'));
-  assert.ok(worker.includes('retryAfterSeconds:limited?retryAfter:undefined'));
-  assert.ok(worker.includes('fallbackConfigured:!!(secondaryUrl&&secondaryKey&&secondaryModel)'));
-  assert.ok(worker.includes('providerFallback:usedFallback'));
+test("all allowed text tasks use Gemini Free Tier without paid provider fallback", () => {
+  assert.ok(worker.includes("const FREE_ONLY_TEXT_TASKS = new Set(ALLOWED_TASKS);"));
+  const start=worker.indexOf("if(body.freeOnly===true||FREE_ONLY_TEXT_TASKS.has(body.task)){");
+  const end=worker.indexOf("if (!env.AI_API_KEY",start);
+  const route=worker.slice(start,end);
+  assert.ok(start>=0&&end>start);
+  assert.ok(route.includes("gemini-2.5-flash:generateContent"));
+  assert.ok(route.includes("usedFallback:false"));
+  assert.ok(!route.includes("AI_SECONDARY_API_KEY"));
+  assert.ok(!route.includes("api.anthropic.com"));
 });
-
 test("web-first YouTube drafts are persisted in D1 and restored across PWA devices", async () => {
   const migration = await readFile(new URL("../migrations/0007_youtube_video_jobs.sql", import.meta.url), "utf8");
   const workerSource = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
