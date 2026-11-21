@@ -13,7 +13,7 @@ test("every allowed text-generation task is server-enforced onto Gemini free tie
   const route = worker.slice(start, end);
   assert.ok(start >= 0 && end > start);
   assert.ok(route.includes("generativelanguage.googleapis.com"));
-  assert.ok(route.includes("gemini-2.5-flash:generateContent"));
+  assert.ok(route.includes("gemini-3.5-flash-lite:generateContent"));
   assert.ok(!route.includes("env.AI_API_KEY"));
   assert.ok(!route.includes("AI_SECONDARY_API_KEY"));
   assert.ok(!route.includes("api.anthropic.com"));
@@ -26,6 +26,8 @@ test("English TTS is Gemini-only and Persian TTS fails closed before paid provid
   assert.ok(start >= 0 && end > start);
   assert.ok(route.includes('if(language!=="en")return json('));
   assert.ok(route.includes("generativelanguage.googleapis.com"));
+  assert.ok(route.includes("gemini-3.8-flash-tts"));
+  assert.ok(route.includes("/v1beta/interactions"));
   assert.ok(!route.includes("api.elevenlabs.com"));
   assert.ok(!route.includes("ELEVENLABS_API_KEY"));
   assert.ok(!route.includes("ttsKey"));
