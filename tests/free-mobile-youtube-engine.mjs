@@ -6,28 +6,36 @@ const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const worker = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
-test("all short-video text generation is pinned to Gemini free tier", () => {
-  const start = worker.indexOf("if(body.freeOnly===true)");
-  const end = worker.indexOf('if (!env.AI_API_KEY', start);
+test("every allowed text-generation task is server-enforced onto Gemini free tier", () => {
+  assert.match(worker, /const FREE_ONLY_TEXT_TASKS = new Set\\(ALLOWED_TASKS\\)/);
+  const start = worker.indexOf("if(body.freeOnly===true||FREE_ONLY_TEXT_TASKS.has(body.task)){");
+  const end = worker.indexOf("if (!env.AI_API_KEY", start);
   const route = worker.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.match(route, /gemini-2\.5-flash:generateContent/);
-  assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
-  assert.match(app, /body:JSON\.stringify\(\{task,inputs,freeOnly:true\}\)/);
-  assert.match(app, /task:"video_script",freeOnly:true/);
-  assert.match(app, /task:"yt_full_pipeline",freeOnly:true/);
+  assert.match(route, /gemini-2\\.5-flash:generateContent/);
+  assert.doesNotMatch(route, /env\\.AI_API_KEY|AI_SECONDARY_API_KEY|api\\.anthropic\\.com/);
 });
 
-test("English free TTS uses Gemini and has no paid fallback", () => {
-  assert.match(worker, /mediaSecrets\.geminiKey/);
-  assert.match(worker, /gemini-2\.5-flash-preview-tts/);
-  const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
+test("English TTS is Gemini-only and Persian TTS fails closed before paid providers", () => {
+  const start = worker.indexOf('if (url.pathname === "/api/media/tts" && request.method === "POST")');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
   const route = worker.slice(start, end);
-  const english = route.slice(route.indexOf('if(language==="en")'), route.indexOf('const ttsKey='));
-  assert.match(english, /generativelanguage\.googleapis\.com/);
-  assert.match(english, /no paid fallback is enabled/i);
-  assert.doesNotMatch(english, /api\.elevenlabs\.com/);
+  assert.ok(start >= 0 && end > start);
+  assert.match(route, /if\\(language!==\\"en\\"\\)return json/);
+  assert.match(route, /generativelanguage\\.googleapis\\.com/);
+  assert.doesNotMatch(route, /api\\.elevenlabs\\.com|ELEVENLABS_API_KEY|ttsKey/);
+});
+
+test("external image generation is disabled in the zero-cost build", () => {
+  const start = worker.indexOf('if (url.pathname === "/api/media/image" && request.method === "POST")');
+  const end = worker.indexOf('if (url.pathname === "/api/media/tts" && request.method === "POST")', start);
+  const route = worker.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(route, /External image generation is disabled in the zero-cost build/);
+  assert.doesNotMatch(route, /loadProviderSecrets|safeProviderUrl|fetchWithTimeout|IMAGE_API_URL|imageApiKey/);
+  assert.match(worker, /imageGeneration:false/);
+  assert.doesNotMatch(app, /data-action="video-image"/);
+  assert.match(app, /تصویرسازی خارجی در نسخه بدون هزینه غیرفعال است/);
 });
 
 test("short-video script and measured narration are bounded to 1–3 minutes", () => {
