@@ -735,54 +735,28 @@ export default {
     }
     if (url.pathname === "/api/media/tts" && request.method === "POST") {
       if (request.headers.get("Origin") && !headers["access-control-allow-origin"]) return json({error:"Origin not allowed"},403,headers);
-      if (!(await isAuthorized(request, env))) return json({error:"Unauthorized"},401,headers);
-      const workspace=url.searchParams.get("workspace")||"default";
-      if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
-      const limited=await enforceRateLimit(env.DB, workspace, "media-tts", 20, headers);
-      if(limited)return limited;
-      let body;
-      try {
-        const raw=await request.text();
-        if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);
-        body=JSON.parse(raw);
-      } catch { return json({error:"Expected JSON body"},400,headers); }
-      const language=String(body?.language||"en").toLowerCase();
-      if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);
-      const text=String(body?.text||"").trim();
-      if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
+      if (!(await isAuthorized(request,env))) return json({error:"Unauthorized"},401,headers);
+      const workspace=url.searchParams.get("workspace")||"default";if(!WORKSPACE_ID.test(workspace))return json({error:"Invalid workspace id"},400,headers);
+      const limited=await enforceRateLimit(env.DB, workspace, "media-tts", 20, headers);if(limited)return limited;
+      let body;try{const raw=await request.text();if(new TextEncoder().encode(raw).byteLength>30000)return json({error:"TTS text is too long"},413,headers);body=JSON.parse(raw)}catch{return json({error:"Expected JSON body"},400,headers)}
+      const language=String(body?.language||"en").toLowerCase();if(!["fa","en"].includes(language))return json({error:"language must be fa or en"},400,headers);
       if(language!=="en")return json({error:"گویندگی فارسی در نسخه بدون هزینه غیرفعال است؛ هیچ سرویس پولی فراخوانی نمی‌شود."},503,headers);
+      const text=String(body?.text||"").trim();if(!text||text.length>12000)return json({error:"Text must contain 1 to 12000 characters"},400,headers);
       const mediaSecrets=await loadProviderSecrets(env,env.DB,workspace);
       const apiKey=mediaSecrets.geminiKey||env.GEMINI_API_KEY;
       if(!apiKey)return json({error:"برای گویندگی رایگان انگلیسی، کلید Google AI Studio را در تنظیمات امن وارد کن."},503,headers);
-      const model="gemini-2.5-flash-preview-tts";
+      const model="gemini-3.8-flash-tts";
       const voice=String(body?.voice||"Kore");
       if(!["Kore","Puck","Aoede","Charon","Fenrir","Leda","Orus","Zephyr"].includes(voice))return json({error:"Unsupported Gemini voice"},400,headers);
-      try {
-        const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
-          method:"POST",
-          headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},
-          body:JSON.stringify({contents:[{parts:[{text:"Read aloud in clear, natural English with an engaging educational presenter style. Speak only the following transcript, verbatim:\n"+text}]}],generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}}),
-          signal:AbortSignal.timeout(90000)
-        });
-        if(!response.ok){
-          const detail=(await response.text().catch(()=> "")).replace(/AIza[0-9A-Za-z_-]{20,}/g,"[redacted]").slice(0,500);
-          return json({error:response.status===429?"سهمیه رایگان Gemini TTS تمام شده است؛ بعداً دوباره تلاش کن. هیچ سرویس پولی جایگزین نمی‌شود.":"Gemini TTS request failed",detail,providerStatus:response.status},response.status===429?429:502,headers);
-        }
-        const result=await response.json();
-        const part=(result.candidates||[]).flatMap(x=>x.content?.parts||[]).find(x=>x.inlineData?.data);
-        if(!part)return json({error:"Gemini TTS returned no audio data"},502,headers);
-        const raw=Uint8Array.from(atob(part.inlineData.data),c=>c.charCodeAt(0));
-        const mime=String(part.inlineData.mimeType||"audio/pcm").toLowerCase();
-        if(mime.includes("wav"))return new Response(raw,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
-        if(!mime.includes("pcm"))return json({error:"Gemini TTS returned an unsupported audio format"},502,headers);
-        const wav=new Uint8Array(44+raw.length),view=new DataView(wav.buffer);
-        const write=(offset,value)=>{for(let i=0;i<value.length;i++)wav[offset+i]=value.charCodeAt(i)};
-        write(0,"RIFF");view.setUint32(4,36+raw.length,true);write(8,"WAVE");write(12,"fmt ");
-        view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
-        view.setUint32(24,24000,true);view.setUint32(28,48000,true);view.setUint16(32,2,true);view.setUint16(34,16,true);
-        write(36,"data");view.setUint32(40,raw.length,true);wav.set(raw,44);
-        return new Response(wav,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
-      } catch { return json({error:"Gemini TTS request failed",detail:"No paid fallback is enabled."},502,headers); }
+      try{
+        const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/interactions",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({model,input:[{type:"user_input",content:[{type:"text",text,annotations:[{type:"speech_metadata",style:"Clear, natural English educational presenter narration with a confident, engaging pace. Pronounce technical terms clearly."}]}]}],response_format:{type:"audio",mime_type:"audio/wav"},generation_config:{speech_config:[{voice}]}}),signal:AbortSignal.timeout(90000)});
+        if(!response.ok){const detail=(await response.text().catch(()=> "")).replace(/AIza[0-9A-Za-z_-]{20,}/g,"[redacted]").slice(0,500);return json({error:response.status===429?"سهمیه رایگان Gemini TTS تمام شده است؛ بعداً دوباره تلاش کن. هیچ سرویس پولی جایگزین نمی‌شود.":"Gemini TTS request failed",detail},response.status===429?429:502,headers)}
+        const result=await response.json(),audio=(result.steps||[]).filter(step=>step.type==="model_output").flatMap(step=>step.content||[]).find(item=>item.type==="audio"&&typeof item.data==="string");
+        if(!audio)return json({error:"Gemini TTS returned no audio data"},502,headers);
+        const raw=Uint8Array.from(atob(audio.data),c=>c.charCodeAt(0)),mime=String(audio.mime_type||audio.mimeType||"audio/wav").toLowerCase();
+        if(!mime.includes("wav")||raw.length<44||String.fromCharCode(raw[0],raw[1],raw[2],raw[3])!=="RIFF"||String.fromCharCode(raw[8],raw[9],raw[10],raw[11])!=="WAVE")return json({error:"Gemini TTS returned an unexpected audio format"},502,headers);
+        return new Response(raw,{status:200,headers:{"content-type":"audio/wav","cache-control":"no-store",...headers}});
+      }catch{return json({error:"Gemini TTS request failed",detail:"Please retry later; no paid fallback is enabled."},502,headers)}
     }
     if (url.pathname !== "/api/generate") return json({ error: "Not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, { ...headers, allow: "POST, OPTIONS" });
@@ -803,11 +777,11 @@ export default {
       const apiKey=aiProviderSecrets.geminiKey||(googleSecondary?aiProviderSecrets.secondaryKey:"")||env.GEMINI_API_KEY;
       if(!apiKey)return json({error:"برای تولید رایگان متن ویدئو، کلید Google AI Studio را در تنظیمات امن وارد کن."},503,headers);
       try{
-        const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:buildPrompt(body.task,body.inputs)}]}],generationConfig:{temperature:0.4}}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
+        const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",{method:"POST",headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:buildPrompt(body.task,body.inputs)}]}],generationConfig:{temperature:0.4}}),signal:AbortSignal.timeout(body.task==="yt_full_pipeline"?90000:45000)});
         if(!response.ok){const detail=(await response.text().catch(()=> "")).replace(/AIza[0-9A-Za-z_-]{20,}/g,"[redacted]").slice(0,400);return json({error:response.status===429?"سهمیه رایگان Gemini برای تولید متن تمام شده است؛ بعداً دوباره تلاش کن. هیچ مدل پولی جایگزین نمی‌شود.":"Gemini free-tier text generation failed",detail,providerStatus:response.status},response.status===429?429:502,headers)}
         const data=await response.json(),output=(data.candidates||[]).flatMap(x=>x.content?.parts||[]).filter(x=>typeof x.text==="string").map(x=>x.text).join("\\n").trim();
         if(!output)return json({error:"Gemini returned no text output"},502,headers);
-        return json({output,model:"gemini-2.5-flash · free-only",usedFallback:false,consultation:{status:"not_configured",message:"Free-only mode skips all paid secondary review providers."}},200,headers);
+        return json({output,model:"gemini-3.5-flash-lite · free-only",usedFallback:false,consultation:{status:"not_configured",message:"Free-only mode skips all paid secondary review providers."}},200,headers);
       }catch{return json({error:"Gemini free-tier text request failed",detail:"No paid provider fallback is enabled."},502,headers)}
     }
     if (!env.AI_API_KEY || !env.AI_API_URL || !env.AI_MODEL) return json({ error: "Primary AI provider is not configured." }, 503, headers);
