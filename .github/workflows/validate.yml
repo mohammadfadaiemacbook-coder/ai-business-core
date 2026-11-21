@@ -2,7 +2,7 @@ name: Validate dashboard
 on:
   push:
     branches: [main, "build/**", "feature/**", "feat/**", "fix/**", "safety/**"]
-  # Validate stacked fix/safety PRs too, so draft hardening branches cannot bypass the same Node and Worker checks.
+  # Run the same non-deploying checks on every fix/safety stack.
   pull_request:
     branches: [main, "feature/**", "feat/**", "audit/**", "build/**", "fix/**", "safety/**"]
 permissions:
