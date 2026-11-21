@@ -759,7 +759,7 @@ export default {
         const response=await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
           method:"POST",
           headers:{"x-goog-api-key":apiKey,"content-type":"application/json"},
-          body:JSON.stringify({contents:[{parts:[{text:"Read aloud in clear, natural English with an engaging educational presenter style. Speak only the following transcript, verbatim:\\n"+text}]}],generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}}),
+          body:JSON.stringify({contents:[{parts:[{text:"Read aloud in clear, natural English with an engaging educational presenter style. Speak only the following transcript, verbatim:\n"+text}]}],generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}}),
           signal:AbortSignal.timeout(90000)
         });
         if(!response.ok){
