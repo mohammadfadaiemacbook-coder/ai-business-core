@@ -660,7 +660,7 @@ test("all allowed text tasks use Gemini Free Tier without paid provider fallback
   const end=worker.indexOf("if (!env.AI_API_KEY",start);
   const route=worker.slice(start,end);
   assert.ok(start>=0&&end>start);
-  assert.ok(route.includes("gemini-2.5-flash:generateContent"));
+  assert.ok(route.includes("gemini-3.5-flash-lite:generateContent"));
   assert.ok(route.includes("usedFallback:false"));
   assert.ok(!route.includes("AI_SECONDARY_API_KEY"));
   assert.ok(!route.includes("api.anthropic.com"));
