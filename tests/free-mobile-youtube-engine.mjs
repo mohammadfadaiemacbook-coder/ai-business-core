@@ -7,13 +7,16 @@ const worker = await readFile(new URL("../ai-gateway/worker.js", import.meta.url
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
 test("every allowed text-generation task is server-enforced onto Gemini free tier", () => {
-  assert.match(worker, /const FREE_ONLY_TEXT_TASKS = new Set\\(ALLOWED_TASKS\\)/);
+  assert.ok(worker.includes("const FREE_ONLY_TEXT_TASKS = new Set(ALLOWED_TASKS);"));
   const start = worker.indexOf("if(body.freeOnly===true||FREE_ONLY_TEXT_TASKS.has(body.task)){");
   const end = worker.indexOf("if (!env.AI_API_KEY", start);
   const route = worker.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.match(route, /gemini-2\\.5-flash:generateContent/);
-  assert.doesNotMatch(route, /env\\.AI_API_KEY|AI_SECONDARY_API_KEY|api\\.anthropic\\.com/);
+  assert.ok(route.includes("generativelanguage.googleapis.com"));
+  assert.ok(route.includes("gemini-2.5-flash:generateContent"));
+  assert.ok(!route.includes("env.AI_API_KEY"));
+  assert.ok(!route.includes("AI_SECONDARY_API_KEY"));
+  assert.ok(!route.includes("api.anthropic.com"));
 });
 
 test("English TTS is Gemini-only and Persian TTS fails closed before paid providers", () => {
@@ -21,9 +24,11 @@ test("English TTS is Gemini-only and Persian TTS fails closed before paid provid
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
   const route = worker.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.match(route, /if\\(language!==\\"en\\"\\)return json/);
-  assert.match(route, /generativelanguage\\.googleapis\\.com/);
-  assert.doesNotMatch(route, /api\\.elevenlabs\\.com|ELEVENLABS_API_KEY|ttsKey/);
+  assert.ok(route.includes('if(language!=="en")return json('));
+  assert.ok(route.includes("generativelanguage.googleapis.com"));
+  assert.ok(!route.includes("api.elevenlabs.com"));
+  assert.ok(!route.includes("ELEVENLABS_API_KEY"));
+  assert.ok(!route.includes("ttsKey"));
 });
 
 test("external image generation is disabled in the zero-cost build", () => {
@@ -31,11 +36,11 @@ test("external image generation is disabled in the zero-cost build", () => {
   const end = worker.indexOf('if (url.pathname === "/api/media/tts" && request.method === "POST")', start);
   const route = worker.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.match(route, /External image generation is disabled in the zero-cost build/);
-  assert.doesNotMatch(route, /loadProviderSecrets|safeProviderUrl|fetchWithTimeout|IMAGE_API_URL|imageApiKey/);
-  assert.match(worker, /imageGeneration:false/);
-  assert.doesNotMatch(app, /data-action="video-image"/);
-  assert.match(app, /تصویرسازی خارجی در نسخه بدون هزینه غیرفعال است/);
+  assert.ok(route.includes("External image generation is disabled in the zero-cost build"));
+  for (const forbidden of ["loadProviderSecrets","safeProviderUrl","fetchWithTimeout","IMAGE_API_URL","imageApiKey"]) assert.ok(!route.includes(forbidden));
+  assert.ok(worker.includes("imageGeneration:false"));
+  assert.ok(!app.includes('data-action="video-image"'));
+  assert.ok(app.includes("تصویرسازی خارجی در نسخه بدون هزینه غیرفعال است"));
 });
 
 test("short-video script and measured narration are bounded to 1–3 minutes", () => {
