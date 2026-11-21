@@ -92,8 +92,8 @@ test("video repair keeps free-only requests on the official Gemini gateway", () 
   const request = handler.indexOf('workerFetch(endpoint');
   assert.ok(start >= 0 && end > start, "video-fix handler must be present");
   assert.ok(guard >= 0 && request > guard, "endpoint guard must run before any token-bearing fetch");
-  assert.match(handler, /freeEndpoint\\.origin!==\\"https:\\/\\/ai-business-core\\.mohammadfadaiemacbook\\.workers\\.dev\\"/);
-  assert.match(handler, /freeEndpoint\\.pathname!==\\"\\/api\\/generate\\"/);
+  assert.ok(handler.includes('freeEndpoint.origin!=="https://ai-business-core.mohammadfadaiemacbook.workers.dev"'));
+  assert.ok(handler.includes('freeEndpoint.pathname!=="/api/generate"'));
 });
 
 test("Shorts renderer produces vertical 9:16 video, readable captions and a portrait thumbnail", () => {
