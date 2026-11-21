@@ -2,7 +2,7 @@ name: Validate dashboard
 on:
   push:
     branches: [main, "build/**", "feature/**", "feat/**", "fix/**", "safety/**"]
-  # Run the same non-deploying checks on every fix/safety stack.
+  # Re-run the non-deploying checks for each fix/safety branch update.
   pull_request:
     branches: [main, "feature/**", "feat/**", "audit/**", "build/**", "fix/**", "safety/**"]
 permissions:
