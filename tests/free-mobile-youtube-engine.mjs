@@ -6,28 +6,43 @@ const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const worker = await readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
-test("all short-video text generation is pinned to Gemini free tier", () => {
-  const start = worker.indexOf("if(body.freeOnly===true)");
-  const end = worker.indexOf('if (!env.AI_API_KEY', start);
+test("every allowed text-generation task is server-enforced onto Gemini free tier", () => {
+  assert.ok(worker.includes("const FREE_ONLY_TEXT_TASKS = new Set(ALLOWED_TASKS);"));
+  const start = worker.indexOf("if(body.freeOnly===true||FREE_ONLY_TEXT_TASKS.has(body.task)){");
+  const end = worker.indexOf("if (!env.AI_API_KEY", start);
   const route = worker.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.match(route, /gemini-2\.5-flash:generateContent/);
-  assert.doesNotMatch(route, /env\.AI_API_KEY|AI_SECONDARY_API_KEY|api\.anthropic\.com/);
-  assert.match(app, /body:JSON\.stringify\(\{task,inputs,freeOnly:true\}\)/);
-  assert.match(app, /task:"video_script",freeOnly:true/);
-  assert.match(app, /task:"yt_full_pipeline",freeOnly:true/);
+  assert.ok(route.includes("generativelanguage.googleapis.com"));
+  assert.ok(route.includes("gemini-3.5-flash-lite:generateContent"));
+  assert.ok(!route.includes("env.AI_API_KEY"));
+  assert.ok(!route.includes("AI_SECONDARY_API_KEY"));
+  assert.ok(!route.includes("api.anthropic.com"));
 });
 
-test("English free TTS uses Gemini and has no paid fallback", () => {
-  assert.match(worker, /mediaSecrets\.geminiKey/);
-  assert.match(worker, /gemini-2\.5-flash-preview-tts/);
-  const start = worker.indexOf('if (url.pathname === "/api/media/tts"');
+test("English TTS is Gemini-only and Persian TTS fails closed before paid providers", () => {
+  const start = worker.indexOf('if (url.pathname === "/api/media/tts" && request.method === "POST")');
   const end = worker.indexOf('if (url.pathname !== "/api/generate")', start);
   const route = worker.slice(start, end);
-  const english = route.slice(route.indexOf('if(language==="en")'), route.indexOf('const ttsKey='));
-  assert.match(english, /generativelanguage\.googleapis\.com/);
-  assert.match(english, /no paid fallback is enabled/i);
-  assert.doesNotMatch(english, /api\.elevenlabs\.com/);
+  assert.ok(start >= 0 && end > start);
+  assert.ok(route.includes('if(language!=="en")return json('));
+  assert.ok(route.includes("generativelanguage.googleapis.com"));
+  assert.ok(route.includes("gemini-3.8-flash-tts"));
+  assert.ok(route.includes("/v1beta/interactions"));
+  assert.ok(!route.includes("api.elevenlabs.com"));
+  assert.ok(!route.includes("ELEVENLABS_API_KEY"));
+  assert.ok(!route.includes("ttsKey"));
+});
+
+test("external image generation is disabled in the zero-cost build", () => {
+  const start = worker.indexOf('if (url.pathname === "/api/media/image" && request.method === "POST")');
+  const end = worker.indexOf('if (url.pathname === "/api/media/tts" && request.method === "POST")', start);
+  const route = worker.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.ok(route.includes("External image generation is disabled in the zero-cost build"));
+  for (const forbidden of ["loadProviderSecrets","safeProviderUrl","fetchWithTimeout","IMAGE_API_URL","imageApiKey"]) assert.ok(!route.includes(forbidden));
+  assert.ok(worker.includes("imageGeneration:false"));
+  assert.ok(!app.includes('data-action="video-image"'));
+  assert.ok(app.includes("تصویرسازی خارجی در نسخه بدون هزینه غیرفعال است"));
 });
 
 test("short-video script and measured narration are bounded to 1–3 minutes", () => {
@@ -99,3 +114,13 @@ test("automatic episode prompt is centered on one persistent selected Oddling", 
 });
 
 
+
+test("browser never forwards the app bearer token to a custom AI endpoint", () => {
+  const start=app.indexOf("async function workerFetch(");
+  const end=app.indexOf("async function readWorkerJson",start);
+  const wrapper=app.slice(start,end);
+  assert.ok(start>=0&&end>start);
+  assert.ok(wrapper.includes('authorization.startsWith("Bearer ")&&url.origin!=="https://"+WORKER_HOST'));
+  assert.ok(wrapper.includes("توکن برنامه فقط به Worker رسمی AI Business Core ارسال می‌شود"));
+  assert.match(app, /id="ai-endpoint"[^>]*readonly/);
+});
