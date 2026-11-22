@@ -59,7 +59,33 @@ test("generated video can be published publicly only after an explicit user conf
   const handler = app.slice(publishAt, app.indexOf('if(a==="video-download-again"', publishAt));
   assert.ok(handler.includes('confirm("تأیید انتشار عمومی'));
   assert.ok(handler.includes('uploadGeneratedVideo("public")'));
-  assert.ok(worker.includes('requestedPrivacy === "public" && String(form.get("confirmPublic") || "") !== "true"'));
+  assert.ok(worker.includes('(requestedPrivacy === "public" || publishAt) && String(form.get("confirmPublic") || "") !== "true"'));
+});
+
+
+test("scheduled YouTube publishing requires explicit approval in both browser and Worker", () => {
+  const start = app.indexOf('if(e.target.id==="youtube-upload-form"){');
+  const end = app.indexOf('if(e.target.id==="youtube-settings-form")', start);
+  const handler = app.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.ok(handler.includes('const publicIntent=publicRequested||Boolean(scheduled)'));
+  assert.ok(handler.includes('if(publicIntent&&!$("#yt-confirm-public")?.checked)'));
+  assert.ok(handler.includes('if(publicIntent)body.set("confirmPublic","true")'));
+  assert.ok(worker.includes('(requestedPrivacy === "public" || publishAt)'));
+});
+
+test("YouTube preview exposes separate private upload and public publish actions", () => {
+  const start = app.indexOf('if(a==="video-build"){');
+  const end = app.indexOf('if(a==="video-publish"){', start);
+  const renderer = app.slice(start, end);
+  assert.ok(renderer.includes('data-action="video-send">بارگذاری خصوصی پس از تأیید</button>'));
+  assert.ok(renderer.includes('data-action="video-publish">انتشار عمومی با تأیید جداگانه</button>'));
+  const sendStart = app.indexOf('if(a==="video-send"){');
+  const sendEnd = app.indexOf('if(a==="ai-copy"', sendStart);
+  const sendHandler = app.slice(sendStart, sendEnd);
+  assert.ok(sendHandler.includes('uploadGeneratedVideo("private")'));
+  assert.ok(sendHandler.includes('confirm("این ویدئو فقط به‌صورت خصوصی'));
+  assert.doesNotMatch(sendHandler, /yt-video-file|view="settings"/);
 });
 
 test("Oddlings use animated procedural portraits during video rendering", () => {
