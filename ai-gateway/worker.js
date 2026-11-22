@@ -691,7 +691,7 @@ export default {
           if (file.size > 64 * 1024 * 1024) return json({ error: "Video upload limit is 64 MB per file in this version" }, 413, headers);
           if (!title) return json({ error: "Video title is required" }, 400, headers);
           if (!["private","unlisted","public"].includes(requestedPrivacy)) return json({ error: "Invalid privacy status" }, 400, headers);
-          if (requestedPrivacy === "public" && String(form.get("confirmPublic") || "") !== "true") return json({ error: "برای انتشار عمومی، تأیید صریح confirmPublic=true الزامی است." }, 400, headers);
+          if ((requestedPrivacy === "public" || publishAt) && String(form.get("confirmPublic") || "") !== "true") return json({ error: "برای انتشار عمومی یا زمان‌بندی انتشار عمومی، تأیید صریح confirmPublic=true الزامی است." }, 400, headers);
           if (publishAt && (!Number.isFinite(publishAt.getTime()) || publishAt.getTime() < Date.now() + 15 * 60000)) return json({ error: "Scheduled publish time must be at least 15 minutes in the future" }, 400, headers);
           const metadata = { snippet: { title, description, tags, categoryId: "22" }, status: { privacyStatus, selfDeclaredMadeForKids: false, ...(publishAt ? { publishAt: publishAt.toISOString() } : {}) } };
           const init = await fetchWithTimeout("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", { method: "POST", headers: { authorization: "Bearer " + auth.accessToken, "content-type": "application/json; charset=UTF-8", "x-upload-content-type": file.type || "application/octet-stream", "x-upload-content-length": String(file.size) }, body: JSON.stringify(metadata), signal: AbortSignal.timeout(180000) });
