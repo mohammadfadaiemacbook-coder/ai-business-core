@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [worker, youtubeSkills, app, html, css, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, rateLimitMigration] = await Promise.all([
+const [worker, youtubeSkills, app, html, css, wranglerTemplate, releaseWorkflow, baseMigration, compatibilityMigration, rateLimitMigration, validateWorkflow] = await Promise.all([
   readFile(new URL("../ai-gateway/worker.js", import.meta.url), "utf8"),
   readFile(new URL("../ai-gateway/youtube-agent-skills.js", import.meta.url), "utf8"),
   readFile(new URL("../app.js", import.meta.url), "utf8"),
@@ -12,7 +12,8 @@ const [worker, youtubeSkills, app, html, css, wranglerTemplate, releaseWorkflow,
   readFile(new URL("../.github/workflows/release-complete.yml", import.meta.url), "utf8"),
   readFile(new URL("../migrations/0001_v2_social_foundation.sql", import.meta.url), "utf8"),
   readFile(new URL("../migrations/0004_legacy_schema_compat.sql", import.meta.url), "utf8"),
-  readFile(new URL("../migrations/0006_api_rate_limits.sql", import.meta.url), "utf8")
+  readFile(new URL("../migrations/0006_api_rate_limits.sql", import.meta.url), "utf8"),
+  readFile(new URL("../.github/workflows/validate.yml", import.meta.url), "utf8")
 ]);
 
 test("all creator studio tasks are allow-listed and have task-specific prompts", () => {
@@ -22,6 +23,10 @@ test("all creator studio tasks are allow-listed and have task-specific prompts",
   }
 });
 
+test("stacked fix and safety branches receive non-deploying validation on push and pull requests", () => {
+  assert.match(validateWorkflow, /push:\s*\n\s+branches:\s*\[[^\]]*"fix\/\*\*"[^\]]*"safety\/\*\*"[^\]]*\]/);
+  assert.match(validateWorkflow, /pull_request:\s*\n\s+branches:\s*\[[^\]]*"fix\/\*\*"[^\]]*"safety\/\*\*"[^\]]*\]/);
+});
 test("provider credentials are managed from Settings rather than hidden inside the YouTube engine", () => {
   assert.ok(app.includes("function providerSettingsPanel()"));
   assert.ok(app.includes("provider-form"));
