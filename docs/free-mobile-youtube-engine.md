@@ -31,14 +31,14 @@ CI runs JavaScript syntax checks, all `tests/*.mjs` suites, and a Wrangler dry-r
 
 
 ## The 25 Oddlings recurring character system
-- The YouTube studio includes a library of 25 original fantasy troll-like characters with unique names, personality seeds, signature features and color palettes. The canonical metadata lives in `public/characters/manifest.json`.
+- The YouTube studio includes 25 original fantasy troll-like characters with unique names, personality seeds, signature features and color palettes. The canonical metadata lives in `public/characters/manifest.json`.
 - The selected character is stored in the existing workspace settings and reused for subsequent episodes until changed.
-- The automatic script prompt explicitly centers the episode on the selected character (goal, comic obstacle, reveal and ending), and the 11-stage review is instructed to preserve that identity.
-- Each rendered scene includes a matching character illustration, so the cast remains visually present throughout the generated short. The current browser renderer is still a Canvas/WebM renderer; it does not render the GLB mesh directly into the final video.
-- Use **Import character ZIP** once in the YouTube studio and select the supplied `AI_Business_Core_25_3D_Characters.zip`. The app validates that all 25 GLB models are present and stores them in IndexedDB on that browser/device. The selected GLB can then be previewed in the built-in 3D viewer.
-- Imported models are local to that browser profile/device. They are not automatically synced to another phone or browser. Import the ZIP on each device where the 3D previews are needed.
-- The GLB models are static and unrigged. The current video renderer uses a stylized Canvas character illustration rather than GLB animation. Rigging, facial animation, and direct 3D video rendering remain a separate future production task.
-
+- The automatic script prompt centers the episode on the selected character (goal, comic obstacle, reveal and ending), and the production workflow is instructed to preserve that identity.
+- Each rendered scene includes a matching character illustration. The current browser renderer draws these portraits procedurally on Canvas.
+- The in-app portraits are **25 procedurally generated 2D PNG portraits**. The download action creates a ZIP containing those PNG files and a JSON manifest; this is **not a GLB or 3D character pack**.
+- `public/characters/manifest.json` is metadata-only and lists intended GLB filenames. The repository does **not** contain the referenced GLB binaries or a supplied 25-model 3D ZIP.
+- The app can import a user-provided ZIP containing GLB models, but that optional import feature does not mean GLB assets are shipped with this repository. Imported user files remain local to that browser profile/device.
+- No rigged, skeletal, facially animated, or otherwise animated GLB models are included. The video renderer uses 2D Canvas character animation; 3D rigging and direct GLB video rendering remain future work.
 
 ## Procedural character animation and publishing
 - The rendered video now animates the selected character with a looping idle bounce, body sway, alternating arm gestures, leg movement, eye blinks, talking mouth motion, and floating sparkles. The picker cards also have lightweight CSS idle motion with reduced-motion support.
