@@ -42,7 +42,7 @@ CI runs JavaScript syntax checks, all `tests/*.mjs` suites, and a Wrangler dry-r
 
 ## Procedural character animation and publishing
 - The rendered video now animates the selected character with a looping idle bounce, body sway, alternating arm gestures, leg movement, eye blinks, talking mouth motion, and floating sparkles. The picker cards also have lightweight CSS idle motion with reduced-motion support.
-- The GLB source meshes remain static/unrigged. Their interactive preview can rotate, while the video uses a procedural animated Canvas character rather than skeletal GLB animation. This is a mobile-friendly renderer; it does not claim full 3D skeletal animation.
+- No GLB source meshes are included in this repository. The generated-video motion is procedural 2D Canvas animation, not skeletal GLB animation or rigged 3D.
 - The generated-video publish button requests explicit confirmation, then sends `privacyStatus=public` and `confirmPublic=true`. The Worker enforces this explicit server-side confirmation before public upload. No upload occurs until the user presses the button and confirms.
 - Current YouTube Data API documentation states that uploads from unverified API projects are not restricted to private viewing mode. The Worker still requires an explicit `confirmPublic=true` guard for public visibility. See the official videos resource and insert reference.
 - Uploads are subject to YouTube Data API quota: the current API docs describe a dedicated `videos.insert` bucket of 100 calls/day and a separate `search.list` bucket of 100 calls/day; other methods share the 10,000-unit daily bucket. Limits can change.
